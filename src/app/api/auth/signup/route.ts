@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await hashPassword(password);
-    const user = createUser(email, passwordHash, name);
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const role = adminEmails.includes(email.toLowerCase()) ? "admin" : "fan";
+    const user = createUser(email, passwordHash, name, role);
     const session = createSession(user.id);
     const token = createJWT({ userId: user.id, sessionId: session.id });
 
