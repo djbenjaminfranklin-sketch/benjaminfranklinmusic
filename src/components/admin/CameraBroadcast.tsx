@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2 } from "lucide-react";
+import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
@@ -80,6 +80,9 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
   // --- Fullscreen mode ---
   const [isFullscreen, setIsFullscreen] = useState(true);
+
+  // --- Broadcast mode: multicam (all cameras side by side) or director (auto-switch) ---
+  const [broadcastMode, setBroadcastMode] = useState<"multicam" | "director">("director");
 
   // --- Recording ---
   const [isRecording, setIsRecording] = useState(false);
@@ -195,14 +198,14 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   ];
   const [activeStreamIndex, setActiveStreamIndex] = useState(0);
 
-  // Auto-switch every 6 seconds when multiple cameras
+  // Auto-switch every 6 seconds when multiple cameras (director mode only)
   useEffect(() => {
-    if (allStreams.length <= 1) return;
+    if (allStreams.length <= 1 || broadcastMode !== "director") return;
     const interval = setInterval(() => {
       setActiveStreamIndex((prev) => (prev + 1) % allStreams.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, [allStreams.length]);
+  }, [allStreams.length, broadcastMode]);
 
   // Clamp index if streams change
   const safeIndex = allStreams.length > 0 ? activeStreamIndex % allStreams.length : 0;
@@ -212,18 +215,26 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   if (isBroadcasting && localStream && isFullscreen) {
     return (
       <div className="fixed inset-0 bg-black z-50">
-        {/* Single full-screen camera (auto-switches) */}
-        {currentDirectorStream && (
-          <StreamBand
-            key={currentDirectorStream.id}
-            stream={currentDirectorStream.stream}
-            label={currentDirectorStream.label}
-            mirror={currentDirectorStream.mirror}
-          />
+        {/* Multicam: all cameras side by side / Director: single auto-switching camera */}
+        {broadcastMode === "multicam" ? (
+          <div className="flex flex-row w-full h-full gap-0.5">
+            {allStreams.map((s) => (
+              <StreamBand key={s.id} stream={s.stream} label={s.label} mirror={s.mirror} />
+            ))}
+          </div>
+        ) : (
+          currentDirectorStream && (
+            <StreamBand
+              key={currentDirectorStream.id}
+              stream={currentDirectorStream.stream}
+              label={currentDirectorStream.label}
+              mirror={currentDirectorStream.mirror}
+            />
+          )
         )}
 
-        {/* Camera indicator dots */}
-        {allStreams.length > 1 && (
+        {/* Camera indicator dots (director mode only) */}
+        {broadcastMode === "director" && allStreams.length > 1 && (
           <div className="absolute top-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))] left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
             {allStreams.map((s, i) => (
               <button
@@ -246,7 +257,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             <span className="text-[10px] font-bold text-white uppercase tracking-wider">LIVE</span>
           </div>
 
-          {/* Right: record + viewers + minimize */}
+          {/* Right: record + mode toggle + viewers + minimize */}
           <div className="flex items-center gap-2">
             {/* Record button with counter */}
             <button
@@ -262,6 +273,29 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
                 <span className="w-3 h-3 rounded-full bg-red-500" />
               )}
             </button>
+            {/* Multicam / Director toggle — only when multiple streams */}
+            {allStreams.length > 1 && (
+              <div className="flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-0.5">
+                <button
+                  onClick={() => setBroadcastMode("multicam")}
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                    broadcastMode === "multicam" ? "bg-white/20" : "hover:bg-white/10"
+                  )}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 text-white" />
+                </button>
+                <button
+                  onClick={() => setBroadcastMode("director")}
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                    broadcastMode === "director" ? "bg-white/20" : "hover:bg-white/10"
+                  )}
+                >
+                  <Shuffle className="h-3.5 w-3.5 text-white" />
+                </button>
+              </div>
+            )}
             {/* Viewer count */}
             <div className="flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10">
               <Eye className="h-3.5 w-3.5 text-red-400" />

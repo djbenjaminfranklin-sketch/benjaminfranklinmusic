@@ -106,9 +106,12 @@ export function connectLive(clientId: string) {
 
 export function disconnectLive(clientId: string) {
   liveClients.delete(clientId);
-  // If the broadcaster disconnects, clean up
+  // If the broadcaster disconnects, stop the WebRTC live automatically
   if (clientId === broadcasterId) {
     broadcasterId = null;
+    if (liveStreamStatus.streamType === "webrtc") {
+      setLiveStatus(false);
+    }
   }
   // If a co-host disconnects, remove them
   if (coHostIds.has(clientId)) {

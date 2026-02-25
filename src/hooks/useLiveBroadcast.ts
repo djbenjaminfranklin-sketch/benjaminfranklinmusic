@@ -572,10 +572,32 @@ export function useLiveBroadcast() {
     setIsCoHost(false);
   }, []);
 
+  // Send stop-broadcast on page close/refresh
+  useEffect(() => {
+    if (!isBroadcasting) return;
+    const handleUnload = () => {
+      if (clientIdRef.current) {
+        navigator.sendBeacon(
+          "/api/live/signal",
+          new Blob([JSON.stringify({ type: "stop-broadcast", from: clientIdRef.current })], { type: "application/json" })
+        );
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [isBroadcasting]);
+
   // Cleanup au démontage
   useEffect(() => {
     return () => {
       if (isBroadcasting) {
+        // Signal server to stop
+        if (clientIdRef.current) {
+          navigator.sendBeacon(
+            "/api/live/signal",
+            new Blob([JSON.stringify({ type: "stop-broadcast", from: clientIdRef.current })], { type: "application/json" })
+          );
+        }
         peersRef.current.forEach((pc) => pc.close());
         peersRef.current.clear();
         guestPeersRef.current.forEach((pc) => pc.close());
