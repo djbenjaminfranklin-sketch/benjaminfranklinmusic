@@ -471,32 +471,35 @@ export function useLiveBroadcast() {
     setError(null);
 
     try {
-      // Start camera + auto-detect venue in parallel
-      const [stream, geoResult] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
-          video: options?.video !== false ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-          audio: options?.audio !== false,
-        }),
-        options?.venue ? Promise.resolve({ venue: options.venue } as { venue?: string; lat?: number; lng?: number }) : detectVenue(),
-      ]);
+      // Get camera first (permission prompt)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: options?.video !== false ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        audio: options?.audio !== false,
+      });
 
       streamRef.current = stream;
       setLocalStream(stream);
 
-      const venueToSend = options?.venue || geoResult.venue;
-      const locationToSend = geoResult.lat && geoResult.lng ? { lat: geoResult.lat, lng: geoResult.lng } : undefined;
+      // Auto-detect venue in background (non-blocking) after camera is ready
+      const geoPromise = options?.venue
+        ? Promise.resolve({ venue: options.venue } as { venue?: string; lat?: number; lng?: number })
+        : detectVenue();
 
       setupSSE((clientId) => {
-        // Signaler au serveur qu'on est le broadcaster
-        fetch("/api/live/signal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "start-broadcast",
-            from: clientId,
-            venue: venueToSend,
-            ...(locationToSend || {}),
-          }),
+        // Wait for venue detection then signal server
+        geoPromise.then((geoResult) => {
+          const venueToSend = options?.venue || geoResult.venue;
+          const locationToSend = geoResult.lat && geoResult.lng ? { lat: geoResult.lat, lng: geoResult.lng } : undefined;
+          fetch("/api/live/signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "start-broadcast",
+              from: clientId,
+              venue: venueToSend,
+              ...(locationToSend || {}),
+            }),
+          });
         });
       });
 
