@@ -104,13 +104,21 @@ export function connectLive(clientId: string) {
   emitter.emit("live:presence", { viewerCount: liveClients.size });
 }
 
+let broadcasterDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function disconnectLive(clientId: string) {
   liveClients.delete(clientId);
-  // If the broadcaster disconnects, stop the WebRTC live automatically
+  // If the broadcaster disconnects, give 15s grace for SSE reconnect before stopping
   if (clientId === broadcasterId) {
     broadcasterId = null;
     if (liveStreamStatus.streamType === "webrtc") {
-      setLiveStatus(false);
+      broadcasterDisconnectTimer = setTimeout(() => {
+        // Only stop if no new broadcaster has reconnected
+        if (!broadcasterId && liveStreamStatus.isLive && liveStreamStatus.streamType === "webrtc") {
+          setLiveStatus(false);
+        }
+        broadcasterDisconnectTimer = null;
+      }, 15000);
     }
   }
   // If a co-host disconnects, remove them
@@ -196,6 +204,11 @@ export function updateCurrentTrack(artist: string, title: string) {
 
 export function setBroadcaster(clientId: string) {
   broadcasterId = clientId;
+  // Cancel disconnect timer if broadcaster reconnected
+  if (broadcasterDisconnectTimer) {
+    clearTimeout(broadcasterDisconnectTimer);
+    broadcasterDisconnectTimer = null;
+  }
 }
 
 export function getBroadcaster() {

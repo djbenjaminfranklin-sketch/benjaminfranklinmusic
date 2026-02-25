@@ -96,14 +96,20 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     recordedChunksRef.current = [];
     setRecordingTime(0);
 
-    const mr = new MediaRecorder(localStream, { mimeType: "video/webm" });
+    // Use MP4 on Safari/iOS, fallback to WebM
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm") ? "video/webm"
+      : "";
+    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+
+    const mr = new MediaRecorder(localStream, mimeType ? { mimeType } : undefined);
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunksRef.current.push(e.data);
     };
     mr.onstop = () => {
-      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
-      const filename = `live-${new Date().toISOString().slice(0, 19)}.webm`;
-      const file = new File([blob], filename, { type: "video/webm" });
+      const blob = new Blob(recordedChunksRef.current, { type: mimeType || "video/mp4" });
+      const filename = `live-${new Date().toISOString().slice(0, 19)}.${ext}`;
+      const file = new File([blob], filename, { type: mimeType || "video/mp4" });
 
       // On mobile, use share sheet (save to phone)
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -261,7 +267,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           <div className="flex items-center gap-2">
             {/* Record button with counter */}
             <button
-              onPointerUp={isRecording ? stopRecording : startRecording}
+              onClick={isRecording ? stopRecording : startRecording}
               className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-2 border border-white/10 active:scale-95 transition-transform min-h-[40px] touch-manipulation"
             >
               {isRecording ? (
@@ -277,7 +283,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             {allStreams.length > 1 && (
               <div className="flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-1">
                 <button
-                  onPointerUp={() => setBroadcastMode("multicam")}
+                  onClick={() => setBroadcastMode("multicam")}
                   className={cn(
                     "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
                     broadcastMode === "multicam" ? "bg-white/25" : "active:bg-white/10"
@@ -286,7 +292,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
                   <LayoutGrid className="h-4 w-4 text-white" />
                 </button>
                 <button
-                  onPointerUp={() => setBroadcastMode("director")}
+                  onClick={() => setBroadcastMode("director")}
                   className={cn(
                     "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
                     broadcastMode === "director" ? "bg-white/25" : "active:bg-white/10"
@@ -303,7 +309,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             </div>
             {/* Minimize */}
             <button
-              onPointerUp={() => setIsFullscreen(false)}
+              onClick={() => setIsFullscreen(false)}
               className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
             >
               <Minimize2 className="h-5 w-5 text-white" />
@@ -331,7 +337,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
         <div className="absolute bottom-0 left-0 right-0 z-40 p-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+0.5rem))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 to-transparent">
           {/* Mute */}
           <button
-            onPointerUp={toggleMute}
+            onClick={toggleMute}
             className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
           >
             {isMuted ? (
@@ -343,7 +349,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
           {/* Stop */}
           <button
-            onPointerUp={isCoHost ? leaveCoHost : stopBroadcast}
+            onClick={isCoHost ? leaveCoHost : stopBroadcast}
             className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
           >
             <VideoOff className="h-7 w-7 text-white" />
@@ -351,7 +357,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
           {/* Switch camera */}
           <button
-            onPointerUp={switchCamera}
+            onClick={switchCamera}
             className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
           >
             <SwitchCamera className="h-6 w-6 text-white" />
@@ -360,7 +366,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           {/* Invite viewer */}
           {!isCoHost && (
             <button
-              onPointerUp={(e) => { e.stopPropagation(); inviteRandomViewer(); }}
+              onClick={inviteRandomViewer}
               disabled={inviting}
               className="w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 touch-manipulation"
             >
