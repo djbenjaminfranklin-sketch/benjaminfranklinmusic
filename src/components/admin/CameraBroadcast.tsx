@@ -195,13 +195,26 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   ];
   const [activeStreamIndex, setActiveStreamIndex] = useState(0);
 
-  // Auto-switch every 6 seconds when multiple cameras
+  // Director auto-switch: 65% main camera, 35% other angles, random timing 4-10s
   useEffect(() => {
     if (allStreams.length <= 1) return;
-    const interval = setInterval(() => {
-      setActiveStreamIndex((prev) => (prev + 1) % allStreams.length);
-    }, 6000);
-    return () => clearInterval(interval);
+    let timeout: ReturnType<typeof setTimeout>;
+    const scheduleNext = () => {
+      const delay = 4000 + Math.random() * 6000; // 4-10 seconds
+      timeout = setTimeout(() => {
+        setActiveStreamIndex((prev) => {
+          const roll = Math.random();
+          if (roll < 0.65) return 0; // 65% main camera
+          // 35% random other angle (never same as current)
+          const others = allStreams.map((_, i) => i).filter((i) => i !== prev && i !== 0);
+          if (others.length === 0) return 0;
+          return others[Math.floor(Math.random() * others.length)];
+        });
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+    return () => clearTimeout(timeout);
   }, [allStreams.length]);
 
   // Clamp index if streams change

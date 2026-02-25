@@ -175,42 +175,35 @@ export default function LiveContainer() {
     if (!streamStatus.isLive && isRecording) stopRecording();
   }, [streamStatus.isLive, isRecording, stopRecording]);
 
-  // --- Auto-switch cinématique (angles + layouts) ---
+  // --- Auto-switch réalisateur: 65% caméra principale, 35% autres angles ---
   useEffect(() => {
     if (!autoSwitchEnabled || !hasMultipleAngles) return;
 
     const allAngles = ["main", ...coHostEntries.map(([id]) => id)];
+    setViewLayout("single"); // Always single view in director mode
 
-    const pickNext = () => {
-      // Build weighted layout pool based on available cameras
-      const layouts: ("single" | "dual" | "quad")[] = ["single", "single"];
-      if (allAngles.length >= 2) layouts.push("dual", "dual");
-      if (allAngles.length >= 3) layouts.push("quad");
-
-      const layout = layouts[Math.floor(Math.random() * layouts.length)];
-      setViewLayout(layout);
-
-      if (layout === "single") {
-        const idx = Math.floor(Math.random() * allAngles.length);
-        setActiveAngle(allAngles[idx]);
-      } else if (layout === "dual") {
-        const shuffled = [...allAngles].sort(() => Math.random() - 0.5);
-        setDualPair([shuffled[0], shuffled[1]]);
-      }
-      // quad shows all — nothing to pick
-    };
-
-    // Random interval between 5-15 seconds
+    let timeout: ReturnType<typeof setTimeout>;
     const scheduleNext = () => {
-      const delay = 5000 + Math.random() * 10000;
-      return setTimeout(() => {
-        pickNext();
-        timerRef = scheduleNext();
+      const delay = 4000 + Math.random() * 6000; // 4-10 seconds
+      timeout = setTimeout(() => {
+        const roll = Math.random();
+        if (roll < 0.65) {
+          setActiveAngle("main"); // 65% main camera
+        } else {
+          // 35% random other angle
+          const others = allAngles.filter((id) => id !== "main");
+          if (others.length > 0) {
+            setActiveAngle(others[Math.floor(Math.random() * others.length)]);
+          } else {
+            setActiveAngle("main");
+          }
+        }
+        scheduleNext();
       }, delay);
     };
 
-    let timerRef = scheduleNext();
-    return () => clearTimeout(timerRef);
+    scheduleNext();
+    return () => clearTimeout(timeout);
   }, [autoSwitchEnabled, hasMultipleAngles, coHostEntries, setActiveAngle]);
 
   return (
