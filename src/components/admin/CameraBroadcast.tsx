@@ -78,8 +78,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   const t = useTranslations("admin");
   const tLive = useTranslations("live");
 
-  // --- Fullscreen mode ---
-  const [isFullscreen, setIsFullscreen] = useState(true);
+  // --- Fullscreen mode (start inline so admin can see co-host link, ACR, etc.) ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // --- Broadcast mode: multicam (all cameras side by side) or director (auto-switch) ---
   const [broadcastMode, setBroadcastMode] = useState<"multicam" | "director">("director");
