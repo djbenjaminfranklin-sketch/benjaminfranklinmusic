@@ -235,7 +235,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
         {/* Camera indicator dots (director mode only) */}
         {broadcastMode === "director" && allStreams.length > 1 && (
-          <div className="absolute top-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))] left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+          <div className="absolute top-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))] left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5">
             {allStreams.map((s, i) => (
               <button
                 key={s.id}
@@ -249,8 +249,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           </div>
         )}
 
-        {/* Top overlays — pushed down for Dynamic Island */}
-        <div className="absolute top-0 left-0 right-0 z-10 p-4 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1rem))] flex items-start justify-between">
+        {/* Top overlays — pushed down for Dynamic Island, z-40 to stay above chat overlay */}
+        <div className="absolute top-0 left-0 right-0 z-40 p-4 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1rem))] flex items-start justify-between">
           {/* Left: LIVE badge */}
           <div className="flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -262,51 +262,51 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             {/* Record button with counter */}
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-2.5 py-1.5 border border-white/10 active:scale-95 transition-transform"
+              className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-2 border border-white/10 active:scale-95 transition-transform min-h-[40px]"
             >
               {isRecording ? (
                 <>
-                  <span className="w-2 h-2 rounded-sm bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-red-400 tabular-nums">{formatTime(recordingTime)}</span>
+                  <span className="w-2.5 h-2.5 rounded-sm bg-red-500 animate-pulse" />
+                  <span className="text-xs font-bold text-red-400 tabular-nums">{formatTime(recordingTime)}</span>
                 </>
               ) : (
-                <span className="w-3 h-3 rounded-full bg-red-500" />
+                <span className="w-3.5 h-3.5 rounded-full bg-red-500" />
               )}
             </button>
             {/* Multicam / Director toggle — only when multiple streams */}
             {allStreams.length > 1 && (
-              <div className="flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-0.5">
+              <div className="flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-1">
                 <button
                   onClick={() => setBroadcastMode("multicam")}
                   className={cn(
-                    "w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                    broadcastMode === "multicam" ? "bg-white/20" : "hover:bg-white/10"
+                    "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+                    broadcastMode === "multicam" ? "bg-white/25" : "active:bg-white/10"
                   )}
                 >
-                  <LayoutGrid className="h-3.5 w-3.5 text-white" />
+                  <LayoutGrid className="h-4 w-4 text-white" />
                 </button>
                 <button
                   onClick={() => setBroadcastMode("director")}
                   className={cn(
-                    "w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                    broadcastMode === "director" ? "bg-white/20" : "hover:bg-white/10"
+                    "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+                    broadcastMode === "director" ? "bg-white/25" : "active:bg-white/10"
                   )}
                 >
-                  <Shuffle className="h-3.5 w-3.5 text-white" />
+                  <Shuffle className="h-4 w-4 text-white" />
                 </button>
               </div>
             )}
             {/* Viewer count */}
-            <div className="flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10">
-              <Eye className="h-3.5 w-3.5 text-red-400" />
-              <span className="text-xs font-bold text-white tabular-nums">{viewerCount}</span>
+            <div className="flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-2 border border-white/10 min-h-[40px]">
+              <Eye className="h-4 w-4 text-red-400" />
+              <span className="text-sm font-bold text-white tabular-nums">{viewerCount}</span>
             </div>
             {/* Minimize */}
             <button
               onClick={() => setIsFullscreen(false)}
-              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform"
             >
-              <Minimize2 className="h-4 w-4 text-white" />
+              <Minimize2 className="h-5 w-5 text-white" />
             </button>
           </div>
         </div>
@@ -327,8 +327,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           </div>
         )}
 
-        {/* Bottom controls */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 p-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+0.5rem))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 to-transparent">
+        {/* Bottom controls — z-40 to stay above chat overlay */}
+        <div className="absolute bottom-0 left-0 right-0 z-40 p-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+0.5rem))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 to-transparent">
           {/* Mute */}
           <button
             onClick={toggleMute}
