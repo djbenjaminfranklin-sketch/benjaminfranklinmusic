@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getUserByEmail, createSession } from "@/lib/db";
+import { getUserByEmail, createSession, promoteToAdmin } from "@/lib/db";
 import { verifyPassword, createJWT, setAuthCookie, sanitizeUser } from "@/lib/auth";
 
 const loginSchema = z.object({
@@ -37,6 +37,13 @@ export async function POST(request: NextRequest) {
         { error: "Invalid email or password" },
         { status: 401 }
       );
+    }
+
+    // Auto-promote admin emails on login
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    if (adminEmails.includes(email.toLowerCase()) && user.role !== "admin") {
+      promoteToAdmin(user.id);
+      user.role = "admin";
     }
 
     const session = createSession(user.id);

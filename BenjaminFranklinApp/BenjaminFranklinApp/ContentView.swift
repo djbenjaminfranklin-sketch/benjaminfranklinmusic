@@ -10,7 +10,7 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
 
             WebView(
-                url: URL(string: "https://192.168.18.78:3000")!,
+                url: URL(string: "https://benjaminfranklinmusic.onrender.com")!,
                 isLoading: $isLoading,
                 loadError: $loadError
             )
@@ -104,7 +104,7 @@ struct WebView: NSViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if let url = navigationAction.request.url,
                navigationAction.navigationType == .linkActivated,
-               url.host != "localhost" && url.host != "192.168.18.78" {
+               url.host != "benjaminfranklinmusic.onrender.com" {
                 NSWorkspace.shared.open(url)
                 decisionHandler(.cancel)
                 return
@@ -174,7 +174,7 @@ struct WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if let url = navigationAction.request.url,
                navigationAction.navigationType == .linkActivated,
-               url.host != "localhost" && url.host != "192.168.18.78" {
+               url.host != "benjaminfranklinmusic.onrender.com" {
                 UIApplication.shared.open(url)
                 decisionHandler(.cancel)
                 return

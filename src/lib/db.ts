@@ -152,6 +152,10 @@ export function getAllUsers(): DBUser[] {
   return db.prepare("SELECT * FROM users ORDER BY created_at DESC").all() as DBUser[];
 }
 
+export function promoteToAdmin(userId: string): void {
+  db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(userId);
+}
+
 export function getUserCount(): number {
   const row = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
   return row.count;
