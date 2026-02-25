@@ -446,18 +446,45 @@ export function useLiveBroadcast() {
     return es;
   }, []);
 
+  // Auto-detect venue from GPS
+  const detectVenue = useCallback(async (): Promise<{ venue?: string; lat?: number; lng?: number }> => {
+    try {
+      const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+        if (!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), {
+          enableHighAccuracy: true, timeout: 8000, maximumAge: 0,
+        });
+      });
+      if (!pos) return {};
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const res = await fetch(`/api/admin/places/nearby?lat=${lat}&lng=${lng}`);
+      if (!res.ok) return { lat, lng };
+      const data = await res.json();
+      return { venue: data.places?.[0]?.name, lat, lng };
+    } catch {
+      return {};
+    }
+  }, []);
+
   // Démarrer le broadcast
   const startBroadcast = useCallback(async (options?: { video?: boolean; audio?: boolean; venue?: string }) => {
     setError(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: options?.video !== false ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-        audio: options?.audio !== false,
-      });
+      // Start camera + auto-detect venue in parallel
+      const [stream, geoResult] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          video: options?.video !== false ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+          audio: options?.audio !== false,
+        }),
+        options?.venue ? Promise.resolve({ venue: options.venue } as { venue?: string; lat?: number; lng?: number }) : detectVenue(),
+      ]);
 
       streamRef.current = stream;
       setLocalStream(stream);
+
+      const venueToSend = options?.venue || geoResult.venue;
+      const locationToSend = geoResult.lat && geoResult.lng ? { lat: geoResult.lat, lng: geoResult.lng } : undefined;
 
       setupSSE((clientId) => {
         // Signaler au serveur qu'on est le broadcaster
@@ -467,7 +494,8 @@ export function useLiveBroadcast() {
           body: JSON.stringify({
             type: "start-broadcast",
             from: clientId,
-            venue: options?.venue,
+            venue: venueToSend,
+            ...(locationToSend || {}),
           }),
         });
       });
@@ -476,7 +504,7 @@ export function useLiveBroadcast() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible d'accéder à la caméra");
     }
-  }, [setupSSE]);
+  }, [setupSSE, detectVenue]);
 
   // Arrêter le broadcast
   const stopBroadcast = useCallback(async () => {

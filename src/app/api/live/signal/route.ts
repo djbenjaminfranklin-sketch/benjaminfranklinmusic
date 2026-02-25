@@ -6,7 +6,7 @@ import { sendPushToAll } from "@/lib/push";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, from, to, data, venue } = body;
+    const { type, from, to, data, venue, lat, lng } = body;
 
     if (!type || !from) {
       return NextResponse.json({ error: "type and from are required" }, { status: 400 });
@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
       setBroadcaster(from);
-      setLiveStatus(true, undefined, "webrtc", undefined, venue);
+      const location = typeof lat === "number" && typeof lng === "number" ? { lat, lng } : undefined;
+      setLiveStatus(true, undefined, "webrtc", location, venue);
 
       // Notification push a tous les abonnes
       const title = "Benjamin Franklin est en live !";
