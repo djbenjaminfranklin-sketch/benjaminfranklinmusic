@@ -156,7 +156,7 @@ export function addLiveChatMessage(
   return msg;
 }
 
-export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: "hls" | "webrtc", location?: { lat: number; lng: number }) {
+export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: "hls" | "webrtc", location?: { lat: number; lng: number }, venue?: string) {
   if (isLive) {
     liveStreamStatus = {
       isLive: true,
@@ -165,6 +165,7 @@ export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: 
       currentTrack: liveStreamStatus.currentTrack,
       startedAt: new Date().toISOString(),
       location: location || undefined,
+      venue: venue || undefined,
     };
     liveChatMessages = [];
     // Generate a 6-character co-host code

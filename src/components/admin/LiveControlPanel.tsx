@@ -457,7 +457,7 @@ export default function LiveControlPanel() {
       {(liveMode === "camera" && !streamStatus.isLive) || (streamStatus.isLive && streamStatus.streamType === "webrtc") ? (
         <div className="rounded-2xl border border-border bg-card p-5">
           <h3 className="text-sm font-semibold text-foreground/60 mb-4">{t("cameraBroadcast")}</h3>
-          <CameraBroadcast venue={venueQuery.trim() || undefined} isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} />
+          <CameraBroadcast venue={venueQuery.trim() || undefined} isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} />
         </div>
       ) : null}
 

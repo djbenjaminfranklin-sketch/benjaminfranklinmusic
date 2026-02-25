@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
           const location = typeof lat === "number" && typeof lng === "number"
             ? { lat, lng }
             : undefined;
-          setLiveStatus(true, streamUrl, streamType || "hls", location);
+          setLiveStatus(true, streamUrl, streamType || "hls", location, venue);
           // Auto-clear scheduled live when going live
           setScheduledLive(null);
           emitScheduledLive(null);

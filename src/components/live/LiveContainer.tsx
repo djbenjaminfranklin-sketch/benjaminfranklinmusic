@@ -311,6 +311,13 @@ export default function LiveContainer() {
                       ))}
                     </div>
                   )}
+                  {/* Venue display */}
+                  {streamStatus.venue && (
+                    <div className="absolute bottom-20 left-3 z-10 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10">
+                      <span className="text-[10px] text-white/70">📍</span>
+                      <span className="text-xs font-medium text-white">{streamStatus.venue}</span>
+                    </div>
+                  )}
                   {/* Track display — adapté au fullscreen */}
                   <TrackDisplay track={streamStatus.currentTrack} />
 

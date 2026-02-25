@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle } from "lucide-react";
+import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
@@ -14,6 +14,7 @@ interface CameraBroadcastProps {
   externalCoHostStreams?: Map<string, MediaStream>;
   chatMessages?: LiveChatMessage[];
   onSendChat?: (author: string, content: string, djPassword?: string) => Promise<void>;
+  currentTrack?: { artist: string; title: string } | null;
 }
 
 function StreamBand({ stream, label, mirror }: { stream: MediaStream; label: string; mirror?: boolean }) {
@@ -52,7 +53,7 @@ function formatTime(seconds: number) {
   return `${m}:${s}`;
 }
 
-export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostStreams, chatMessages, onSendChat }: CameraBroadcastProps) {
+export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostStreams, chatMessages, onSendChat, currentTrack }: CameraBroadcastProps) {
   const {
     isBroadcasting,
     isCoHost,
@@ -321,6 +322,24 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
         {guestNotification && (
           <div className="absolute top-28 left-1/2 -translate-x-1/2 z-30 rounded-full bg-accent/90 backdrop-blur-sm px-4 py-2 animate-bounce">
             <span className="text-sm font-bold text-background">{guestNotification}</span>
+          </div>
+        )}
+
+        {/* Venue + current track — bottom left, above chat */}
+        {(venue || currentTrack) && (
+          <div className="absolute bottom-32 left-4 z-40 flex flex-col gap-1">
+            {venue && (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
+                <MapPin className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="text-xs font-medium text-white truncate max-w-[200px]">{venue}</span>
+              </div>
+            )}
+            {currentTrack && (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
+                <Music className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="text-xs font-medium text-white truncate max-w-[200px]">{currentTrack.artist} — {currentTrack.title}</span>
+              </div>
+            )}
           </div>
         )}
 

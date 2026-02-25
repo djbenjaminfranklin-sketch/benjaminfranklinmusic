@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
       setBroadcaster(from);
-      setLiveStatus(true, undefined, "webrtc");
+      setLiveStatus(true, undefined, "webrtc", undefined, venue);
 
       // Notification push a tous les abonnes
       const title = "Benjamin Franklin est en live !";

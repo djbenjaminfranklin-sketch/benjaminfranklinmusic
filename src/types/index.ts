@@ -29,6 +29,7 @@ export interface LiveStreamStatus {
   currentTrack: { artist: string; title: string } | null;
   startedAt: string | null;
   location?: { lat: number; lng: number };
+  venue?: string;
 }
 
 export interface ViewerInvite {

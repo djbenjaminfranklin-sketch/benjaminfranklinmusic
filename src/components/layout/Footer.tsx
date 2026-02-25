@@ -7,7 +7,6 @@ import { useSiteConfig } from "@/contexts/SiteConfigContext";
 const socialIcons: Record<string, string> = {
   spotify: "Spotify",
   instagram: "Instagram",
-  soundcloud: "SoundCloud",
   tiktok: "TikTok",
 };
 

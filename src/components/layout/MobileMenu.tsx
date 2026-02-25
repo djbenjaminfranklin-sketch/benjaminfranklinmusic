@@ -18,7 +18,6 @@ interface MobileMenuProps {
 const socialLabels: Record<string, string> = {
   spotify: "Spotify",
   instagram: "Instagram",
-  soundcloud: "SoundCloud",
   tiktok: "TikTok",
 };
 
