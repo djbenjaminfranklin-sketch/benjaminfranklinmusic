@@ -181,23 +181,65 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     if (!allCoHostStreams.has(id)) allCoHostStreams.set(id, s);
   });
   const coHostEntries = Array.from(allCoHostStreams.entries());
-  const totalStreams = (localStream ? 1 : 0) + coHostEntries.length;
-  const isMultiView = totalStreams > 1;
+
+  // --- Director auto-switch mode ---
+  // Build list of all available streams: [{ id, stream, label, mirror }]
+  const allStreams = [
+    ...(localStream ? [{ id: "local", stream: localStream, label: tLive("angleMain"), mirror: facingMode === "user" }] : []),
+    ...coHostEntries.map(([id], i) => ({
+      id,
+      stream: allCoHostStreams.get(id)!,
+      label: guestNames.get(id) || tLive("angleNumber", { n: i + 2 }),
+      mirror: false,
+    })),
+  ];
+  const [activeStreamIndex, setActiveStreamIndex] = useState(0);
+
+  // Auto-switch every 6 seconds when multiple cameras
+  useEffect(() => {
+    if (allStreams.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveStreamIndex((prev) => (prev + 1) % allStreams.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [allStreams.length]);
+
+  // Clamp index if streams change
+  const safeIndex = allStreams.length > 0 ? activeStreamIndex % allStreams.length : 0;
+  const currentDirectorStream = allStreams[safeIndex];
 
   // --- Fullscreen broadcasting view ---
   if (isBroadcasting && localStream && isFullscreen) {
     return (
-      <div className="fixed inset-0 bg-black z-50 flex">
-        {/* Main camera */}
-        <div className={cn("relative flex-1 flex", isMultiView ? "flex-row gap-0.5" : "")}>
-          <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
-          {coHostEntries.map(([id], i) => (
-            <StreamBand key={id} stream={allCoHostStreams.get(id)!} label={guestNames.get(id) || tLive("angleNumber", { n: i + 2 })} />
-          ))}
-        </div>
+      <div className="fixed inset-0 bg-black z-50">
+        {/* Single full-screen camera (auto-switches) */}
+        {currentDirectorStream && (
+          <StreamBand
+            key={currentDirectorStream.id}
+            stream={currentDirectorStream.stream}
+            label={currentDirectorStream.label}
+            mirror={currentDirectorStream.mirror}
+          />
+        )}
 
-        {/* Top overlays */}
-        <div className="absolute top-0 left-0 right-0 z-10 p-4 pt-[max(1rem,env(safe-area-inset-top))] flex items-start justify-between">
+        {/* Camera indicator dots */}
+        {allStreams.length > 1 && (
+          <div className="absolute top-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))] left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+            {allStreams.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => setActiveStreamIndex(i)}
+                className={cn(
+                  "rounded-full transition-all",
+                  i === safeIndex ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
+                )}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Top overlays — pushed down for Dynamic Island */}
+        <div className="absolute top-0 left-0 right-0 z-10 p-4 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1rem))] flex items-start justify-between">
           {/* Left: LIVE badge */}
           <div className="flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -237,18 +279,22 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
         {/* Guest join notification */}
         {guestNotification && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 rounded-full bg-accent/90 backdrop-blur-sm px-4 py-2 animate-bounce">
+          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-30 rounded-full bg-accent/90 backdrop-blur-sm px-4 py-2 animate-bounce">
             <span className="text-sm font-bold text-background">{guestNotification}</span>
           </div>
         )}
 
-        {/* Chat overlay */}
+        {/* Chat overlay — pushed up above bottom controls */}
         {chatMessages && onSendChat && (
-          <LiveChatOverlay messages={chatMessages} onSend={onSendChat} />
+          <div className="absolute inset-0 bottom-28 z-20 pointer-events-none">
+            <div className="relative w-full h-full pointer-events-auto">
+              <LiveChatOverlay messages={chatMessages} onSend={onSendChat} />
+            </div>
+          </div>
         )}
 
         {/* Bottom controls */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 z-10 p-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+0.5rem))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 to-transparent">
           {/* Mute */}
           <button
             onClick={toggleMute}
@@ -290,7 +336,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
         </div>
 
         {error && (
-          <div className="absolute top-20 left-4 right-4 z-30">
+          <div className="absolute top-32 left-4 right-4 z-30">
             <p className="text-xs text-red-400 rounded-lg bg-red-500/20 backdrop-blur-sm border border-red-500/30 px-3 py-2">{error}</p>
           </div>
         )}
@@ -304,7 +350,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       {isBroadcasting && localStream ? (
         <div className={cn(
           "relative rounded-xl overflow-hidden border border-border bg-black h-[70vh] mx-auto flex gap-0.5 cursor-pointer",
-          isMultiView ? "flex-row" : "flex-col aspect-[9/16]"
+          allStreams.length > 1 ? "flex-row" : "flex-col aspect-[9/16]"
         )} onClick={() => setIsFullscreen(true)}>
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
           {coHostEntries.map(([id], i) => (

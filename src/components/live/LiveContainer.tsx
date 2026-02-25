@@ -73,7 +73,7 @@ export default function LiveContainer() {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false);
+  const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
   const [viewLayout, setViewLayout] = useState<"single" | "dual" | "quad">("single");
   const [dualPair, setDualPair] = useState<[string, string]>(["main", ""]);
   const fullscreenRef = useRef<HTMLDivElement>(null);
