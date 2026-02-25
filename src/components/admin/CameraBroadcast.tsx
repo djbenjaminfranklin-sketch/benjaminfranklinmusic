@@ -261,8 +261,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           <div className="flex items-center gap-2">
             {/* Record button with counter */}
             <button
-              onClick={isRecording ? stopRecording : startRecording}
-              className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-2 border border-white/10 active:scale-95 transition-transform min-h-[40px]"
+              onPointerUp={isRecording ? stopRecording : startRecording}
+              className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-2 border border-white/10 active:scale-95 transition-transform min-h-[40px] touch-manipulation"
             >
               {isRecording ? (
                 <>
@@ -277,18 +277,18 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             {allStreams.length > 1 && (
               <div className="flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-1">
                 <button
-                  onClick={() => setBroadcastMode("multicam")}
+                  onPointerUp={() => setBroadcastMode("multicam")}
                   className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+                    "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
                     broadcastMode === "multicam" ? "bg-white/25" : "active:bg-white/10"
                   )}
                 >
                   <LayoutGrid className="h-4 w-4 text-white" />
                 </button>
                 <button
-                  onClick={() => setBroadcastMode("director")}
+                  onPointerUp={() => setBroadcastMode("director")}
                   className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+                    "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
                     broadcastMode === "director" ? "bg-white/25" : "active:bg-white/10"
                   )}
                 >
@@ -303,8 +303,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             </div>
             {/* Minimize */}
             <button
-              onClick={() => setIsFullscreen(false)}
-              className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform"
+              onPointerUp={() => setIsFullscreen(false)}
+              className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
             >
               <Minimize2 className="h-5 w-5 text-white" />
             </button>
@@ -331,8 +331,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
         <div className="absolute bottom-0 left-0 right-0 z-40 p-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+0.5rem))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 to-transparent">
           {/* Mute */}
           <button
-            onClick={toggleMute}
-            className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center active:scale-95 transition-transform"
+            onPointerUp={toggleMute}
+            className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
           >
             {isMuted ? (
               <MicOff className="h-6 w-6 text-red-400" />
@@ -343,16 +343,16 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
           {/* Stop */}
           <button
-            onClick={isCoHost ? leaveCoHost : stopBroadcast}
-            className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center active:scale-95 transition-transform"
+            onPointerUp={isCoHost ? leaveCoHost : stopBroadcast}
+            className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
           >
             <VideoOff className="h-7 w-7 text-white" />
           </button>
 
           {/* Switch camera */}
           <button
-            onClick={switchCamera}
-            className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center active:scale-95 transition-transform"
+            onPointerUp={switchCamera}
+            className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
           >
             <SwitchCamera className="h-6 w-6 text-white" />
           </button>
@@ -360,9 +360,9 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           {/* Invite viewer */}
           {!isCoHost && (
             <button
-              onClick={inviteRandomViewer}
+              onPointerUp={(e) => { e.stopPropagation(); inviteRandomViewer(); }}
               disabled={inviting}
-              className="w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
+              className="w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 touch-manipulation"
             >
               <UserPlus className="h-6 w-6 text-accent" />
             </button>
@@ -370,7 +370,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
         </div>
 
         {error && (
-          <div className="absolute top-32 left-4 right-4 z-30">
+          <div className="absolute top-32 left-4 right-4 z-50">
             <p className="text-xs text-red-400 rounded-lg bg-red-500/20 backdrop-blur-sm border border-red-500/30 px-3 py-2">{error}</p>
           </div>
         )}
