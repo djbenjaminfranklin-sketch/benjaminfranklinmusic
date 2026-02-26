@@ -61,9 +61,13 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
 
   // Record audio using Web Audio API (works reliably on iOS WKWebView)
   const recordAndIdentify = useCallback(async (stream: MediaStream): Promise<TrackResult | null> => {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       try {
         const audioCtx = new AudioContext();
+        // iOS requires explicit resume after user gesture
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
         const source = audioCtx.createMediaStreamSource(stream);
         const sampleRate = audioCtx.sampleRate;
 
@@ -71,10 +75,17 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
         const bufferSize = 4096;
         const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
         const pcmChunks: Float32Array[] = [];
+        let hasNonZero = false;
 
         processor.onaudioprocess = (e: AudioProcessingEvent) => {
           const input = e.inputBuffer.getChannelData(0);
           pcmChunks.push(new Float32Array(input));
+          // Check if we're getting actual audio (not silence)
+          if (!hasNonZero) {
+            for (let i = 0; i < input.length; i++) {
+              if (Math.abs(input[i]) > 0.001) { hasNonZero = true; break; }
+            }
+          }
         };
 
         source.connect(processor);
@@ -98,6 +109,11 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
 
           if (totalLength < 1000) {
             resolve({ _error: `Audio vide (${totalLength} samples)` } as unknown as TrackResult);
+            return;
+          }
+
+          if (!hasNonZero) {
+            resolve({ _error: "Micro silencieux" } as unknown as TrackResult);
             return;
           }
 

@@ -172,20 +172,20 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (mode === "multicam") {
-        // Vertical format: stack cameras on top of each other
+        // Side by side — same as what the user sees on screen
         const count = streams.length || 1;
-        const sliceH = canvas.height / count;
+        const sliceW = canvas.width / count;
         streams.forEach((s, i) => {
           const video = videos.get(s.id);
           if (video && video.readyState >= 2) {
             const vw = video.videoWidth || 1;
             const vh = video.videoHeight || 1;
-            const aspect = canvas.width / sliceH;
+            const aspect = sliceW / canvas.height;
             const vAspect = vw / vh;
             let sx = 0, sy = 0, sw = vw, sh = vh;
             if (vAspect > aspect) { sw = vh * aspect; sx = (vw - sw) / 2; }
             else { sh = vw / aspect; sy = (vh - sh) / 2; }
-            ctx.drawImage(video, sx, sy, sw, sh, 0, i * sliceH, canvas.width, sliceH);
+            ctx.drawImage(video, sx, sy, sw, sh, i * sliceW, 0, sliceW, canvas.height);
           }
         });
       } else {
@@ -240,26 +240,22 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunksRef.current.push(e.data);
     };
+    let saved = false;
     mr.onstop = () => {
+      if (saved) return; // Prevent double save
+      saved = true;
       const chunks = recordedChunksRef.current;
-      if (chunks.length === 0) return; // Nothing recorded
+      if (chunks.length === 0) return;
       const blob = new Blob(chunks, { type: mimeType || "video/mp4" });
-      if (blob.size < 10000) return; // Too small, skip saving
+      if (blob.size < 10000) return;
       const filename = `live-${new Date().toISOString().slice(0, 19)}.${ext}`;
       const file = new File([blob], filename, { type: mimeType || "video/mp4" });
 
-      // On mobile, use share sheet (save to phone)
+      // On mobile, use share sheet ONLY (don't download)
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         navigator.share({ files: [file], title: filename }).catch(() => {});
-      } else {
-        // Fallback: download link
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
       }
+      // No fallback download — avoids creating extra blank files in WKWebView
     };
     mr.start(1000);
     mediaRecorderRef.current = mr;
