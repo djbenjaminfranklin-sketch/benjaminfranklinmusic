@@ -133,8 +133,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
     // Create offscreen canvas for compositing all views
     const canvas = document.createElement("canvas");
-    canvas.width = 1280;
-    canvas.height = 720;
+    canvas.width = 720;
+    canvas.height = 1280;
     recordingCanvasRef.current = canvas;
     const ctx = canvas.getContext("2d")!;
 
@@ -172,19 +172,20 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (mode === "multicam") {
+        // Vertical format: stack cameras on top of each other
         const count = streams.length || 1;
-        const sliceW = canvas.width / count;
+        const sliceH = canvas.height / count;
         streams.forEach((s, i) => {
           const video = videos.get(s.id);
           if (video && video.readyState >= 2) {
             const vw = video.videoWidth || 1;
             const vh = video.videoHeight || 1;
-            const aspect = sliceW / canvas.height;
+            const aspect = canvas.width / sliceH;
             const vAspect = vw / vh;
             let sx = 0, sy = 0, sw = vw, sh = vh;
             if (vAspect > aspect) { sw = vh * aspect; sx = (vw - sw) / 2; }
             else { sh = vw / aspect; sy = (vh - sh) / 2; }
-            ctx.drawImage(video, sx, sy, sw, sh, i * sliceW, 0, sliceW, canvas.height);
+            ctx.drawImage(video, sx, sy, sw, sh, 0, i * sliceH, canvas.width, sliceH);
           }
         });
       } else {
