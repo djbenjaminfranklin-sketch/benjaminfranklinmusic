@@ -11,12 +11,42 @@ function getIceServers(): RTCConfiguration {
   const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
   const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
   if (turnUrl && turnUser && turnCred) {
-    servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+    // Support multiple TURN URLs (comma-separated)
+    const urls = turnUrl.split(",").map((u) => u.trim());
+    servers.push({ urls, username: turnUser, credential: turnCred });
   }
-  return { iceServers: servers };
+  return {
+    iceServers: servers,
+    bundlePolicy: "max-bundle",
+    iceCandidatePoolSize: 5,
+  };
 }
 
 const ICE_SERVERS = getIceServers();
+
+// Minimize jitter buffer on a received track for near-realtime playback
+function setLowLatencyReceiver(receiver: RTCRtpReceiver) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = receiver as any;
+    if ("playoutDelayHint" in r) r.playoutDelayHint = 0;
+    if ("jitterBufferTarget" in r) r.jitterBufferTarget = 0;
+  } catch {}
+}
+
+// Set low-latency encoding parameters on all video senders
+async function setLowLatencyEncoding(pc: RTCPeerConnection) {
+  for (const sender of pc.getSenders()) {
+    if (sender.track?.kind !== "video") continue;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings?.length) continue;
+      params.degradationPreference = "maintain-framerate";
+      params.encodings[0].maxBitrate = 2_500_000;
+      await sender.setParameters(params);
+    } catch {}
+  }
+}
 
 export function useLiveBroadcast() {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -95,6 +125,7 @@ export function useLiveBroadcast() {
     // Créer l'offre et l'envoyer au viewer
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    setLowLatencyEncoding(pc);
 
     await fetch("/api/live/signal", {
       method: "POST",
@@ -130,8 +161,9 @@ export function useLiveBroadcast() {
       });
     }
 
-    // Receive guest's tracks
+    // Receive guest's tracks — with low-latency receiver settings
     pc.ontrack = (event) => {
+      setLowLatencyReceiver(event.receiver);
       const stream = event.streams[0];
       if (stream) {
         setGuestStreams((prev) => new Map(prev).set(guestId, stream));
@@ -169,6 +201,7 @@ export function useLiveBroadcast() {
     // Create offer — bidirectional with local tracks already added
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    setLowLatencyEncoding(pc);
 
     await fetch("/api/live/signal", {
       method: "POST",
@@ -268,6 +301,7 @@ export function useLiveBroadcast() {
       }
 
       pc.ontrack = (event) => {
+        setLowLatencyReceiver(event.receiver);
         const stream = event.streams[0];
         if (stream) {
           setGuestStreams((prev) => new Map(prev).set(from, stream));
@@ -313,6 +347,7 @@ export function useLiveBroadcast() {
       }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      setLowLatencyEncoding(pc);
 
       await fetch("/api/live/signal", {
         method: "POST",

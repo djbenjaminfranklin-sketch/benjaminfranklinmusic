@@ -12,12 +12,41 @@ function getIceServers(): RTCConfiguration {
   const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
   const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
   if (turnUrl && turnUser && turnCred) {
-    servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+    const urls = turnUrl.split(",").map((u) => u.trim());
+    servers.push({ urls, username: turnUser, credential: turnCred });
   }
-  return { iceServers: servers };
+  return {
+    iceServers: servers,
+    bundlePolicy: "max-bundle",
+    iceCandidatePoolSize: 5,
+  };
 }
 
 const ICE_SERVERS = getIceServers();
+
+// Minimize jitter buffer on received tracks
+function setLowLatencyReceiver(receiver: RTCRtpReceiver) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = receiver as any;
+    if ("playoutDelayHint" in r) r.playoutDelayHint = 0;
+    if ("jitterBufferTarget" in r) r.jitterBufferTarget = 0;
+  } catch {}
+}
+
+// Set low-latency encoding parameters on video senders
+async function setLowLatencyEncoding(pc: RTCPeerConnection) {
+  for (const sender of pc.getSenders()) {
+    if (sender.track?.kind !== "video") continue;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings?.length) continue;
+      params.degradationPreference = "maintain-framerate";
+      params.encodings[0].maxBitrate = 2_500_000;
+      await sender.setParameters(params);
+    } catch {}
+  }
+}
 
 export interface ScheduledLiveData {
   date: string;
@@ -138,6 +167,7 @@ export function useLiveStream() {
         if (pendingGuest) { for (const c of pendingGuest) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("guest:" + from); }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        setLowLatencyEncoding(pc);
 
         await fetch("/api/live/signal", {
           method: "POST",
@@ -163,6 +193,7 @@ export function useLiveStream() {
         pcRef.current = pc;
 
         pc.ontrack = (event) => {
+          setLowLatencyReceiver(event.receiver);
           setRemoteStream(event.streams[0] || null);
         };
 
@@ -191,6 +222,7 @@ export function useLiveStream() {
         if (pendingMain) { for (const c of pendingMain) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("main:" + from); }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        setLowLatencyEncoding(pc);
 
         await fetch("/api/live/signal", {
           method: "POST",
@@ -209,6 +241,7 @@ export function useLiveStream() {
         coHostPcsRef.current.set(from, pc);
 
         pc.ontrack = (event) => {
+          setLowLatencyReceiver(event.receiver);
           const stream = event.streams[0];
           if (stream) {
             setCoHostStreams((prev) => new Map(prev).set(from, stream));
@@ -242,6 +275,7 @@ export function useLiveStream() {
         if (pendingCo) { for (const c of pendingCo) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("co:" + from); }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        setLowLatencyEncoding(pc);
 
         await fetch("/api/live/signal", {
           method: "POST",
