@@ -3,26 +3,37 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { LiveChatMessage, LiveStreamStatus } from "@/types";
 
-function getIceServers(): RTCConfiguration {
-  const servers: RTCIceServer[] = [
+const DEFAULT_ICE: RTCConfiguration = {
+  iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-  ];
-  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
-  const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
-  const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-  if (turnUrl && turnUser && turnCred) {
-    const urls = turnUrl.split(",").map((u) => u.trim());
-    servers.push({ urls, username: turnUser, credential: turnCred });
-  }
-  return {
-    iceServers: servers,
-    bundlePolicy: "max-bundle",
-    iceCandidatePoolSize: 5,
-  };
-}
+  ],
+  bundlePolicy: "max-bundle",
+  iceCandidatePoolSize: 5,
+};
 
-const ICE_SERVERS = getIceServers();
+// Fetch dynamic TURN credentials from our API (Metered.ca)
+let cachedIceConfig: RTCConfiguration | null = null;
+let cacheTime = 0;
+async function getIceServers(): Promise<RTCConfiguration> {
+  if (cachedIceConfig && Date.now() - cacheTime < 30 * 60 * 1000) {
+    return cachedIceConfig;
+  }
+  try {
+    const res = await fetch("/api/live/turn");
+    if (res.ok) {
+      const servers = await res.json();
+      cachedIceConfig = {
+        iceServers: servers,
+        bundlePolicy: "max-bundle",
+        iceCandidatePoolSize: 5,
+      };
+      cacheTime = Date.now();
+      return cachedIceConfig;
+    }
+  } catch {}
+  return DEFAULT_ICE;
+}
 
 // Minimize jitter buffer on received tracks
 function setLowLatencyReceiver(receiver: RTCRtpReceiver) {
@@ -137,7 +148,7 @@ export function useLiveStream() {
           guestPcRef.current.close();
         }
 
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(await getIceServers());
         guestPcRef.current = pc;
 
         // Add our camera tracks so the broadcaster can receive them
@@ -189,7 +200,7 @@ export function useLiveStream() {
         }
         mainBroadcasterRef.current = from;
 
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(await getIceServers());
         pcRef.current = pc;
 
         pc.ontrack = (event) => {
@@ -237,7 +248,7 @@ export function useLiveStream() {
           coHostPcsRef.current.delete(from);
         }
 
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(await getIceServers());
         coHostPcsRef.current.set(from, pc);
 
         pc.ontrack = (event) => {

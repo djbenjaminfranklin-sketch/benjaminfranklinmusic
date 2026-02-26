@@ -2,27 +2,39 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
-function getIceServers(): RTCConfiguration {
-  const servers: RTCIceServer[] = [
+const DEFAULT_ICE: RTCConfiguration = {
+  iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-  ];
-  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
-  const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
-  const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-  if (turnUrl && turnUser && turnCred) {
-    // Support multiple TURN URLs (comma-separated)
-    const urls = turnUrl.split(",").map((u) => u.trim());
-    servers.push({ urls, username: turnUser, credential: turnCred });
-  }
-  return {
-    iceServers: servers,
-    bundlePolicy: "max-bundle",
-    iceCandidatePoolSize: 5,
-  };
-}
+  ],
+  bundlePolicy: "max-bundle",
+  iceCandidatePoolSize: 5,
+};
 
-const ICE_SERVERS = getIceServers();
+// Fetch dynamic TURN credentials from our API (Metered.ca)
+// Falls back to STUN-only if TURN is not configured
+let cachedIceConfig: RTCConfiguration | null = null;
+let cacheTime = 0;
+async function getIceServers(): Promise<RTCConfiguration> {
+  // Cache for 30 minutes
+  if (cachedIceConfig && Date.now() - cacheTime < 30 * 60 * 1000) {
+    return cachedIceConfig;
+  }
+  try {
+    const res = await fetch("/api/live/turn");
+    if (res.ok) {
+      const servers = await res.json();
+      cachedIceConfig = {
+        iceServers: servers,
+        bundlePolicy: "max-bundle",
+        iceCandidatePoolSize: 5,
+      };
+      cacheTime = Date.now();
+      return cachedIceConfig;
+    }
+  } catch {}
+  return DEFAULT_ICE;
+}
 
 // Minimize jitter buffer on a received track for near-realtime playback
 function setLowLatencyReceiver(receiver: RTCRtpReceiver) {
@@ -91,7 +103,7 @@ export function useLiveBroadcast() {
       peersRef.current.delete(viewerId);
     }
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(await getIceServers());
     peersRef.current.set(viewerId, pc);
 
     // Ajouter les tracks locaux (caméra + micro)
@@ -150,7 +162,7 @@ export function useLiveBroadcast() {
       guestPeersRef.current.delete(guestId);
     }
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(await getIceServers());
     guestPeersRef.current.set(guestId, pc);
 
     // Add local tracks so the offer has proper media lines for bidirectional exchange.
@@ -290,7 +302,7 @@ export function useLiveBroadcast() {
         guestPeersRef.current.delete(from);
       }
 
-      const pc = new RTCPeerConnection(ICE_SERVERS);
+      const pc = new RTCPeerConnection(await getIceServers());
       guestPeersRef.current.set(from, pc);
 
       // If we have a local stream, add our tracks so they can receive our camera
