@@ -36,6 +36,8 @@
 	<string>Camera access is needed for live broadcasting</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is needed for live broadcasting</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location is used to show the venue name during live broadcasts</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

@@ -168,8 +168,10 @@ export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: 
       venue: venue || undefined,
     };
     liveChatMessages = [];
-    // Generate a 6-character co-host code
-    coHostCode = crypto.randomUUID().slice(0, 6).toUpperCase();
+    // Keep existing co-host code (pre-generated) or create a new one
+    if (!coHostCode) {
+      coHostCode = crypto.randomUUID().slice(0, 6).toUpperCase();
+    }
   } else {
     liveStreamStatus = {
       isLive: false,
@@ -194,6 +196,14 @@ export function updateLocation(location?: { lat: number; lng: number }, venue?: 
 }
 
 export function getCoHostCode(): string | null {
+  return coHostCode;
+}
+
+// Generate a co-host code if one doesn't exist yet (call before live starts)
+export function ensureCoHostCode(): string {
+  if (!coHostCode) {
+    coHostCode = crypto.randomUUID().slice(0, 6).toUpperCase();
+  }
   return coHostCode;
 }
 

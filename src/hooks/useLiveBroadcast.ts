@@ -37,6 +37,8 @@ export function useLiveBroadcast() {
   const streamRef = useRef<MediaStream | null>(null);
   // Ref to always call the latest handleSignal from EventSource listeners (avoids stale closures)
   const handleSignalRef = useRef<((signal: { type: string; from: string; to?: string; data: unknown }) => Promise<void>) | undefined>(undefined);
+  // Buffer ICE candidates that arrive before setRemoteDescription (race condition fix)
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   // Nettoyer un peer
   const cleanupPeer = useCallback((viewerId: string) => {
@@ -45,6 +47,7 @@ export function useLiveBroadcast() {
       pc.close();
       peersRef.current.delete(viewerId);
     }
+    pendingCandidatesRef.current.delete(viewerId);
   }, []);
 
   // Créer un peer connection pour un viewer
@@ -154,6 +157,7 @@ export function useLiveBroadcast() {
       if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
         pc.close();
         guestPeersRef.current.delete(guestId);
+        pendingCandidatesRef.current.delete(guestId);
         setGuestStreams((prev) => {
           const next = new Map(prev);
           next.delete(guestId);
@@ -289,6 +293,7 @@ export function useLiveBroadcast() {
         if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
           pc.close();
           guestPeersRef.current.delete(from);
+          pendingCandidatesRef.current.delete(from);
           setGuestStreams((prev) => {
             const next = new Map(prev);
             next.delete(from);
@@ -298,6 +303,14 @@ export function useLiveBroadcast() {
       };
 
       await pc.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+      // Flush any ICE candidates that arrived before remote description was set
+      const pendingOffer = pendingCandidatesRef.current.get(from);
+      if (pendingOffer) {
+        for (const c of pendingOffer) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+        }
+        pendingCandidatesRef.current.delete(from);
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -323,29 +336,49 @@ export function useLiveBroadcast() {
       const pc = peersRef.current.get(from);
       if (pc && pc.signalingState === "have-local-offer") {
         await pc.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+        // Flush any ICE candidates that arrived before the answer
+        const pending = pendingCandidatesRef.current.get(from);
+        if (pending) {
+          for (const c of pending) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+          }
+          pendingCandidatesRef.current.delete(from);
+        }
       }
       // Also check guest peers
       const guestPc = guestPeersRef.current.get(from);
       if (guestPc && guestPc.signalingState === "have-local-offer") {
         await guestPc.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+        // Flush any ICE candidates that arrived before the answer
+        const pending = pendingCandidatesRef.current.get(from);
+        if (pending) {
+          for (const c of pending) {
+            try { await guestPc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+          }
+          pendingCandidatesRef.current.delete(from);
+        }
       }
     } else if (type === "ice-candidate") {
-      // ICE candidate d'un viewer
+      // ICE candidate — buffer if remote description not yet set (race condition)
       const pc = peersRef.current.get(from);
       if (pc) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
-        } catch {
-          // Ignorer les erreurs d'ICE candidates
+        if (pc.remoteDescription) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit)); } catch {}
+        } else {
+          const pending = pendingCandidatesRef.current.get(from) || [];
+          pending.push(data as RTCIceCandidateInit);
+          pendingCandidatesRef.current.set(from, pending);
         }
       }
       // Also check guest peers
       const guestPc = guestPeersRef.current.get(from);
       if (guestPc) {
-        try {
-          await guestPc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
-        } catch {
-          // Ignorer
+        if (guestPc.remoteDescription) {
+          try { await guestPc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit)); } catch {}
+        } else {
+          const pending = pendingCandidatesRef.current.get(from) || [];
+          pending.push(data as RTCIceCandidateInit);
+          pendingCandidatesRef.current.set(from, pending);
         }
       }
     } else if (type === "viewer-leave") {
@@ -432,10 +465,24 @@ export function useLiveBroadcast() {
       onInit(data.clientId);
     });
 
-    // Use ref-based dispatch to always call the latest handleSignal
+    // Signal queue — process signals one at a time to prevent race conditions
+    // (e.g., ICE candidates arriving before offer/answer is fully processed)
+    const signalQueue: unknown[] = [];
+    let processingSignals = false;
+    const processSignalQueue = async () => {
+      if (processingSignals) return;
+      processingSignals = true;
+      while (signalQueue.length > 0) {
+        const sig = signalQueue.shift();
+        try { await handleSignalRef.current?.(sig as { type: string; from: string; to?: string; data: unknown }); } catch {}
+      }
+      processingSignals = false;
+    };
+
     es.addEventListener("signal", (e) => {
       const signal = JSON.parse(e.data);
-      handleSignalRef.current?.(signal);
+      signalQueue.push(signal);
+      processSignalQueue();
     });
 
     es.addEventListener("presence", (e) => {

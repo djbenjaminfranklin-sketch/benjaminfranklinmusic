@@ -1,5 +1,21 @@
 import SwiftUI
 import WebKit
+import CoreLocation
+
+// Request location permission so WKWebView can use navigator.geolocation
+private class LocationPermissionManager: NSObject, CLLocationManagerDelegate {
+    static let shared = LocationPermissionManager()
+    private let manager = CLLocationManager()
+
+    override init() {
+        super.init()
+        manager.delegate = self
+    }
+
+    func requestPermission() {
+        manager.requestWhenInUseAuthorization()
+    }
+}
 
 struct ContentView: View {
     @State private var isLoading = true
@@ -15,6 +31,9 @@ struct ContentView: View {
                 loadError: $loadError
             )
             .ignoresSafeArea()
+            .onAppear {
+                LocationPermissionManager.shared.requestPermission()
+            }
 
             if isLoading {
                 VStack(spacing: 16) {

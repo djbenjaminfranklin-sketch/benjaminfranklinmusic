@@ -126,19 +126,15 @@ export default function LiveControlPanel() {
     }
   };
 
-  // Fetch co-host code when live
+  // Fetch co-host code on mount (available before live starts)
   useEffect(() => {
-    if (!streamStatus.isLive) {
-      setCoHostCode(null);
-      return;
-    }
     fetch("/api/live/admin")
       .then((r) => r.json())
       .then((data) => {
         if (data.coHostCode) setCoHostCode(data.coHostCode);
       })
       .catch(() => {});
-  }, [streamStatus.isLive]);
+  }, []);
 
   const handleGoLiveHLS = async () => {
     if (!streamUrl.trim()) return;
@@ -466,8 +462,8 @@ export default function LiveControlPanel() {
         </div>
       )}
 
-      {/* Lien co-host */}
-      {streamStatus.isLive && coHostCode && (
+      {/* Lien co-host — always visible so admin can share before going live */}
+      {coHostCode && (
         <div className="rounded-2xl border border-accent/20 bg-accent/5 p-5 space-y-3">
           <h3 className="text-sm font-semibold text-accent flex items-center gap-2">
             <Link className="h-4 w-4" />

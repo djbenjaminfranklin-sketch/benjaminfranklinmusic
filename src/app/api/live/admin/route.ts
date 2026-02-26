@@ -4,7 +4,7 @@ import {
   setLiveStatus,
   updateCurrentTrack,
   updateLocation,
-  getCoHostCode,
+  ensureCoHostCode,
   emitScheduledLive,
 } from "@/lib/sse-hub";
 import { getAuthUser } from "@/lib/auth";
@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
   const user = await getAuthUser(request);
   const state = getLiveState();
   const scheduledLive = getScheduledLive();
-  // Only return co-host code to admins
+  // Only return co-host code to admins — generate if not yet created
   if (user?.role === "admin") {
-    return NextResponse.json({ ...state, coHostCode: getCoHostCode(), scheduledLive });
+    return NextResponse.json({ ...state, coHostCode: ensureCoHostCode(), scheduledLive });
   }
   return NextResponse.json({ ...state, scheduledLive });
 }

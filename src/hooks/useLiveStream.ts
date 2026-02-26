@@ -65,6 +65,8 @@ export function useLiveStream() {
   const mainBroadcasterRef = useRef<string | null>(null);
   // Ref to always dispatch to the latest handleSignal from the SSE listener
   const handleSignalRef = useRef<((signal: { type: string; from: string; data: unknown }) => Promise<void>) | undefined>(undefined);
+  // Buffer ICE candidates that arrive before setRemoteDescription
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   // Nettoyer la peer connection WebRTC
   const cleanupWebRTC = useCallback(() => {
@@ -131,6 +133,9 @@ export function useLiveStream() {
         };
 
         await pc.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+        // Flush buffered ICE candidates
+        const pendingGuest = pendingCandidatesRef.current.get("guest:" + from);
+        if (pendingGuest) { for (const c of pendingGuest) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("guest:" + from); }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -181,6 +186,9 @@ export function useLiveStream() {
         };
 
         await pc.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+        // Flush buffered ICE candidates
+        const pendingMain = pendingCandidatesRef.current.get("main:" + from);
+        if (pendingMain) { for (const c of pendingMain) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("main:" + from); }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -229,6 +237,9 @@ export function useLiveStream() {
         };
 
         await pc.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+        // Flush buffered ICE candidates
+        const pendingCo = pendingCandidatesRef.current.get("co:" + from);
+        if (pendingCo) { for (const c of pendingCo) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("co:" + from); }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -239,24 +250,37 @@ export function useLiveStream() {
         });
       }
     } else if (type === "ice-candidate") {
+      // Buffer ICE candidates if remote description not yet set
       // Check main broadcaster
       if (pcRef.current && from === mainBroadcasterRef.current) {
-        try {
-          await pcRef.current.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
-        } catch { /* ignore */ }
+        if (pcRef.current.remoteDescription) {
+          try { await pcRef.current.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit)); } catch {}
+        } else {
+          const pending = pendingCandidatesRef.current.get("main:" + from) || [];
+          pending.push(data as RTCIceCandidateInit);
+          pendingCandidatesRef.current.set("main:" + from, pending);
+        }
       }
       // Check guest peer (also from broadcaster)
       if (guestPcRef.current && from === mainBroadcasterRef.current) {
-        try {
-          await guestPcRef.current.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
-        } catch { /* ignore */ }
+        if (guestPcRef.current.remoteDescription) {
+          try { await guestPcRef.current.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit)); } catch {}
+        } else {
+          const pending = pendingCandidatesRef.current.get("guest:" + from) || [];
+          pending.push(data as RTCIceCandidateInit);
+          pendingCandidatesRef.current.set("guest:" + from, pending);
+        }
       }
       // Check co-host peers
       const coHostPc = coHostPcsRef.current.get(from);
       if (coHostPc) {
-        try {
-          await coHostPc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
-        } catch { /* ignore */ }
+        if (coHostPc.remoteDescription) {
+          try { await coHostPc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit)); } catch {}
+        } else {
+          const pending = pendingCandidatesRef.current.get("co:" + from) || [];
+          pending.push(data as RTCIceCandidateInit);
+          pendingCandidatesRef.current.set("co:" + from, pending);
+        }
       }
     }
   }, [cleanupWebRTC]);
@@ -386,11 +410,22 @@ export function useLiveStream() {
         setStreamStatus((prev) => ({ ...prev, currentTrack: track }));
       });
 
-      // Use ref-based dispatch so we always call the latest handleSignal
-      // without needing to re-create the SSE connection
+      // Signal queue — process signals one at a time to prevent race conditions
+      const signalQueue: unknown[] = [];
+      let processingSignals = false;
+      const processSignalQueue = async () => {
+        if (processingSignals) return;
+        processingSignals = true;
+        while (signalQueue.length > 0) {
+          const sig = signalQueue.shift();
+          try { await handleSignalRef.current?.(sig as { type: string; from: string; data: unknown }); } catch {}
+        }
+        processingSignals = false;
+      };
       es.addEventListener("signal", (e) => {
         const signal = JSON.parse(e.data);
-        handleSignalRef.current?.(signal);
+        signalQueue.push(signal);
+        processSignalQueue();
       });
 
       es.addEventListener("co-hosts", (e) => {
