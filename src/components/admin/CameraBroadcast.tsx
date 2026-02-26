@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
 import LiveChatOverlay from "@/components/live/LiveChatOverlay";
+import SpynButton from "@/components/live/SpynButton";
 import type { LiveChatMessage } from "@/types";
 
 interface CameraBroadcastProps {
@@ -356,6 +357,9 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             )}
           </div>
         )}
+
+        {/* Spyn button — bottom right, above chat */}
+        <SpynButton />
 
         {/* Chat overlay — pushed up above bottom controls */}
         {chatMessages && onSendChat && (
