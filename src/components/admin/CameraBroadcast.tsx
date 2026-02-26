@@ -24,12 +24,21 @@ function StreamBand({ stream, label, mirror }: { stream: MediaStream; label: str
     const video = videoRef.current;
     if (!video) return;
     video.srcObject = stream;
-    video.play().catch(() => {});
-    return () => { video.srcObject = null; };
+    // Ensure video plays (iOS Safari can pause videos silently)
+    const tryPlay = () => video.play().catch(() => {});
+    tryPlay();
+    // Also retry play on visibility change (e.g., after React re-mount)
+    const interval = setInterval(() => {
+      if (video.paused && video.srcObject) tryPlay();
+    }, 1000);
+    return () => {
+      clearInterval(interval);
+      video.srcObject = null;
+    };
   }, [stream]);
 
   return (
-    <div className="relative flex-1 min-w-0 min-h-0 overflow-hidden bg-black">
+    <div className="relative flex-1 w-full h-full min-w-0 min-h-0 overflow-hidden bg-black">
       <video
         ref={videoRef}
         className="w-full h-full object-cover"
