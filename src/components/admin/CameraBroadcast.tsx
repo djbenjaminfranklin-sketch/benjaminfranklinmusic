@@ -241,7 +241,10 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       if (e.data.size > 0) recordedChunksRef.current.push(e.data);
     };
     mr.onstop = () => {
-      const blob = new Blob(recordedChunksRef.current, { type: mimeType || "video/mp4" });
+      const chunks = recordedChunksRef.current;
+      if (chunks.length === 0) return; // Nothing recorded
+      const blob = new Blob(chunks, { type: mimeType || "video/mp4" });
+      if (blob.size < 10000) return; // Too small, skip saving
       const filename = `live-${new Date().toISOString().slice(0, 19)}.${ext}`;
       const file = new File([blob], filename, { type: mimeType || "video/mp4" });
 
