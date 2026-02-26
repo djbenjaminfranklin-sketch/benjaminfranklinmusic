@@ -25,9 +25,25 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   // Record a chunk and send to ACRCloud, returns the track or null
-  const recordAndIdentify = useCallback(async (stream: MediaStream, mimeType: string): Promise<TrackResult | null> => {
+  const recordAndIdentify = useCallback(async (stream: MediaStream): Promise<TrackResult | null> => {
     return new Promise((resolve) => {
-      const recorder = new MediaRecorder(stream, { mimeType });
+      // Let the browser pick the best supported format (iOS doesn't support webm)
+      let recorderOptions: MediaRecorderOptions | undefined;
+      for (const mime of ["audio/mp4", "audio/aac", "audio/webm;codecs=opus", "audio/webm", ""]) {
+        if (!mime || MediaRecorder.isTypeSupported(mime)) {
+          recorderOptions = mime ? { mimeType: mime } : undefined;
+          break;
+        }
+      }
+
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(stream, recorderOptions);
+      } catch (err) {
+        console.error("[Spyn] MediaRecorder init failed:", err);
+        resolve({ _error: `Recorder: ${err}` } as unknown as TrackResult);
+        return;
+      }
       mediaRecorderRef.current = recorder;
       const chunks: Blob[] = [];
 
@@ -35,10 +51,24 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
         if (e.data.size > 0) chunks.push(e.data);
       };
 
+      recorder.onerror = (e) => {
+        console.error("[Spyn] MediaRecorder error:", e);
+        resolve({ _error: "Erreur enregistrement" } as unknown as TrackResult);
+      };
+
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: mimeType });
+        const blob = new Blob(chunks, recorder.mimeType ? { type: recorder.mimeType } : undefined);
+        console.log("[Spyn] Blob size:", blob.size, "type:", blob.type || recorder.mimeType);
+
+        if (blob.size < 100) {
+          console.warn("[Spyn] Audio blob too small, skipping API call");
+          resolve(null);
+          return;
+        }
+
         const formData = new FormData();
-        formData.append("audio", blob, "recording.wav");
+        const ext = (recorder.mimeType || "").includes("mp4") ? "mp4" : "webm";
+        formData.append("audio", blob, `recording.${ext}`);
 
         try {
           const res = await fetch("/api/live/identify", {
@@ -51,18 +81,19 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
             resolve(data);
             return;
           }
-          // Pass error info back for debugging
           if (res.status === 503) {
             resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
             return;
           }
         } catch (err) {
           console.error("[Spyn] fetch error:", err);
+          resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
+          return;
         }
         resolve(null);
       };
 
-      recorder.start();
+      recorder.start(1000); // Collect data every second
 
       // Record for 10 seconds per attempt
       setTimeout(() => {
@@ -98,7 +129,6 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
         : true;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
-      const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm";
 
       // Loop: record + identify, retry up to 6 times (60 seconds max)
       const maxAttempts = 6;
@@ -106,7 +136,7 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
         if (cancelledRef.current) break;
         setAttempt(i + 1);
 
-        const track = await recordAndIdentify(stream, mimeType);
+        const track = await recordAndIdentify(stream);
 
         if (cancelledRef.current) break;
 
