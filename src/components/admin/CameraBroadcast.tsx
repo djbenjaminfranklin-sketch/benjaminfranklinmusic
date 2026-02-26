@@ -280,29 +280,34 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
                 <span className="w-3.5 h-3.5 rounded-full bg-red-500" />
               )}
             </button>
-            {/* Multicam / Director toggle — only when multiple streams */}
-            {allStreams.length > 1 && (
-              <div className="flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-1">
-                <button
-                  onClick={() => setBroadcastMode("multicam")}
-                  className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
-                    broadcastMode === "multicam" ? "bg-white/25" : "active:bg-white/10"
-                  )}
-                >
-                  <LayoutGrid className="h-4 w-4 text-white" />
-                </button>
-                <button
-                  onClick={() => setBroadcastMode("director")}
-                  className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
-                    broadcastMode === "director" ? "bg-white/25" : "active:bg-white/10"
-                  )}
-                >
-                  <Shuffle className="h-4 w-4 text-white" />
-                </button>
-              </div>
-            )}
+            {/* Multicam / Director toggle — always visible, disabled when solo */}
+            <div className={cn(
+              "flex items-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-1",
+              allStreams.length <= 1 && "opacity-40"
+            )}>
+              <button
+                onClick={() => allStreams.length > 1 && setBroadcastMode("multicam")}
+                disabled={allStreams.length <= 1}
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
+                  broadcastMode === "multicam" ? "bg-white/25" : "active:bg-white/10",
+                  allStreams.length <= 1 && "cursor-not-allowed"
+                )}
+              >
+                <LayoutGrid className="h-4 w-4 text-white" />
+              </button>
+              <button
+                onClick={() => allStreams.length > 1 && setBroadcastMode("director")}
+                disabled={allStreams.length <= 1}
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
+                  broadcastMode === "director" ? "bg-white/25" : "active:bg-white/10",
+                  allStreams.length <= 1 && "cursor-not-allowed"
+                )}
+              >
+                <Shuffle className="h-4 w-4 text-white" />
+              </button>
+            </div>
             {/* Viewer count */}
             <div className="flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-2 border border-white/10 min-h-[40px]">
               <Eye className="h-4 w-4 text-red-400" />
