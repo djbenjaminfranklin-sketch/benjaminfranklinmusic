@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
     const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET;
 
     if (!host || !accessKey || !accessSecret) {
+      console.error("[ACRCloud] Missing env vars:", { host: !!host, accessKey: !!accessKey, accessSecret: !!accessSecret });
       return NextResponse.json(
         { error: "ACRCloud not configured" },
         { status: 503 }

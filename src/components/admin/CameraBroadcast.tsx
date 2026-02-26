@@ -98,11 +98,16 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   const spynDeviceId = audioSource === "external" || audioSource === "both" ? externalDeviceId : internalDeviceId;
 
   // Auto-switch broadcast audio when source changes (plug/unplug USB mixer)
+  // Track previous values to avoid re-triggering on localStream changes
+  const prevAudioRef = useRef({ audioSource, externalDeviceId, internalDeviceId });
   useEffect(() => {
-    if (isBroadcasting && localStream) {
+    const prev = prevAudioRef.current;
+    const changed = prev.audioSource !== audioSource || prev.externalDeviceId !== externalDeviceId || prev.internalDeviceId !== internalDeviceId;
+    prevAudioRef.current = { audioSource, externalDeviceId, internalDeviceId };
+    if (changed && isBroadcasting) {
       replaceAudioSource(audioSource, externalDeviceId, internalDeviceId);
     }
-  }, [audioSource, externalDeviceId, internalDeviceId, isBroadcasting, localStream, replaceAudioSource]);
+  }, [audioSource, externalDeviceId, internalDeviceId, isBroadcasting, replaceAudioSource]);
 
   // --- Fullscreen mode (start inline so admin can see co-host link, ACR, etc.) ---
   const [isFullscreen, setIsFullscreen] = useState(false);

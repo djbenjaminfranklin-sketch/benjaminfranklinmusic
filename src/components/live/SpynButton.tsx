@@ -46,11 +46,19 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
             body: formData,
           });
           const data = await res.json();
+          console.log("[Spyn] API response:", res.status, data);
           if (res.ok) {
             resolve(data);
             return;
           }
-        } catch {}
+          // Pass error info back for debugging
+          if (res.status === 503) {
+            resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
+            return;
+          }
+        } catch (err) {
+          console.error("[Spyn] fetch error:", err);
+        }
         resolve(null);
       };
 
@@ -101,6 +109,15 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
         const track = await recordAndIdentify(stream, mimeType);
 
         if (cancelledRef.current) break;
+
+        // Check for config error — stop immediately, don't retry
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (track && (track as any)._error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setError((track as any)._error);
+          setTimeout(() => setError(null), 6000);
+          break;
+        }
 
         if (track) {
           setResult(track);

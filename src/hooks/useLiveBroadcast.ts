@@ -735,12 +735,10 @@ export function useLiveBroadcast() {
   const mixedAudioCtxRef = useRef<AudioContext | null>(null);
   const externalStreamRef = useRef<MediaStream | null>(null);
 
-  const replaceAudioSource = useCallback(async (mode: "internal" | "external" | "both", externalDeviceId?: string | null, internalDeviceId?: string | null) => {
+  const replaceAudioSource = useCallback(async (mode: "internal" | "external" | "both", extDevId?: string | null, intDevId?: string | null) => {
     if (!streamRef.current) return;
 
     try {
-      let newAudioTrack: MediaStreamTrack;
-
       // Cleanup previous mixed context
       if (mixedAudioCtxRef.current) {
         mixedAudioCtxRef.current.close().catch(() => {});
@@ -749,25 +747,36 @@ export function useLiveBroadcast() {
       externalStreamRef.current?.getTracks().forEach((t) => t.stop());
       externalStreamRef.current = null;
 
-      if (mode === "external" && externalDeviceId) {
+      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
+      const wasMuted = oldAudioTrack ? !oldAudioTrack.enabled : false;
+
+      if (mode === "internal") {
+        // Internal mic only — reuse the existing audio track from the stream
+        // Do NOT call getUserMedia again on iOS (it kills the video)
+        // The original stream already has the mic audio track
+        // Just make sure no external mixing is active (cleaned up above)
+        return;
+      }
+
+      let newAudioTrack: MediaStreamTrack;
+
+      if (mode === "external" && extDevId) {
         // USB only — mixer audio, no mic
         const mixerStream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: externalDeviceId } },
+          audio: { deviceId: { exact: extDevId } },
         });
         externalStreamRef.current = mixerStream;
         newAudioTrack = mixerStream.getAudioTracks()[0];
 
-      } else if (mode === "both" && externalDeviceId) {
+      } else if (mode === "both" && extDevId) {
         // USB + Micro — mix both via Web Audio API
         const mixerStream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: externalDeviceId } },
+          audio: { deviceId: { exact: extDevId } },
         });
         externalStreamRef.current = mixerStream;
 
-        const micConstraints: MediaStreamConstraints["audio"] = internalDeviceId
-          ? { deviceId: { exact: internalDeviceId } }
-          : true;
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints });
+        // Reuse the existing mic track from the broadcast stream (don't call getUserMedia again)
+        const existingMicTrack = streamRef.current.getAudioTracks()[0];
 
         const audioCtx = new AudioContext();
         mixedAudioCtxRef.current = audioCtx;
@@ -779,28 +788,21 @@ export function useLiveBroadcast() {
         mixerGain.gain.value = 1.0;
         mixerSource.connect(mixerGain).connect(dest);
 
-        // Mic (voice) — slightly lower
-        const micSource = audioCtx.createMediaStreamSource(micStream);
-        const micGain = audioCtx.createGain();
-        micGain.gain.value = 0.8;
-        micSource.connect(micGain).connect(dest);
+        // Mic (voice) — reuse existing track
+        if (existingMicTrack) {
+          const micSource = audioCtx.createMediaStreamSource(new MediaStream([existingMicTrack]));
+          const micGain = audioCtx.createGain();
+          micGain.gain.value = 0.8;
+          micSource.connect(micGain).connect(dest);
+        }
 
         newAudioTrack = dest.stream.getAudioTracks()[0];
-
       } else {
-        // Internal mic only
-        const micConstraints: MediaStreamConstraints["audio"] = internalDeviceId
-          ? { deviceId: { exact: internalDeviceId } }
-          : true;
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints });
-        newAudioTrack = micStream.getAudioTracks()[0];
+        return; // No external device, nothing to do
       }
 
       // Keep mute state
-      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
-      if (oldAudioTrack) {
-        newAudioTrack.enabled = oldAudioTrack.enabled;
-      }
+      if (wasMuted) newAudioTrack.enabled = false;
 
       // Replace audio track in all peer connections
       const allPeers = [...peersRef.current.values(), ...guestPeersRef.current.values()];
@@ -815,13 +817,15 @@ export function useLiveBroadcast() {
         } catch {}
       }
 
-      // Update local stream
-      if (oldAudioTrack) {
+      // Update the audio track in streamRef WITHOUT creating a new MediaStream
+      // (creating a new stream triggers re-renders and can cause loops)
+      if (oldAudioTrack && oldAudioTrack !== newAudioTrack) {
         streamRef.current.removeTrack(oldAudioTrack);
-        oldAudioTrack.stop();
+        // Don't stop the old mic track — we might still need it for "both" mode
       }
-      streamRef.current.addTrack(newAudioTrack);
-      setLocalStream(new MediaStream(streamRef.current.getTracks()));
+      if (!streamRef.current.getAudioTracks().includes(newAudioTrack)) {
+        streamRef.current.addTrack(newAudioTrack);
+      }
     } catch (err) {
       console.error("[Audio] Failed to switch audio source:", err);
     }
