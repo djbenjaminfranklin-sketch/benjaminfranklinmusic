@@ -85,18 +85,39 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
 
   return (
     <div className={inline ? "relative" : "contents"}>
-      {/* Spyn button */}
-      <button
-        onClick={identify}
-        disabled={isListening}
-        className={
-          inline
-            ? "relative z-30 flex items-center justify-center w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 active:scale-90 transition-transform disabled:animate-pulse touch-manipulation"
-            : "absolute bottom-20 right-3 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent/90 backdrop-blur-sm border-2 border-accent shadow-lg active:scale-90 transition-transform disabled:animate-pulse touch-manipulation"
-        }
-      >
-        <span className={inline ? "text-xs font-bold text-accent" : "text-xs font-bold text-background"}>SPYN</span>
-      </button>
+      {/* Spyn button — solid accent with Shazam-like pulse rings when listening */}
+      <div className="relative flex items-center justify-center">
+        {/* Animated pulse rings when listening */}
+        <AnimatePresence>
+          {isListening && (
+            <>
+              <motion.span
+                initial={{ scale: 1, opacity: 0.6 }}
+                animate={{ scale: 2.2, opacity: 0 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                className={`absolute rounded-full bg-accent ${inline ? "w-14 h-14" : "w-12 h-12"}`}
+              />
+              <motion.span
+                initial={{ scale: 1, opacity: 0.4 }}
+                animate={{ scale: 1.8, opacity: 0 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                className={`absolute rounded-full bg-accent ${inline ? "w-14 h-14" : "w-12 h-12"}`}
+              />
+            </>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={identify}
+          disabled={isListening}
+          className={
+            inline
+              ? "relative z-10 flex items-center justify-center w-14 h-14 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation"
+              : "absolute bottom-20 right-3 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation"
+          }
+        >
+          <span className="text-[11px] font-black text-background tracking-wide">SPYN</span>
+        </button>
+      </div>
 
       {/* Result popup */}
       <AnimatePresence>

@@ -95,17 +95,119 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   // --- Broadcast mode: multicam (all cameras side by side) or director (auto-switch) ---
   const [broadcastMode, setBroadcastMode] = useState<"multicam" | "director">("director");
 
-  // --- Recording ---
+  // --- Recording (canvas compositing to capture all views) ---
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const recordingVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const startRecording = useCallback(() => {
     if (!localStream) return;
     recordedChunksRef.current = [];
     setRecordingTime(0);
+
+    // Create offscreen canvas for compositing all views
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    recordingCanvasRef.current = canvas;
+    const ctx = canvas.getContext("2d")!;
+
+    // Create hidden video elements for each stream
+    const createVideo = (stream: MediaStream): HTMLVideoElement => {
+      const v = document.createElement("video");
+      v.srcObject = stream;
+      v.muted = true;
+      v.playsInline = true;
+      v.autoplay = true;
+      v.play().catch(() => {});
+      return v;
+    };
+
+    const videos = new Map<string, HTMLVideoElement>();
+    for (const s of allStreamsRef.current) {
+      videos.set(s.id, createVideo(s.stream));
+    }
+    recordingVideosRef.current = videos;
+
+    // Render loop — draws the current view onto the canvas (director or multicam)
+    const render = () => {
+      const streams = allStreamsRef.current;
+      const mode = broadcastModeRef.current;
+      const idx = safeIndexRef.current;
+
+      // Create video elements for any new streams that joined mid-recording
+      for (const s of streams) {
+        if (!videos.has(s.id)) {
+          videos.set(s.id, createVideo(s.stream));
+        }
+      }
+
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (mode === "multicam") {
+        const count = streams.length || 1;
+        const sliceW = canvas.width / count;
+        streams.forEach((s, i) => {
+          const video = videos.get(s.id);
+          if (video && video.readyState >= 2) {
+            const vw = video.videoWidth || 1;
+            const vh = video.videoHeight || 1;
+            const aspect = sliceW / canvas.height;
+            const vAspect = vw / vh;
+            let sx = 0, sy = 0, sw = vw, sh = vh;
+            if (vAspect > aspect) { sw = vh * aspect; sx = (vw - sw) / 2; }
+            else { sh = vw / aspect; sy = (vh - sh) / 2; }
+            ctx.drawImage(video, sx, sy, sw, sh, i * sliceW, 0, sliceW, canvas.height);
+          }
+        });
+      } else {
+        // Director mode — draw the current active stream fullscreen
+        const current = streams[idx % streams.length];
+        if (current) {
+          const video = videos.get(current.id);
+          if (video && video.readyState >= 2) {
+            const vw = video.videoWidth || 1;
+            const vh = video.videoHeight || 1;
+            const aspect = canvas.width / canvas.height;
+            const vAspect = vw / vh;
+            let sx = 0, sy = 0, sw = vw, sh = vh;
+            if (vAspect > aspect) { sw = vh * aspect; sx = (vw - sw) / 2; }
+            else { sh = vw / aspect; sy = (vh - sh) / 2; }
+            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+          }
+        }
+      }
+      animFrameRef.current = requestAnimationFrame(render);
+    };
+    render();
+
+    // Canvas video track
+    const canvasStream = canvas.captureStream(30);
+
+    // Mix audio from all streams via AudioContext
+    const audioCtx = new AudioContext();
+    audioCtxRef.current = audioCtx;
+    const dest = audioCtx.createMediaStreamDestination();
+    for (const s of allStreamsRef.current) {
+      const audioTracks = s.stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        const source = audioCtx.createMediaStreamSource(new MediaStream(audioTracks));
+        source.connect(dest);
+      }
+    }
+
+    // Combined stream: canvas video + mixed audio
+    const combinedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...dest.stream.getAudioTracks(),
+    ]);
 
     // Use MP4 on Safari/iOS, fallback to WebM
     const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4"
@@ -113,7 +215,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       : "";
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
 
-    const mr = new MediaRecorder(localStream, mimeType ? { mimeType } : undefined);
+    const mr = new MediaRecorder(combinedStream, mimeType ? { mimeType } : undefined);
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunksRef.current.push(e.data);
     };
@@ -155,6 +257,18 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
+    }
+    // Cleanup canvas compositing
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
+    recordingVideosRef.current.forEach((v) => { v.srcObject = null; });
+    recordingVideosRef.current.clear();
+    recordingCanvasRef.current = null;
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
     }
   }, []);
 
@@ -228,10 +342,18 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   const safeIndex = allStreams.length > 0 ? activeStreamIndex % allStreams.length : 0;
   const currentDirectorStream = allStreams[safeIndex];
 
+  // Refs to access latest reactive values from the recording render loop
+  const allStreamsRef = useRef(allStreams);
+  allStreamsRef.current = allStreams;
+  const broadcastModeRef = useRef(broadcastMode);
+  broadcastModeRef.current = broadcastMode;
+  const safeIndexRef = useRef(safeIndex);
+  safeIndexRef.current = safeIndex;
+
   // --- Fullscreen broadcasting view ---
   if (isBroadcasting && localStream && isFullscreen) {
     return (
-      <div className="fixed inset-0 bg-black z-50">
+      <div className="fixed inset-0 bg-black z-50 overflow-hidden touch-none">
         {/* Multicam: all cameras side by side / Director: single auto-switching camera */}
         {broadcastMode === "multicam" ? (
           <div className="flex flex-row w-full h-full gap-0.5">
