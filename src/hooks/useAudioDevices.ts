@@ -56,15 +56,21 @@ export function useAudioDevices(): AudioDeviceState {
 
     setIsDetecting(true);
     try {
-      // Need a temporary stream to get labeled devices (permission required)
-      try {
-        const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        tempStream.getTracks().forEach((t) => t.stop());
-      } catch {
-        // Permission denied — can't enumerate with labels
-      }
+      // Try to enumerate first — if permissions were already granted (e.g. by broadcast),
+      // we'll get labels without needing a temporary stream
+      let devices = await navigator.mediaDevices.enumerateDevices();
+      const hasLabels = devices.some((d) => d.kind === "audioinput" && d.label);
 
-      const devices = await navigator.mediaDevices.enumerateDevices();
+      // Only request getUserMedia if we don't have labels yet and no stream is active
+      if (!hasLabels) {
+        try {
+          const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          tempStream.getTracks().forEach((t) => t.stop());
+          devices = await navigator.mediaDevices.enumerateDevices();
+        } catch {
+          // Permission denied — continue with unlabeled devices
+        }
+      }
       const audioInputs = devices.filter((d) => d.kind === "audioinput");
 
       if (!mountedRef.current) return;

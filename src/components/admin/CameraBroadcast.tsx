@@ -97,14 +97,15 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   // The device ID to use for SpynButton detection (prefer mixer for better audio quality)
   const spynDeviceId = audioSource === "external" || audioSource === "both" ? externalDeviceId : internalDeviceId;
 
-  // Auto-switch broadcast audio when source changes (plug/unplug USB mixer)
-  // Track previous values to avoid re-triggering on localStream changes
-  const prevAudioRef = useRef({ audioSource, externalDeviceId, internalDeviceId });
+  // Auto-switch broadcast audio ONLY when user explicitly changes source
+  // or when an external device is plugged in (audioSource changes to "both"/"external")
+  // Never call replaceAudioSource for "internal" — the default mic is already in the stream
+  const prevAudioSourceRef = useRef(audioSource);
   useEffect(() => {
-    const prev = prevAudioRef.current;
-    const changed = prev.audioSource !== audioSource || prev.externalDeviceId !== externalDeviceId || prev.internalDeviceId !== internalDeviceId;
-    prevAudioRef.current = { audioSource, externalDeviceId, internalDeviceId };
-    if (changed && isBroadcasting) {
+    const prev = prevAudioSourceRef.current;
+    prevAudioSourceRef.current = audioSource;
+    // Only trigger when audioSource actually changed AND we need external device
+    if (prev !== audioSource && isBroadcasting && audioSource !== "internal") {
       replaceAudioSource(audioSource, externalDeviceId, internalDeviceId);
     }
   }, [audioSource, externalDeviceId, internalDeviceId, isBroadcasting, replaceAudioSource]);
