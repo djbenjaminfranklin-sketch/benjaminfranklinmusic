@@ -1,45 +1,46 @@
 import { NextResponse } from "next/server";
 
-// Fetches temporary TURN credentials from Metered.ca
-// These credentials rotate automatically (more secure than static ones)
+// Returns ICE servers (STUN + TURN) for WebRTC connections
+// Supports static credentials via TURN_URL/TURN_USERNAME/TURN_CREDENTIAL env vars
+// Or dynamic credentials via METERED_APP_NAME/METERED_API_KEY
 export async function GET() {
-  const appName = process.env.METERED_APP_NAME;
-  const apiKey = process.env.METERED_API_KEY;
+  const stun = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ];
 
-  console.log("[TURN] Config check — appName:", appName ? `"${appName}"` : "MISSING", "apiKey:", apiKey ? "SET" : "MISSING");
+  // Option 1: Static TURN credentials (simplest)
+  const turnUrl = process.env.TURN_URL;
+  const turnUser = process.env.TURN_USERNAME;
+  const turnCred = process.env.TURN_CREDENTIAL;
 
-  if (!appName || !apiKey) {
+  if (turnUrl && turnUser && turnCred) {
+    const urls = turnUrl.split(",").map((u) => u.trim());
     return NextResponse.json([
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
+      ...stun,
+      { urls, username: turnUser, credential: turnCred },
     ]);
   }
 
-  // Try both Metered API domain formats
-  const urls = [
-    `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
-    `https://${appName}.metered.ca/api/v1/turn/credentials?apiKey=${apiKey}`,
-  ];
+  // Option 2: Dynamic credentials via Metered.ca API
+  const appName = process.env.METERED_APP_NAME;
+  const apiKey = process.env.METERED_API_KEY;
 
-  for (const url of urls) {
+  if (appName && apiKey) {
     try {
-      console.log("[TURN] Trying:", url.replace(apiKey, "***"));
-      const res = await fetch(url);
-
+      const res = await fetch(
+        `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
+      );
       if (res.ok) {
         const credentials = await res.json();
-        console.log("[TURN] Success — got", credentials.length, "servers");
         return NextResponse.json(credentials);
       }
-
-      console.error("[TURN] API error:", res.status, await res.text());
+      console.error("[TURN] Metered API error:", res.status);
     } catch (err) {
-      console.error("[TURN] Fetch failed:", err);
+      console.error("[TURN] Metered fetch failed:", err);
     }
   }
 
-  // Fallback to STUN only
-  return NextResponse.json([
-    { urls: "stun:stun.l.google.com:19302" },
-  ]);
+  // Fallback: STUN only
+  return NextResponse.json(stun);
 }
