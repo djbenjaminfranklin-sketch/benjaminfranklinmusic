@@ -22,95 +22,123 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
   const [attempt, setAttempt] = useState(0);
   const cancelledRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  // Record a chunk and send to ACRCloud, returns the track or null
+  // Encode PCM float32 samples into a WAV file (Blob)
+  const encodeWAV = useCallback((samples: Float32Array, sampleRate: number): Blob => {
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const dataSize = samples.length * (bitsPerSample / 8);
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    // WAV header
+    const writeStr = (offset: number, str: string) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeStr(36, "data");
+    view.setUint32(40, dataSize, true);
+
+    // PCM samples
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+    return new Blob([buffer], { type: "audio/wav" });
+  }, []);
+
+  // Record audio using Web Audio API (works reliably on iOS WKWebView)
   const recordAndIdentify = useCallback(async (stream: MediaStream): Promise<TrackResult | null> => {
     return new Promise((resolve) => {
-      // Let the browser pick the best supported format (iOS doesn't support webm)
-      let recorderOptions: MediaRecorderOptions | undefined;
-      for (const mime of ["audio/mp4", "audio/aac", "audio/webm;codecs=opus", "audio/webm", ""]) {
-        if (!mime || MediaRecorder.isTypeSupported(mime)) {
-          recorderOptions = mime ? { mimeType: mime } : undefined;
-          break;
-        }
-      }
-
-      let recorder: MediaRecorder;
       try {
-        recorder = new MediaRecorder(stream, recorderOptions);
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const sampleRate = audioCtx.sampleRate;
+
+        // ScriptProcessor to capture raw PCM (widely supported including WKWebView)
+        const bufferSize = 4096;
+        const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+        const pcmChunks: Float32Array[] = [];
+
+        processor.onaudioprocess = (e: AudioProcessingEvent) => {
+          const input = e.inputBuffer.getChannelData(0);
+          pcmChunks.push(new Float32Array(input));
+        };
+
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+
+        // Record for 10 seconds
+        setTimeout(async () => {
+          processor.disconnect();
+          source.disconnect();
+
+          // Merge all PCM chunks
+          const totalLength = pcmChunks.reduce((acc, c) => acc + c.length, 0);
+          const allSamples = new Float32Array(totalLength);
+          let pos = 0;
+          for (const chunk of pcmChunks) {
+            allSamples.set(chunk, pos);
+            pos += chunk.length;
+          }
+
+          audioCtx.close().catch(() => {});
+
+          if (totalLength < 1000) {
+            resolve({ _error: `Audio vide (${totalLength} samples)` } as unknown as TrackResult);
+            return;
+          }
+
+          const wavBlob = encodeWAV(allSamples, sampleRate);
+
+          const formData = new FormData();
+          formData.append("audio", wavBlob, "recording.wav");
+
+          try {
+            const res = await fetch("/api/live/identify", {
+              method: "POST",
+              body: formData,
+            });
+            const data = await res.json();
+            if (res.ok) {
+              resolve(data);
+              return;
+            }
+            if (res.status === 503) {
+              resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
+              return;
+            }
+            if (res.status === 404) {
+              resolve(null); // No track found, will retry
+              return;
+            }
+            resolve({ _error: `API ${res.status}` } as unknown as TrackResult);
+          } catch (err) {
+            resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
+          }
+        }, 10000);
       } catch (err) {
-        console.error("[Spyn] MediaRecorder init failed:", err);
-        resolve({ _error: `Recorder: ${err}` } as unknown as TrackResult);
-        return;
+        resolve({ _error: `Audio: ${err}` } as unknown as TrackResult);
       }
-      mediaRecorderRef.current = recorder;
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      recorder.onerror = (e) => {
-        console.error("[Spyn] MediaRecorder error:", e);
-        resolve({ _error: "Erreur enregistrement" } as unknown as TrackResult);
-      };
-
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, recorder.mimeType ? { type: recorder.mimeType } : undefined);
-        console.log("[Spyn] Blob size:", blob.size, "type:", blob.type || recorder.mimeType);
-
-        if (blob.size < 100) {
-          console.warn("[Spyn] Audio blob too small, skipping API call");
-          resolve(null);
-          return;
-        }
-
-        const formData = new FormData();
-        const ext = (recorder.mimeType || "").includes("mp4") ? "mp4" : "webm";
-        formData.append("audio", blob, `recording.${ext}`);
-
-        try {
-          const res = await fetch("/api/live/identify", {
-            method: "POST",
-            body: formData,
-          });
-          const data = await res.json();
-          console.log("[Spyn] API response:", res.status, data);
-          if (res.ok) {
-            resolve(data);
-            return;
-          }
-          if (res.status === 503) {
-            resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
-            return;
-          }
-        } catch (err) {
-          console.error("[Spyn] fetch error:", err);
-          resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
-          return;
-        }
-        resolve(null);
-      };
-
-      recorder.start(1000); // Collect data every second
-
-      // Record for 10 seconds per attempt
-      setTimeout(() => {
-        if (recorder.state === "recording") {
-          recorder.stop();
-        }
-      }, 10000);
     });
-  }, []);
+  }, [encodeWAV]);
 
   const identify = useCallback(async () => {
     // If already listening, cancel
     if (isListening) {
       cancelledRef.current = true;
-      if (mediaRecorderRef.current?.state === "recording") {
-        mediaRecorderRef.current.stop();
-      }
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       setIsListening(false);
