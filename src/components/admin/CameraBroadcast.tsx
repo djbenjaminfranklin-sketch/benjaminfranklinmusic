@@ -172,20 +172,20 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (mode === "multicam") {
-        // Side by side — same as what the user sees on screen
+        // Stacked vertically — same as what the user sees on screen
         const count = streams.length || 1;
-        const sliceW = canvas.width / count;
+        const sliceH = canvas.height / count;
         streams.forEach((s, i) => {
           const video = videos.get(s.id);
           if (video && video.readyState >= 2) {
             const vw = video.videoWidth || 1;
             const vh = video.videoHeight || 1;
-            const aspect = sliceW / canvas.height;
+            const aspect = canvas.width / sliceH;
             const vAspect = vw / vh;
             let sx = 0, sy = 0, sw = vw, sh = vh;
             if (vAspect > aspect) { sw = vh * aspect; sx = (vw - sw) / 2; }
             else { sh = vw / aspect; sy = (vh - sh) / 2; }
-            ctx.drawImage(video, sx, sy, sw, sh, i * sliceW, 0, sliceW, canvas.height);
+            ctx.drawImage(video, sx, sy, sw, sh, 0, i * sliceH, canvas.width, sliceH);
           }
         });
       } else {
@@ -374,9 +374,9 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   if (isBroadcasting && localStream && isFullscreen) {
     return (
       <div className="fixed inset-0 bg-black z-50 overflow-hidden touch-none">
-        {/* Multicam: all cameras side by side / Director: single auto-switching camera */}
+        {/* Multicam: all cameras stacked vertically / Director: single auto-switching camera */}
         {broadcastMode === "multicam" ? (
-          <div className="flex flex-row w-full h-full gap-0.5">
+          <div className="flex flex-col w-full h-full gap-0.5">
             {allStreams.map((s) => (
               <StreamBand key={s.id} stream={s.stream} label={s.label} mirror={s.mirror} />
             ))}
@@ -605,7 +605,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       {isBroadcasting && localStream ? (
         <div className={cn(
           "relative rounded-xl overflow-hidden border border-border bg-black h-[70vh] mx-auto flex gap-0.5 cursor-pointer",
-          allStreams.length > 1 ? "flex-row" : "flex-col aspect-[9/16]"
+          allStreams.length > 1 ? "flex-col" : "flex-col aspect-[9/16]"
         )} onClick={() => setIsFullscreen(true)}>
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
           {coHostEntries.map(([id], i) => (
