@@ -268,10 +268,24 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
 
         {/* Top overlays — pushed down for Dynamic Island, z-40 to stay above chat overlay */}
         <div className="absolute top-0 left-0 right-0 z-40 p-4 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1rem))] flex items-start justify-between">
-          {/* Left: LIVE badge */}
-          <div className="flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            <span className="text-[10px] font-bold text-white uppercase tracking-wider">LIVE</span>
+          {/* Left: LIVE badge + venue + track */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1 w-fit">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span className="text-[10px] font-bold text-white uppercase tracking-wider">LIVE</span>
+            </div>
+            {venue && (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
+                <MapPin className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="text-xs font-medium text-white truncate max-w-[200px]">{venue}</span>
+              </div>
+            )}
+            {currentTrack && (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
+                <Music className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="text-xs font-medium text-white truncate max-w-[200px]">{currentTrack.artist} — {currentTrack.title}</span>
+              </div>
+            )}
           </div>
 
           {/* Right: record + mode toggle + viewers + minimize */}
@@ -340,26 +354,6 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           </div>
         )}
 
-        {/* Venue + current track — bottom left, above chat */}
-        {(venue || currentTrack) && (
-          <div className="absolute bottom-32 left-4 z-40 flex flex-col gap-1">
-            {venue && (
-              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
-                <MapPin className="h-3.5 w-3.5 text-accent shrink-0" />
-                <span className="text-xs font-medium text-white truncate max-w-[200px]">{venue}</span>
-              </div>
-            )}
-            {currentTrack && (
-              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
-                <Music className="h-3.5 w-3.5 text-accent shrink-0" />
-                <span className="text-xs font-medium text-white truncate max-w-[200px]">{currentTrack.artist} — {currentTrack.title}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Spyn button — bottom right, above chat */}
-        <SpynButton />
 
         {/* Chat overlay — pushed up above bottom controls */}
         {chatMessages && onSendChat && (
@@ -410,6 +404,9 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
               <UserPlus className="h-6 w-6 text-accent" />
             </button>
           )}
+
+          {/* Spyn — music detection */}
+          <SpynButton inline />
         </div>
 
         {error && (

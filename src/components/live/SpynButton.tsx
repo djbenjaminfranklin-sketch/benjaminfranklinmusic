@@ -10,7 +10,11 @@ interface TrackResult {
   spotify_url?: string | null;
 }
 
-export default function SpynButton() {
+interface SpynButtonProps {
+  inline?: boolean;
+}
+
+export default function SpynButton({ inline = false }: SpynButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,21 +84,18 @@ export default function SpynButton() {
   }, [isListening]);
 
   return (
-    <>
-      {/* Spyn button — bottom right, above chat */}
+    <div className={inline ? "relative" : "contents"}>
+      {/* Spyn button */}
       <button
         onClick={identify}
         disabled={isListening}
-        className="absolute bottom-20 right-3 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent/90 backdrop-blur-sm border-2 border-accent shadow-lg active:scale-90 transition-transform disabled:animate-pulse touch-manipulation"
+        className={
+          inline
+            ? "relative z-30 flex items-center justify-center w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 active:scale-90 transition-transform disabled:animate-pulse touch-manipulation"
+            : "absolute bottom-20 right-3 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent/90 backdrop-blur-sm border-2 border-accent shadow-lg active:scale-90 transition-transform disabled:animate-pulse touch-manipulation"
+        }
       >
-        {/* Sound wave icon */}
-        <svg viewBox="0 0 24 24" className="w-6 h-6 text-background" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-          <path d="M12 6v12" />
-          <path d="M8 9v6" />
-          <path d="M16 9v6" />
-          <path d="M4 11v2" />
-          <path d="M20 11v2" />
-        </svg>
+        <span className={inline ? "text-xs font-bold text-accent" : "text-xs font-bold text-background"}>SPYN</span>
       </button>
 
       {/* Result popup */}
@@ -104,7 +105,11 @@ export default function SpynButton() {
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="absolute bottom-36 right-3 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl"
+            className={
+              inline
+                ? "absolute bottom-full right-0 mb-2 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl"
+                : "absolute bottom-36 right-3 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl"
+            }
           >
             <p className="text-xs font-bold text-accent mb-0.5">SPYN</p>
             <p className="text-sm font-bold text-white truncate">{result.title}</p>
@@ -130,7 +135,11 @@ export default function SpynButton() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-36 right-3 z-30 rounded-xl bg-red-500/20 backdrop-blur-sm px-3 py-2 border border-red-500/30"
+            className={
+              inline
+                ? "absolute bottom-full right-0 mb-2 z-30 rounded-xl bg-red-500/20 backdrop-blur-sm px-3 py-2 border border-red-500/30"
+                : "absolute bottom-36 right-3 z-30 rounded-xl bg-red-500/20 backdrop-blur-sm px-3 py-2 border border-red-500/30"
+            }
           >
             <p className="text-xs text-red-400">{error}</p>
           </motion.div>
@@ -144,12 +153,16 @@ export default function SpynButton() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
+            className={
+              inline
+                ? "absolute bottom-full right-0 mb-2 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
+                : "absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
+            }
           >
             <p className="text-xs text-accent font-medium animate-pulse">Écoute en cours...</p>
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

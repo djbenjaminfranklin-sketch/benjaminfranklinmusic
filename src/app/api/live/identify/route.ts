@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json();
 
+    // Debug: log full ACRCloud response to investigate detection issues
+    console.log("[ACRCloud] Response:", JSON.stringify(data, null, 2));
+
     if (data.status?.code === 0 && data.metadata?.music?.length > 0) {
       const track = data.metadata.music[0];
       return NextResponse.json({
