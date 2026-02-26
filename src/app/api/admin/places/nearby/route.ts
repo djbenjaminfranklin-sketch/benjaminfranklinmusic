@@ -19,11 +19,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "lat and lng are required" }, { status: 400 });
     }
 
-    // Search for nearby establishments (bars, clubs, restaurants)
+    // Search for nearby establishments (100m radius, closest business)
     const url = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
     url.searchParams.set("location", `${lat},${lng}`);
     url.searchParams.set("radius", "100");
-    url.searchParams.set("type", "bar|night_club|restaurant|cafe");
+    url.searchParams.set("type", "establishment");
     url.searchParams.set("key", apiKey);
 
     const res = await fetch(url.toString());
