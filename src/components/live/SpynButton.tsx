@@ -12,9 +12,10 @@ interface TrackResult {
 
 interface SpynButtonProps {
   inline?: boolean;
+  audioDeviceId?: string | null;
 }
 
-export default function SpynButton({ inline = false }: SpynButtonProps) {
+export default function SpynButton({ inline = false, audioDeviceId }: SpynButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +85,10 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
     cancelledRef.current = false;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioConstraints: MediaStreamConstraints["audio"] = audioDeviceId
+        ? { deviceId: { exact: audioDeviceId } }
+        : true;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
       const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm";
 
@@ -121,7 +125,7 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
       setIsListening(false);
       setAttempt(0);
     }
-  }, [isListening, recordAndIdentify]);
+  }, [isListening, recordAndIdentify, audioDeviceId]);
 
   return (
     <div className={inline ? "relative" : "contents"}>

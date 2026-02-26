@@ -1,12 +1,13 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music } from "lucide-react";
+import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
 import LiveChatOverlay from "@/components/live/LiveChatOverlay";
 import SpynButton from "@/components/live/SpynButton";
+import { useAudioDevices } from "@/hooks/useAudioDevices";
 import type { LiveChatMessage } from "@/types";
 
 interface CameraBroadcastProps {
@@ -83,11 +84,25 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     isMuted,
     toggleMute,
     guestNames,
+    replaceAudioSource,
   } = useLiveBroadcast();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const t = useTranslations("admin");
   const tLive = useTranslations("live");
+
+  // Audio device detection (Pioneer mixer, USB interfaces, etc.)
+  const { audioSource, audioSourceName, externalDeviceId, internalDeviceId, availableDevices, setAudioSource } = useAudioDevices();
+  const hasExternalDevice = !!externalDeviceId;
+  // The device ID to use for SpynButton detection (prefer mixer for better audio quality)
+  const spynDeviceId = audioSource === "external" || audioSource === "both" ? externalDeviceId : internalDeviceId;
+
+  // Auto-switch broadcast audio when source changes (plug/unplug USB mixer)
+  useEffect(() => {
+    if (isBroadcasting && localStream) {
+      replaceAudioSource(audioSource, externalDeviceId, internalDeviceId);
+    }
+  }, [audioSource, externalDeviceId, internalDeviceId, isBroadcasting, localStream, replaceAudioSource]);
 
   // --- Fullscreen mode (start inline so admin can see co-host link, ACR, etc.) ---
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -402,6 +417,12 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
                 <span className="text-xs font-medium text-white truncate max-w-[200px]">{venue}</span>
               </div>
             )}
+            {hasExternalDevice && (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-2.5 py-1 border border-white/10 w-fit">
+                <Usb className={cn("h-3 w-3 shrink-0", audioSource !== "internal" ? "text-accent" : "text-white/40")} />
+                <span className={cn("text-[10px] font-medium", audioSource !== "internal" ? "text-accent" : "text-white/40")}>{audioSourceName}</span>
+              </div>
+            )}
             {currentTrack && (
               <div className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-white/10 w-fit">
                 <Music className="h-3.5 w-3.5 text-accent shrink-0" />
@@ -527,8 +548,41 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
             </button>
           )}
 
+          {/* Audio source toggle — cycle: USB+Micro → USB → Micro */}
+          {hasExternalDevice && (
+            <button
+              onClick={() => {
+                const next = audioSource === "both" ? "external" : audioSource === "external" ? "internal" : "both";
+                setAudioSource(next);
+              }}
+              className={cn(
+                "w-14 h-14 rounded-full backdrop-blur-sm border flex flex-col items-center justify-center active:scale-95 transition-transform touch-manipulation gap-0.5",
+                audioSource !== "internal"
+                  ? "bg-accent/20 border-accent/40"
+                  : "bg-white/10 border-white/20"
+              )}
+            >
+              {audioSource === "both" ? (
+                <>
+                  <Usb className="h-4 w-4 text-accent" />
+                  <Mic className="h-3 w-3 text-accent -mt-0.5" />
+                </>
+              ) : audioSource === "external" ? (
+                <>
+                  <Usb className="h-5 w-5 text-accent" />
+                  <span className="text-[7px] font-bold text-accent leading-none">USB</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="h-5 w-5 text-white/60" />
+                  <span className="text-[7px] font-bold text-white/40 leading-none">MIC</span>
+                </>
+              )}
+            </button>
+          )}
+
           {/* Spyn — music detection */}
-          <SpynButton inline />
+          <SpynButton inline audioDeviceId={spynDeviceId} />
         </div>
 
         {error && (

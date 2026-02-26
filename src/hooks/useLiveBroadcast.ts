@@ -729,6 +729,104 @@ export function useLiveBroadcast() {
     setIsCoHost(false);
   }, []);
 
+  // Replace the audio source on all peer connections
+  // In "external" mode: mixes USB device (music) + internal mic (voice)
+  // In "internal" mode: just the phone mic
+  const mixedAudioCtxRef = useRef<AudioContext | null>(null);
+  const externalStreamRef = useRef<MediaStream | null>(null);
+
+  const replaceAudioSource = useCallback(async (mode: "internal" | "external" | "both", externalDeviceId?: string | null, internalDeviceId?: string | null) => {
+    if (!streamRef.current) return;
+
+    try {
+      let newAudioTrack: MediaStreamTrack;
+
+      // Cleanup previous mixed context
+      if (mixedAudioCtxRef.current) {
+        mixedAudioCtxRef.current.close().catch(() => {});
+        mixedAudioCtxRef.current = null;
+      }
+      externalStreamRef.current?.getTracks().forEach((t) => t.stop());
+      externalStreamRef.current = null;
+
+      if (mode === "external" && externalDeviceId) {
+        // USB only — mixer audio, no mic
+        const mixerStream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: externalDeviceId } },
+        });
+        externalStreamRef.current = mixerStream;
+        newAudioTrack = mixerStream.getAudioTracks()[0];
+
+      } else if (mode === "both" && externalDeviceId) {
+        // USB + Micro — mix both via Web Audio API
+        const mixerStream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: externalDeviceId } },
+        });
+        externalStreamRef.current = mixerStream;
+
+        const micConstraints: MediaStreamConstraints["audio"] = internalDeviceId
+          ? { deviceId: { exact: internalDeviceId } }
+          : true;
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints });
+
+        const audioCtx = new AudioContext();
+        mixedAudioCtxRef.current = audioCtx;
+        const dest = audioCtx.createMediaStreamDestination();
+
+        // Mixer (music) — full volume
+        const mixerSource = audioCtx.createMediaStreamSource(mixerStream);
+        const mixerGain = audioCtx.createGain();
+        mixerGain.gain.value = 1.0;
+        mixerSource.connect(mixerGain).connect(dest);
+
+        // Mic (voice) — slightly lower
+        const micSource = audioCtx.createMediaStreamSource(micStream);
+        const micGain = audioCtx.createGain();
+        micGain.gain.value = 0.8;
+        micSource.connect(micGain).connect(dest);
+
+        newAudioTrack = dest.stream.getAudioTracks()[0];
+
+      } else {
+        // Internal mic only
+        const micConstraints: MediaStreamConstraints["audio"] = internalDeviceId
+          ? { deviceId: { exact: internalDeviceId } }
+          : true;
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints });
+        newAudioTrack = micStream.getAudioTracks()[0];
+      }
+
+      // Keep mute state
+      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
+      if (oldAudioTrack) {
+        newAudioTrack.enabled = oldAudioTrack.enabled;
+      }
+
+      // Replace audio track in all peer connections
+      const allPeers = [...peersRef.current.values(), ...guestPeersRef.current.values()];
+      for (const pc of allPeers) {
+        if (pc.connectionState === "closed" || pc.connectionState === "failed") continue;
+        try {
+          for (const sender of pc.getSenders()) {
+            if (sender.track?.kind === "audio") {
+              await sender.replaceTrack(newAudioTrack);
+            }
+          }
+        } catch {}
+      }
+
+      // Update local stream
+      if (oldAudioTrack) {
+        streamRef.current.removeTrack(oldAudioTrack);
+        oldAudioTrack.stop();
+      }
+      streamRef.current.addTrack(newAudioTrack);
+      setLocalStream(new MediaStream(streamRef.current.getTracks()));
+    } catch (err) {
+      console.error("[Audio] Failed to switch audio source:", err);
+    }
+  }, []);
+
   // Send stop-broadcast on page close/refresh
   useEffect(() => {
     if (!isBroadcasting) return;
@@ -784,5 +882,6 @@ export function useLiveBroadcast() {
     isMuted,
     toggleMute,
     guestNames,
+    replaceAudioSource,
   };
 }
