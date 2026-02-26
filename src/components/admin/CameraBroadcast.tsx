@@ -505,7 +505,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
               </button>
             ) : (
               <button
-                onClick={() => startBroadcast({ video: true, audio: true, venue })}
+                onClick={() => startBroadcast({ video: true, audio: true })}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all",
                   "bg-red-500 text-white hover:bg-red-600 active:scale-[0.98]"

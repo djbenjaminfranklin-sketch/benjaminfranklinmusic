@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Radio, Square, Music, Mic, MapPin, Eye, Video, RefreshCw, Link, Copy, Check, Calendar, Share2, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Radio, Square, Music, MapPin, Eye, Video, Link, Copy, Check, Calendar, Share2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/hooks/useLiveStream";
 import { useLiveAdmin } from "@/hooks/useLiveAdmin";
-import { useACRCloud } from "@/hooks/useACRCloud";
 import { usePlacesSearch } from "@/hooks/usePlacesSearch";
 import CameraBroadcast from "./CameraBroadcast";
 
@@ -15,22 +14,16 @@ type LiveMode = "camera" | "hls";
 export default function LiveControlPanel() {
   const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage } = useLiveStream();
   const { goLive, stopLive, updateTrack } = useLiveAdmin();
-  const { isListening, track: acrTrack, error: acrError, identifyTrack, stopListening } = useACRCloud();
-  const { results: venueResults, isSearching, search: searchVenues } = usePlacesSearch();
   const { results: scheduleVenueResults, isSearching: isScheduleSearching, search: searchScheduleVenues } = usePlacesSearch();
 
   const [liveMode, setLiveMode] = useState<LiveMode>("camera");
   const [streamUrl, setStreamUrl] = useState("");
   const [trackArtist, setTrackArtist] = useState("");
   const [trackTitle, setTrackTitle] = useState("");
-  const [venueQuery, setVenueQuery] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [autoIdentifyEnabled, setAutoIdentifyEnabled] = useState(false);
   const [coHostCode, setCoHostCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const autoIdentifyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastAutoTrackRef = useRef<string | null>(null);
   const t = useTranslations("admin");
   const tLive = useTranslations("live");
 
@@ -152,7 +145,7 @@ export default function LiveControlPanel() {
     setLoading(true);
     setError("");
     try {
-      await goLive(streamUrl.trim(), "", venueQuery.trim() || undefined);
+      await goLive(streamUrl.trim(), "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
@@ -184,76 +177,6 @@ export default function LiveControlPanel() {
     }
   };
 
-  const handleACRIdentify = async () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      await identifyTrack();
-    }
-  };
-
-  // Auto-remplir les champs track quand ACRCloud identifie un morceau
-  useEffect(() => {
-    if (acrTrack) {
-      setTrackArtist(acrTrack.artist);
-      setTrackTitle(acrTrack.title);
-    }
-  }, [acrTrack]);
-
-  // Auto-push du track identifié quand auto-identify est actif
-  const autoUpdateTrack = useCallback(async (artist: string, title: string) => {
-    const key = `${artist}::${title}`;
-    if (key === lastAutoTrackRef.current) return; // Même track, pas besoin de renvoyer
-    lastAutoTrackRef.current = key;
-    try {
-      await updateTrack(artist, title, "");
-    } catch {
-      // Silencieux en mode auto
-    }
-  }, [updateTrack]);
-
-  useEffect(() => {
-    if (acrTrack && autoIdentifyEnabled) {
-      autoUpdateTrack(acrTrack.artist, acrTrack.title);
-    }
-  }, [acrTrack, autoIdentifyEnabled, autoUpdateTrack]);
-
-  // Boucle d'auto-identification : lance identifyTrack toutes les 45s quand actif
-  useEffect(() => {
-    if (!autoIdentifyEnabled || !streamStatus.isLive) {
-      if (autoIdentifyRef.current) {
-        clearTimeout(autoIdentifyRef.current);
-        autoIdentifyRef.current = null;
-      }
-      return;
-    }
-
-    const runCycle = () => {
-      if (!isListening) {
-        identifyTrack();
-      }
-      // Relancer dans 45s (10s d'enregistrement + 35s de pause)
-      autoIdentifyRef.current = setTimeout(runCycle, 45000);
-    };
-
-    // Lancer le premier cycle immédiatement
-    runCycle();
-
-    return () => {
-      if (autoIdentifyRef.current) {
-        clearTimeout(autoIdentifyRef.current);
-        autoIdentifyRef.current = null;
-      }
-    };
-  }, [autoIdentifyEnabled, streamStatus.isLive, identifyTrack, isListening]);
-
-  // Désactiver l'auto-identify quand le live s'arrête
-  useEffect(() => {
-    if (!streamStatus.isLive) {
-      setAutoIdentifyEnabled(false);
-      lastAutoTrackRef.current = null;
-    }
-  }, [streamStatus.isLive]);
 
   return (
     <div className="space-y-6">
@@ -457,7 +380,7 @@ export default function LiveControlPanel() {
       {(liveMode === "camera" && !streamStatus.isLive) || (streamStatus.isLive && streamStatus.streamType === "webrtc") ? (
         <div className="rounded-2xl border border-border bg-card p-5">
           <h3 className="text-sm font-semibold text-foreground/60 mb-4">{t("cameraBroadcast")}</h3>
-          <CameraBroadcast venue={venueQuery.trim() || undefined} isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} />
+          <CameraBroadcast isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} venue={streamStatus.venue} />
         </div>
       ) : null}
 
@@ -507,46 +430,10 @@ export default function LiveControlPanel() {
         </div>
       ) : null}
 
-      {/* Identification du track */}
+      {/* Track en cours (saisie manuelle) */}
       {streamStatus.isLive && (
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-foreground/60">{tLive("currentTrack")}</h3>
-
-          {/* ACRCloud */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={handleACRIdentify}
-              disabled={autoIdentifyEnabled}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium border transition-colors",
-                isListening
-                  ? "bg-red-500/20 border-red-500/30 text-red-400 animate-pulse"
-                  : "bg-accent/10 border-accent/20 text-accent hover:bg-accent/20",
-                autoIdentifyEnabled && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <Mic className="h-4 w-4" />
-              {isListening ? t("listening") : t("identifyTrack")}
-            </button>
-            <button
-              onClick={() => setAutoIdentifyEnabled((prev) => !prev)}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium border transition-colors",
-                autoIdentifyEnabled
-                  ? "bg-green-500/20 border-green-500/30 text-green-400"
-                  : "bg-foreground/5 border-border text-foreground/50 hover:text-foreground"
-              )}
-            >
-              <RefreshCw className={cn("h-4 w-4", autoIdentifyEnabled && "animate-spin")} />
-              {autoIdentifyEnabled ? t("autoIdentifyActive") : t("autoIdentify")}
-            </button>
-            {acrTrack && (
-              <span className="text-xs text-foreground/50">
-                {acrTrack.artist} - {acrTrack.title}
-              </span>
-            )}
-            {acrError && <span className="text-xs text-red-400">{acrError}</span>}
-          </div>
 
           <div className="flex gap-2">
             <input
@@ -614,47 +501,6 @@ export default function LiveControlPanel() {
         </div>
       )}
 
-      {/* Recherche de venue */}
-      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground/60">{t("searchVenue")}</h3>
-
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-foreground/40" />
-            <input
-              type="text"
-              placeholder={t("venuePlaceholder")}
-              value={venueQuery}
-              onChange={(e) => {
-                setVenueQuery(e.target.value);
-                searchVenues(e.target.value);
-              }}
-              className="flex-1 rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent"
-            />
-            {isSearching && (
-              <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            )}
-          </div>
-
-          {venueResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-10 max-h-48 overflow-y-auto">
-              {venueResults.map((v) => (
-                <button
-                  key={v.placeId}
-                  onClick={() => {
-                    setVenueQuery(v.name);
-                    searchVenues("");
-                  }}
-                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-foreground/5 transition-colors border-b border-border/50 last:border-0"
-                >
-                  <p className="font-medium text-primary">{v.name}</p>
-                  <p className="text-xs text-foreground/40">{v.address}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
