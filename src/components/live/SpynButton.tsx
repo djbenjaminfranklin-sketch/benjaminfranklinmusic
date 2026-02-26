@@ -18,30 +18,24 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const cancelledRef = useRef(false);
+  const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  const identify = useCallback(async () => {
-    if (isListening) return;
-    setError(null);
-    setResult(null);
-    setIsListening(true);
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm",
-      });
-      mediaRecorderRef.current = mediaRecorder;
+  // Record a chunk and send to ACRCloud, returns the track or null
+  const recordAndIdentify = useCallback(async (stream: MediaStream, mimeType: string): Promise<TrackResult | null> => {
+    return new Promise((resolve) => {
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
       const chunks: Blob[] = [];
 
-      mediaRecorder.ondataavailable = (e) => {
+      recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
       };
 
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-
-        const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: mimeType });
         const formData = new FormData();
         formData.append("audio", blob, "recording.wav");
 
@@ -50,38 +44,84 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
             method: "POST",
             body: formData,
           });
-
           const data = await res.json();
           if (res.ok) {
-            setResult(data);
-            // Auto-hide after 8 seconds
-            setTimeout(() => setResult(null), 8000);
-          } else {
-            setError(data.error || "Aucun morceau détecté");
-            setTimeout(() => setError(null), 4000);
+            resolve(data);
+            return;
           }
-        } catch {
-          setError("Erreur de détection");
-          setTimeout(() => setError(null), 4000);
-        } finally {
-          setIsListening(false);
-        }
+        } catch {}
+        resolve(null);
       };
 
-      mediaRecorder.start();
+      recorder.start();
 
-      // Record for 8 seconds
+      // Record for 10 seconds per attempt
       setTimeout(() => {
-        if (mediaRecorder.state === "recording") {
-          mediaRecorder.stop();
+        if (recorder.state === "recording") {
+          recorder.stop();
         }
-      }, 8000);
+      }, 10000);
+    });
+  }, []);
+
+  const identify = useCallback(async () => {
+    // If already listening, cancel
+    if (isListening) {
+      cancelledRef.current = true;
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setIsListening(false);
+      setAttempt(0);
+      return;
+    }
+
+    setError(null);
+    setResult(null);
+    setIsListening(true);
+    cancelledRef.current = false;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm";
+
+      // Loop: record + identify, retry up to 6 times (60 seconds max)
+      const maxAttempts = 6;
+      for (let i = 0; i < maxAttempts; i++) {
+        if (cancelledRef.current) break;
+        setAttempt(i + 1);
+
+        const track = await recordAndIdentify(stream, mimeType);
+
+        if (cancelledRef.current) break;
+
+        if (track) {
+          setResult(track);
+          setTimeout(() => setResult(null), 10000);
+          break;
+        }
+
+        // Last attempt failed — show message
+        if (i === maxAttempts - 1) {
+          setError("Aucun morceau détecté");
+          setTimeout(() => setError(null), 4000);
+        }
+      }
+
+      // Cleanup
+      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     } catch {
       setError("Accès micro refusé");
       setTimeout(() => setError(null), 4000);
+    } finally {
       setIsListening(false);
+      setAttempt(0);
     }
-  }, [isListening]);
+  }, [isListening, recordAndIdentify]);
 
   return (
     <div className={inline ? "relative" : "contents"}>
@@ -108,7 +148,6 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
         </AnimatePresence>
         <button
           onClick={identify}
-          disabled={isListening}
           className={
             inline
               ? "relative z-10 flex items-center justify-center w-14 h-14 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation"
@@ -180,7 +219,7 @@ export default function SpynButton({ inline = false }: SpynButtonProps) {
                 : "absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
             }
           >
-            <p className="text-xs text-accent font-medium animate-pulse">Écoute en cours...</p>
+            <p className="text-xs text-accent font-medium animate-pulse">Écoute{attempt > 1 ? ` (${attempt}/6)` : ""}...</p>
           </motion.div>
         )}
       </AnimatePresence>

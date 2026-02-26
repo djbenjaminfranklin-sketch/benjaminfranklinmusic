@@ -51,10 +51,16 @@ async function setLowLatencyEncoding(pc: RTCPeerConnection) {
   for (const sender of pc.getSenders()) {
     if (sender.track?.kind !== "video") continue;
     try {
+      // Hint the encoder that this is motion-heavy (live camera)
+      if ("contentHint" in sender.track) {
+        sender.track.contentHint = "motion";
+      }
       const params = sender.getParameters();
       if (!params.encodings?.length) continue;
       params.degradationPreference = "maintain-framerate";
-      params.encodings[0].maxBitrate = 2_500_000;
+      // Lower bitrate = faster encode/decode = less latency
+      params.encodings[0].maxBitrate = 1_500_000;
+      params.encodings[0].maxFramerate = 30;
       await sender.setParameters(params);
     } catch {}
   }
@@ -664,9 +670,15 @@ export function useLiveBroadcast() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: options?.video !== false ? { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        video: options?.video !== false ? { facingMode: "environment", width: { ideal: 960 }, height: { ideal: 540 } } : false,
         audio: options?.audio !== false,
       });
+
+      // Hint video track for motion content (faster encoding)
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && "contentHint" in videoTrack) {
+        videoTrack.contentHint = "motion";
+      }
 
       streamRef.current = stream;
       setLocalStream(stream);

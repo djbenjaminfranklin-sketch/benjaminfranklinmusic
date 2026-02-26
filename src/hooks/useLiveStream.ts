@@ -50,10 +50,14 @@ async function setLowLatencyEncoding(pc: RTCPeerConnection) {
   for (const sender of pc.getSenders()) {
     if (sender.track?.kind !== "video") continue;
     try {
+      if ("contentHint" in sender.track) {
+        sender.track.contentHint = "motion";
+      }
       const params = sender.getParameters();
       if (!params.encodings?.length) continue;
       params.degradationPreference = "maintain-framerate";
-      params.encodings[0].maxBitrate = 2_500_000;
+      params.encodings[0].maxBitrate = 1_500_000;
+      params.encodings[0].maxFramerate = 30;
       await sender.setParameters(params);
     } catch {}
   }
