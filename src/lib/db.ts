@@ -12,7 +12,7 @@ const db = new Database(path.join(DATA_DIR, "app.db"));
 
 // Enable WAL mode for better concurrent read performance
 db.pragma("journal_mode = WAL");
-db.pragma("busy_timeout = 5000");
+db.pragma("busy_timeout = 30000");
 db.pragma("foreign_keys = ON");
 
 // --- Schema ---
