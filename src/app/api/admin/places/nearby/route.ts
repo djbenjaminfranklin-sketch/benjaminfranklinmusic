@@ -35,6 +35,21 @@ export async function GET(request: NextRequest) {
       placeId: p.place_id || "",
     }));
 
+    // Fallback: if no places found, reverse geocode to get street address
+    if (places.length === 0) {
+      const geoUrl = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+      geoUrl.searchParams.set("latlng", `${lat},${lng}`);
+      geoUrl.searchParams.set("key", apiKey);
+      const geoRes = await fetch(geoUrl.toString());
+      const geoData = await geoRes.json();
+      if (geoData.results?.length > 0) {
+        const addr = geoData.results[0].formatted_address || "";
+        // Use short address (remove country/postal code for cleaner display)
+        const shortAddr = addr.split(",").slice(0, 2).join(",").trim();
+        return NextResponse.json({ places: [{ name: shortAddr, address: addr, placeId: "" }] });
+      }
+    }
+
     return NextResponse.json({ places });
   } catch {
     return NextResponse.json({ error: "Failed to search nearby places" }, { status: 500 });

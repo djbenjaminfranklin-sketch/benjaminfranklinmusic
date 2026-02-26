@@ -14,6 +14,7 @@ import LiveChatOverlay from "./LiveChatOverlay";
 import AdminPanel from "./AdminPanel";
 import LiveMap from "./LiveMap";
 import ViewerInviteModal from "./ViewerInviteModal";
+import SpynButton from "./SpynButton";
 
 export default function LiveContainer() {
   const {
@@ -320,6 +321,9 @@ export default function LiveContainer() {
                   )}
                   {/* Track display — adapté au fullscreen */}
                   <TrackDisplay track={streamStatus.currentTrack} />
+
+                  {/* Spyn detection button */}
+                  <SpynButton />
 
                   {/* Chat overlay style Instagram Live */}
                   <LiveChatOverlay
