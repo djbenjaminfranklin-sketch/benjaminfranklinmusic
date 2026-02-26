@@ -6,33 +6,40 @@ export async function GET() {
   const appName = process.env.METERED_APP_NAME;
   const apiKey = process.env.METERED_API_KEY;
 
+  console.log("[TURN] Config check — appName:", appName ? `"${appName}"` : "MISSING", "apiKey:", apiKey ? "SET" : "MISSING");
+
   if (!appName || !apiKey) {
-    // Fallback: return only STUN servers (no relay)
     return NextResponse.json([
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
     ]);
   }
 
-  try {
-    const res = await fetch(
-      `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
-      { next: { revalidate: 3600 } } // Cache for 1 hour (credentials last ~24h)
-    );
+  // Try both Metered API domain formats
+  const urls = [
+    `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
+    `https://${appName}.metered.ca/api/v1/turn/credentials?apiKey=${apiKey}`,
+  ];
 
-    if (!res.ok) {
-      console.error("[TURN] Metered API error:", res.status, await res.text());
-      return NextResponse.json([
-        { urls: "stun:stun.l.google.com:19302" },
-      ]);
+  for (const url of urls) {
+    try {
+      console.log("[TURN] Trying:", url.replace(apiKey, "***"));
+      const res = await fetch(url);
+
+      if (res.ok) {
+        const credentials = await res.json();
+        console.log("[TURN] Success — got", credentials.length, "servers");
+        return NextResponse.json(credentials);
+      }
+
+      console.error("[TURN] API error:", res.status, await res.text());
+    } catch (err) {
+      console.error("[TURN] Fetch failed:", err);
     }
-
-    const credentials = await res.json();
-    return NextResponse.json(credentials);
-  } catch (err) {
-    console.error("[TURN] Failed to fetch credentials:", err);
-    return NextResponse.json([
-      { urls: "stun:stun.l.google.com:19302" },
-    ]);
   }
+
+  // Fallback to STUN only
+  return NextResponse.json([
+    { urls: "stun:stun.l.google.com:19302" },
+  ]);
 }
