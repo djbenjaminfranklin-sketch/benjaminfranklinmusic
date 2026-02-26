@@ -10,17 +10,16 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const db = new Database(path.join(DATA_DIR, "app.db"));
 
-// Enable WAL mode for better concurrent read performance
-db.pragma("journal_mode = WAL");
-db.pragma("busy_timeout = 30000");
-db.pragma("foreign_keys = ON");
-
-// --- Schema ---
-// Wrapped in try-catch: during Next.js build, multiple Turbopack workers
-// import this module simultaneously, competing for the SQLite write lock.
-// Tables are idempotent (IF NOT EXISTS), so SQLITE_BUSY is safe to ignore
-// when another worker already created them.
+// During Next.js build, 15 Turbopack workers import this module simultaneously.
+// All DB init (pragmas + schema) is wrapped in try-catch because any write operation
+// can throw SQLITE_BUSY when another worker holds the lock.
+// Tables use IF NOT EXISTS, and pragmas are idempotent, so this is safe.
 try {
+  // Set busy_timeout first (connection-level, no lock) so subsequent ops wait
+  db.pragma("busy_timeout = 30000");
+  db.pragma("foreign_keys = ON");
+  db.pragma("journal_mode = WAL");
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -98,7 +97,10 @@ try {
 } catch (e: unknown) {
   const err = e as { code?: string };
   if (err?.code !== "SQLITE_BUSY") throw e;
-  // SQLITE_BUSY during build is safe — tables already exist from another worker
+  // SQLITE_BUSY during build is safe — another worker completed the init.
+  // Ensure busy_timeout is set for runtime queries even if init was skipped.
+  try { db.pragma("busy_timeout = 30000"); } catch {}
+  try { db.pragma("foreign_keys = ON"); } catch {}
 }
 
 // --- Types ---
