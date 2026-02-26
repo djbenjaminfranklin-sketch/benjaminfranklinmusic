@@ -185,6 +185,14 @@ export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: 
   emitter.emit("live:status", liveStreamStatus);
 }
 
+export function updateLocation(location?: { lat: number; lng: number }, venue?: string) {
+  if (liveStreamStatus.isLive) {
+    if (location) liveStreamStatus.location = location;
+    if (venue) liveStreamStatus.venue = venue;
+    emitter.emit("live:status", liveStreamStatus);
+  }
+}
+
 export function getCoHostCode(): string | null {
   return coHostCode;
 }

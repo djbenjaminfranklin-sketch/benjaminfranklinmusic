@@ -180,7 +180,11 @@ export function useLiveBroadcast() {
 
   // Invite a random viewer
   const inviteRandomViewer = useCallback(async () => {
-    if (!clientIdRef.current) return;
+    if (!clientIdRef.current) {
+      setError("Connexion en cours, réessaye dans un instant");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
     setInviting(true);
     try {
       const res = await fetch("/api/live/signal", {
@@ -189,11 +193,13 @@ export function useLiveBroadcast() {
         body: JSON.stringify({ type: "invite-viewer", from: clientIdRef.current }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "No viewers available");
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Aucun viewer disponible");
+        setTimeout(() => setError(null), 3000);
       }
     } catch {
-      setError("Failed to invite viewer");
+      setError("Impossible d'inviter un viewer");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setInviting(false);
     }
@@ -384,17 +390,22 @@ export function useLiveBroadcast() {
         newAudioTrack.enabled = oldAudioTrack.enabled;
       }
 
-      // Replace tracks in all peer connections
+      // Replace tracks in all peer connections (skip failed peers)
       const allPeers = [...peersRef.current.values(), ...guestPeersRef.current.values()];
       for (const pc of allPeers) {
-        const senders = pc.getSenders();
-        for (const sender of senders) {
-          if (sender.track?.kind === "video" && newVideoTrack) {
-            await sender.replaceTrack(newVideoTrack);
+        if (pc.connectionState === "closed" || pc.connectionState === "failed") continue;
+        try {
+          const senders = pc.getSenders();
+          for (const sender of senders) {
+            if (sender.track?.kind === "video" && newVideoTrack) {
+              await sender.replaceTrack(newVideoTrack);
+            }
+            if (sender.track?.kind === "audio" && newAudioTrack) {
+              await sender.replaceTrack(newAudioTrack);
+            }
           }
-          if (sender.track?.kind === "audio" && newAudioTrack) {
-            await sender.replaceTrack(newAudioTrack);
-          }
+        } catch {
+          // Skip this peer, continue with others
         }
       }
 
@@ -405,7 +416,8 @@ export function useLiveBroadcast() {
       setLocalStream(newStream);
       setFacingMode(newFacing);
     } catch {
-      // Camera switch failed, keep current
+      setError("Impossible de changer de caméra");
+      setTimeout(() => setError(null), 3000);
     }
   }, [facingMode]);
 
@@ -480,27 +492,35 @@ export function useLiveBroadcast() {
       streamRef.current = stream;
       setLocalStream(stream);
 
-      // Auto-detect venue in background (non-blocking) after camera is ready
-      const geoPromise = options?.venue
-        ? Promise.resolve({ venue: options.venue } as { venue?: string; lat?: number; lng?: number })
-        : detectVenue();
-
       setupSSE((clientId) => {
-        // Wait for venue detection then signal server
-        geoPromise.then((geoResult) => {
-          const venueToSend = options?.venue || geoResult.venue;
-          const locationToSend = geoResult.lat && geoResult.lng ? { lat: geoResult.lat, lng: geoResult.lng } : undefined;
-          fetch("/api/live/signal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "start-broadcast",
-              from: clientId,
-              venue: venueToSend,
-              ...(locationToSend || {}),
-            }),
-          });
+        // Start broadcast immediately (don't wait for geolocation)
+        fetch("/api/live/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "start-broadcast",
+            from: clientId,
+            venue: options?.venue,
+          }),
         });
+
+        // Auto-detect venue in background, update server when ready
+        if (!options?.venue) {
+          detectVenue().then((geoResult) => {
+            if (geoResult.venue || geoResult.lat) {
+              fetch("/api/live/admin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "update-location",
+                  venue: geoResult.venue,
+                  lat: geoResult.lat,
+                  lng: geoResult.lng,
+                }),
+              });
+            }
+          });
+        }
       });
 
       setIsBroadcasting(true);

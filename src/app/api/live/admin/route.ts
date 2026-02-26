@@ -3,6 +3,7 @@ import {
   getLiveState,
   setLiveStatus,
   updateCurrentTrack,
+  updateLocation,
   getCoHostCode,
   emitScheduledLive,
 } from "@/lib/sse-hub";
@@ -97,9 +98,16 @@ export async function POST(request: NextRequest) {
         emitScheduledLive(null);
         break;
 
+      case "update-location":
+        updateLocation(
+          typeof lat === "number" && typeof lng === "number" ? { lat, lng } : undefined,
+          venue,
+        );
+        break;
+
       default:
         return NextResponse.json(
-          { error: "Invalid action. Use: go-live, stop-live, update-track, schedule-live, cancel-schedule" },
+          { error: "Invalid action" },
           { status: 400 },
         );
     }
