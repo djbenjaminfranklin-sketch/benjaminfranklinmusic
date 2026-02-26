@@ -16,81 +16,90 @@ db.pragma("busy_timeout = 30000");
 db.pragma("foreign_keys = ON");
 
 // --- Schema ---
+// Wrapped in try-catch: during Next.js build, multiple Turbopack workers
+// import this module simultaneously, competing for the SQLite write lock.
+// Tables are idempotent (IF NOT EXISTS), so SQLITE_BUSY is safe to ignore
+// when another worker already created them.
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT DEFAULT 'fan',
+      created_at TEXT DEFAULT (datetime('now')),
+      email_verified INTEGER DEFAULT 0
+    );
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    role TEXT DEFAULT 'fan',
-    created_at TEXT DEFAULT (datetime('now')),
-    email_verified INTEGER DEFAULT 0
-  );
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT UNIQUE NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS push_subscriptions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    endpoint TEXT UNIQUE NOT NULL,
-    p256dh TEXT NOT NULL,
-    auth TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
+    CREATE TABLE IF NOT EXISTS broadcasts (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      channels TEXT NOT NULL,
+      sent_by TEXT NOT NULL REFERENCES users(id),
+      sent_at TEXT DEFAULT (datetime('now')),
+      recipient_count INTEGER DEFAULT 0
+    );
 
-  CREATE TABLE IF NOT EXISTS broadcasts (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    channels TEXT NOT NULL,
-    sent_by TEXT NOT NULL REFERENCES users(id),
-    sent_at TEXT DEFAULT (datetime('now')),
-    recipient_count INTEGER DEFAULT 0
-  );
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS site_settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at TEXT DEFAULT (datetime('now'))
-  );
+    CREATE TABLE IF NOT EXISTS shows (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      venue TEXT NOT NULL,
+      city TEXT NOT NULL,
+      country TEXT NOT NULL,
+      date TEXT NOT NULL,
+      ticket_url TEXT,
+      sold_out INTEGER DEFAULT 0,
+      is_past INTEGER DEFAULT 0,
+      tracklist TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS shows (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    venue TEXT NOT NULL,
-    city TEXT NOT NULL,
-    country TEXT NOT NULL,
-    date TEXT NOT NULL,
-    ticket_url TEXT,
-    sold_out INTEGER DEFAULT 0,
-    is_past INTEGER DEFAULT 0,
-    tracklist TEXT,
-    sort_order INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS releases (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'single',
-    release_date TEXT NOT NULL,
-    cover_url TEXT NOT NULL,
-    audio_url TEXT,
-    spotify_url TEXT,
-    spotify_embed_id TEXT,
-    featured INTEGER DEFAULT 0,
-    sort_order INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  );
-`);
+    CREATE TABLE IF NOT EXISTS releases (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'single',
+      release_date TEXT NOT NULL,
+      cover_url TEXT NOT NULL,
+      audio_url TEXT,
+      spotify_url TEXT,
+      spotify_embed_id TEXT,
+      featured INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+} catch (e: unknown) {
+  const err = e as { code?: string };
+  if (err?.code !== "SQLITE_BUSY") throw e;
+  // SQLITE_BUSY during build is safe — tables already exist from another worker
+}
 
 // --- Types ---
 
