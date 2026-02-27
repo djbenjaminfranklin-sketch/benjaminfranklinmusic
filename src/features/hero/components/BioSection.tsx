@@ -51,12 +51,12 @@ export default function BioSection({ bioOverride }: BioSectionProps) {
             className="lg:col-span-2"
           >
             <div className="relative aspect-[3/4] w-full max-w-sm mx-auto rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={config.assets.bioImage}
                 alt={config.artist.name}
-                fill
-                style={{ objectFit: "cover", objectPosition: "var(--bio-image-pos, center 15%)" }}
-                sizes="(max-width: 1024px) 100vw, 40vw"
+                className="absolute inset-0 w-full h-full"
+                style={{ objectFit: "cover", objectPosition: `center ${config.assets.bioImagePos}%` }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
               {/* Accent glow en bas */}

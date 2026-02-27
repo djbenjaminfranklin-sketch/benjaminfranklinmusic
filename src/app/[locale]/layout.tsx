@@ -73,8 +73,6 @@ export default async function LocaleLayout({ children, params }: Props) {
         "--theme-border": theme.border,
         "--theme-accent": theme.accent,
         "--theme-primary": theme.primary,
-        "--hero-image-pos": `center ${config.assets.heroImagePos}%`,
-        "--bio-image-pos": `center ${config.assets.bioImagePos}%`,
       } as React.CSSProperties}
     >
       <head>
