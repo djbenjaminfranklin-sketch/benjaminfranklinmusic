@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/features/auth/lib/auth";
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin(request);

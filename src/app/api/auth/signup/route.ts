@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createUser, getUserByEmail, createSession } from "@/lib/db";
-import { hashPassword, createJWT, setAuthCookie, sanitizeUser } from "@/lib/auth";
+import { createUser, getUserByEmail, createSession } from "@/shared/lib/db";
+import { hashPassword, createJWT, setAuthCookie, sanitizeUser } from "@/features/auth/lib/auth";
 
 const signupSchema = z.object({
   email: z.email("Invalid email address"),

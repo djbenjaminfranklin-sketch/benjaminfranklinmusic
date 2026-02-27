@@ -1,6 +1,6 @@
 "use client";
 
-import ReleasesManager from "@/components/admin/ReleasesManager";
+import ReleasesManager from "@/features/admin/components/ReleasesManager";
 
 export default function AdminReleasesPage() {
   return <ReleasesManager />;

@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import FanZoneContainer from "@/components/fan-zone/FanZoneContainer";
+import FanZoneContainer from "@/features/chat/components/FanZoneContainer";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { addChatMessage } from "@/lib/sse-hub";
-import { getDynamicConfig } from "@/lib/dynamic-config";
-import { sendPushToAll } from "@/lib/push";
+import { addChatMessage } from "@/shared/lib/sse-hub";
+import { getDynamicConfig } from "@/shared/lib/dynamic-config";
+import { sendPushToAll } from "@/features/push/lib/push";
 
 const VIDEO_MAX = 100 * 1024 * 1024; // 100MB
 

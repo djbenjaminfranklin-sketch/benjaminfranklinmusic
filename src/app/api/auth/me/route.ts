@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser, sanitizeUser } from "@/lib/auth";
+import { getAuthUser, sanitizeUser } from "@/features/auth/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {

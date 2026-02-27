@@ -1,6 +1,6 @@
 "use client";
 
-import ShowsManager from "@/components/admin/ShowsManager";
+import ShowsManager from "@/features/admin/components/ShowsManager";
 
 export default function AdminShowsPage() {
   return <ShowsManager />;

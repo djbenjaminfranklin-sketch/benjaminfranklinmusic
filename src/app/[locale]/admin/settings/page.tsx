@@ -1,6 +1,6 @@
 "use client";
 
-import SettingsPanel from "@/components/admin/SettingsPanel";
+import SettingsPanel from "@/features/admin/components/SettingsPanel";
 
 export default function AdminSettingsPage() {
   return <SettingsPanel />;

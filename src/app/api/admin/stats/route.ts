@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserCount, getBroadcastCount, getPushSubscriptionCount } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
-import { getChatState } from "@/lib/sse-hub";
+import { getUserCount, getBroadcastCount, getPushSubscriptionCount } from "@/shared/lib/db";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { getChatState } from "@/shared/lib/sse-hub";
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);

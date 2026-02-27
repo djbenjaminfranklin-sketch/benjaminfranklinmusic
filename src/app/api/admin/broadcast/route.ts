@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getAllUsers, createBroadcast, getBroadcasts } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
-import { sendPushToAll } from "@/lib/push";
-import { addChatMessage } from "@/lib/sse-hub";
+import { getAllUsers, createBroadcast, getBroadcasts } from "@/shared/lib/db";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { sendPushToAll } from "@/features/push/lib/push";
+import { addChatMessage } from "@/shared/lib/sse-hub";
 import { Resend } from "resend";
 
 export async function GET(request: NextRequest) {
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     // Chat broadcast
     if (channels.includes("chat")) {
       try {
-        const { getDynamicConfig } = await import("@/lib/dynamic-config");
+        const { getDynamicConfig } = await import("@/shared/lib/dynamic-config");
         const config = getDynamicConfig();
         addChatMessage(config.artist.name, `${title}: ${message}`, true, undefined, undefined, imageUrl);
         console.log("[broadcast] Chat message posted");

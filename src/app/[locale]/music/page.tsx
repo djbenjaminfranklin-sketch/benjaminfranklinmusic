@@ -1,8 +1,8 @@
 import { getTranslations } from "next-intl/server";
-import { getReleases } from "@/lib/dynamic-config";
-import MusicContainer from "@/components/music/MusicContainer";
+import { getReleases } from "@/shared/lib/dynamic-config";
+import MusicContainer from "@/features/music/components/MusicContainer";
 import siteConfig from "../../../../site.config";
-import type { Release } from "@/types";
+import type { Release } from "@/shared/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

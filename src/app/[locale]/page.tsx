@@ -1,7 +1,7 @@
 import { getLocale } from "next-intl/server";
-import { getBio, getTagline } from "@/lib/dynamic-config";
-import HeroSection from "@/components/hero/HeroSection";
-import BioSection from "@/components/hero/BioSection";
+import { getBio, getTagline } from "@/shared/lib/dynamic-config";
+import HeroSection from "@/features/hero/components/HeroSection";
+import BioSection from "@/features/hero/components/BioSection";
 
 export default async function HomePage() {
   const locale = await getLocale();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { getUpcomingShows, getPastShows, createShow } from "@/lib/dynamic-config";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { getUpcomingShows, getPastShows, createShow } from "@/shared/lib/dynamic-config";
 
 export const dynamic = "force-dynamic";
 

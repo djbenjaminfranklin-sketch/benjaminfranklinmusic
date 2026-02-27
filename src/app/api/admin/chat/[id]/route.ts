@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { deleteChatMessage } from "@/lib/sse-hub";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { deleteChatMessage } from "@/shared/lib/sse-hub";
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(request);

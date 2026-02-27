@@ -5,8 +5,8 @@ import {
   getLiveState,
   onLive,
   type SignalMessage,
-} from "@/lib/sse-hub";
-import { getScheduledLive } from "@/lib/dynamic-config";
+} from "@/shared/lib/sse-hub";
+import { getScheduledLive } from "@/shared/lib/dynamic-config";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";

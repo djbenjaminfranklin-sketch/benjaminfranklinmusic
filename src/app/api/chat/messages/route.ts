@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addChatMessage, addChatReaction } from "@/lib/sse-hub";
-import { getDynamicConfig } from "@/lib/dynamic-config";
-import { sendPushToAll } from "@/lib/push";
+import { addChatMessage, addChatReaction } from "@/shared/lib/sse-hub";
+import { getDynamicConfig } from "@/shared/lib/dynamic-config";
+import { sendPushToAll } from "@/features/push/lib/push";
 
 const VALID_REACTIONS = ["fire", "heart", "100", "headphones", "vinyl"];
 

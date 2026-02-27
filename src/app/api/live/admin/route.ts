@@ -7,10 +7,10 @@ import {
   ensureCoHostCode,
   emitScheduledLive,
   addChatMessage,
-} from "@/lib/sse-hub";
-import { getAuthUser } from "@/lib/auth";
-import { sendPushToAll } from "@/lib/push";
-import { getScheduledLive, setScheduledLive, getDynamicConfig } from "@/lib/dynamic-config";
+} from "@/shared/lib/sse-hub";
+import { getAuthUser } from "@/features/auth/lib/auth";
+import { sendPushToAll } from "@/features/push/lib/push";
+import { getScheduledLive, setScheduledLive, getDynamicConfig } from "@/shared/lib/dynamic-config";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser(request);

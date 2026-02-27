@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { banUser, unbanUser, getUserById } from "@/lib/db";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { banUser, unbanUser, getUserById } from "@/shared/lib/db";
 
 export async function POST(
   request: NextRequest,

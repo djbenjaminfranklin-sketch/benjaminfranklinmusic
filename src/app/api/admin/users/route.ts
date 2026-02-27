@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllUsers } from "@/lib/db";
-import { requireAdmin, sanitizeUser } from "@/lib/auth";
+import { getAllUsers } from "@/shared/lib/db";
+import { requireAdmin, sanitizeUser } from "@/features/auth/lib/auth";
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);

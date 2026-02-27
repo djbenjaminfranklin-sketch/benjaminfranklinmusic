@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { relaySignal, setBroadcaster, setLiveStatus, getBroadcaster, getRandomViewer, sendInvite, sendInviteResponse, addCoHost, removeCoHost, getCoHosts, validateCoHostCode } from "@/lib/sse-hub";
-import { getAuthUser } from "@/lib/auth";
-import { sendPushToAll } from "@/lib/push";
+import { relaySignal, setBroadcaster, setLiveStatus, getBroadcaster, getRandomViewer, sendInvite, sendInviteResponse, addCoHost, removeCoHost, getCoHosts, validateCoHostCode } from "@/shared/lib/sse-hub";
+import { getAuthUser } from "@/features/auth/lib/auth";
+import { sendPushToAll } from "@/features/push/lib/push";
 
 export async function POST(request: NextRequest) {
   try {

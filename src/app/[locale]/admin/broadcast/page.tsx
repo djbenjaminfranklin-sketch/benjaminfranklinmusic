@@ -1,6 +1,6 @@
 "use client";
 
-import BroadcastPanel from "@/components/admin/BroadcastPanel";
+import BroadcastPanel from "@/features/admin/components/BroadcastPanel";
 
 export default function BroadcastPage() {
   return <BroadcastPanel />;

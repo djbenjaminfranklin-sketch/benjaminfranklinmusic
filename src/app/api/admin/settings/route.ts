@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { getAllSettings, setSetting } from "@/lib/dynamic-config";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { getAllSettings, setSetting } from "@/shared/lib/dynamic-config";
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);

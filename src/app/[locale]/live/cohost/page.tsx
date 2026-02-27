@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import CoHostPanel from "@/components/live/CoHostPanel";
+import CoHostPanel from "@/features/live/components/CoHostPanel";
 
 export default function CoHostPage() {
   const searchParams = useSearchParams();

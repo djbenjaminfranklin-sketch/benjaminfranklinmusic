@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { getReleases, createRelease, getDynamicConfig } from "@/lib/dynamic-config";
-import { sendPushToAll } from "@/lib/push";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { getReleases, createRelease, getDynamicConfig } from "@/shared/lib/dynamic-config";
+import { sendPushToAll } from "@/features/push/lib/push";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deletePushSubscription } from "@/lib/db";
-import { getAuthUser } from "@/lib/auth";
+import { deletePushSubscription } from "@/shared/lib/db";
+import { getAuthUser } from "@/features/auth/lib/auth";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser(request);

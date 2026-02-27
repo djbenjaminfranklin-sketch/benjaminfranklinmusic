@@ -1,9 +1,9 @@
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
-import { getUpcomingShows, getPastShows } from "@/lib/dynamic-config";
-import ShowsContainer from "@/components/shows/ShowsContainer";
+import { getUpcomingShows, getPastShows } from "@/shared/lib/dynamic-config";
+import ShowsContainer from "@/features/shows/components/ShowsContainer";
 import siteConfig from "../../../../site.config";
-import type { Show, PastSet } from "@/types";
+import type { Show, PastSet } from "@/shared/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

@@ -1,6 +1,6 @@
 "use client";
 
-import LiveControlPanel from "@/components/admin/LiveControlPanel";
+import LiveControlPanel from "@/features/live/components/LiveControlPanel";
 
 export default function LiveControlPage() {
   return <LiveControlPanel />;

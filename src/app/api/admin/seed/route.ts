@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { seedFromStaticConfig } from "@/lib/dynamic-config";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { seedFromStaticConfig } from "@/shared/lib/dynamic-config";
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin(request);

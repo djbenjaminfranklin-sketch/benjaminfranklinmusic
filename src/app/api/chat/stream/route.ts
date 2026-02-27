@@ -4,7 +4,7 @@ import {
   disconnectChat,
   getChatState,
   onChat,
-} from "@/lib/sse-hub";
+} from "@/shared/lib/sse-hub";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";

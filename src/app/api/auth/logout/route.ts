@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteSession } from "@/lib/db";
-import { verifyJWT, clearAuthCookie } from "@/lib/auth";
+import { deleteSession } from "@/shared/lib/db";
+import { verifyJWT, clearAuthCookie } from "@/features/auth/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,4 +1,4 @@
-import type { Show, PastSet, Release } from "@/types";
+import type { Show, PastSet, Release } from "@/shared/types";
 
 const siteConfig = {
   artist: {

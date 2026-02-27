@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { LayoutDashboard, Users, Megaphone, Radio, Settings, Calendar, Music, MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import PullToRefresh from "@/components/PullToRefresh";
+import { cn } from "@/shared/lib/utils";
+import { useAuth } from "@/features/auth/context/AuthContext";
+import PullToRefresh from "@/shared/layout/PullToRefresh";
 
 const navItems = [
   { key: "dashboard", href: "/admin", icon: LayoutDashboard },

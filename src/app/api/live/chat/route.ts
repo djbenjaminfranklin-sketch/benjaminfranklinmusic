@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addLiveChatMessage } from "@/lib/sse-hub";
+import { addLiveChatMessage } from "@/shared/lib/sse-hub";
 import siteConfig from "../../../../../site.config";
 
 export async function POST(request: NextRequest) {

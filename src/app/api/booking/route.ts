@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import siteConfig from "../../../../site.config";
-import { sendBookingEmail } from "@/lib/email";
+import { sendBookingEmail } from "@/shared/lib/email";
 
 const bookingSchema = z.object({
   name: z.string().min(2),

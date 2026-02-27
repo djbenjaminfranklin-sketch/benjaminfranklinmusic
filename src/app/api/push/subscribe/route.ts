@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { savePushSubscription } from "@/lib/db";
-import { getAuthUser } from "@/lib/auth";
+import { savePushSubscription } from "@/shared/lib/db";
+import { getAuthUser } from "@/features/auth/lib/auth";
 
 const subscribeSchema = z.object({
   endpoint: z.string().url(),

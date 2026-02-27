@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { updateShow, deleteShow, getShowById } from "@/lib/dynamic-config";
+import { requireAdmin } from "@/features/auth/lib/auth";
+import { updateShow, deleteShow, getShowById } from "@/shared/lib/dynamic-config";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(request);
