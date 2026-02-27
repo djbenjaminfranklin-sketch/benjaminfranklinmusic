@@ -57,6 +57,7 @@ export default function BioSection({ bioOverride }: BioSectionProps) {
                 alt={config.artist.name}
                 className="absolute inset-0 w-full h-full"
                 style={{ objectFit: "cover", objectPosition: `center ${config.assets.bioImagePos}%` }}
+                data-pos={config.assets.bioImagePos}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
               {/* Accent glow en bas */}
