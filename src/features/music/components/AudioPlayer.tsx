@@ -42,17 +42,32 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
 
     const onTime = () => {
       setCurrentTime(audio.currentTime);
-      setProgress(audio.duration ? (audio.currentTime / audio.duration) * 100 : 0);
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+        setProgress((audio.currentTime / audio.duration) * 100);
+      }
     };
-    const onLoaded = () => setDuration(audio.duration);
+    const onLoaded = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
     const onEnded = () => setPlaying(false);
 
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onLoaded);
+    audio.addEventListener("durationchange", onLoaded);
     audio.addEventListener("ended", onEnded);
+
+    // iOS WKWebView may not preload metadata — force load
+    if (!audio.duration || !isFinite(audio.duration)) {
+      audio.load();
+    }
+
     return () => {
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onLoaded);
+      audio.removeEventListener("durationchange", onLoaded);
       audio.removeEventListener("ended", onEnded);
     };
   }, []);
