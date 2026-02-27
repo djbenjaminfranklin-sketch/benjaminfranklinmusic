@@ -162,12 +162,25 @@ export default function SettingsPanel() {
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [uploadError, setUploadError] = useState<Record<string, string>>({});
 
+  /* Image position state (vertical %) */
+  const [imagePositions, setImagePositions] = useState<Record<string, string>>({
+    heroImage: "25",
+    bioImage: "15",
+  });
+
   /* ---- Fetch settings on mount ---- */
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => r.json())
       .then((data) => {
         setSettings((prev) => deepMerge(prev, data));
+        if (data.assets) {
+          setImagePositions((prev) => ({
+            ...prev,
+            ...(data.assets.heroImagePos ? { heroImage: data.assets.heroImagePos } : {}),
+            ...(data.assets.bioImagePos ? { bioImage: data.assets.bioImagePos } : {}),
+          }));
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -274,6 +287,17 @@ export default function SettingsPanel() {
     if (file) uploadFile(file, "images", settingsKey);
   }
 
+  /* ---- Save image position ---- */
+  async function saveImagePosition(key: "heroImage" | "bioImage", value: string) {
+    setImagePositions((prev) => ({ ...prev, [key]: value }));
+    const dbKey = `assets.${key}Pos`;
+    await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [dbKey]: value }),
+    });
+  }
+
   /* ---- Generic updaters ---- */
   function updateNested<S extends keyof Settings>(
     section: S,
@@ -369,11 +393,36 @@ export default function SettingsPanel() {
                     src={settings.assets[key]}
                     alt={label}
                     className="w-full h-full object-cover"
+                    style={
+                      (key === "heroImage" || key === "bioImage")
+                        ? { objectPosition: `center ${imagePositions[key]}%` }
+                        : undefined
+                    }
                   />
                 </div>
               ) : (
                 <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-background flex items-center justify-center">
                   <ImageIcon className="h-8 w-8 text-foreground/20" />
+                </div>
+              )}
+
+              {/* Position slider for hero/bio images */}
+              {(key === "heroImage" || key === "bioImage") && settings.assets[key] && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className={labelClass}>Position</label>
+                    <span className="text-xs text-foreground/40 font-mono">{imagePositions[key]}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={imagePositions[key] || "50"}
+                    onChange={(e) => setImagePositions((prev) => ({ ...prev, [key]: e.target.value }))}
+                    onMouseUp={(e) => saveImagePosition(key, (e.target as HTMLInputElement).value)}
+                    onTouchEnd={(e) => saveImagePosition(key, (e.target as HTMLInputElement).value)}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
+                  />
                 </div>
               )}
 

@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 export interface SiteConfig {
   artist: { name: string; email: string };
-  assets: { logo: string; logoTransparent: string; avatar: string; heroImage: string; bioImage: string };
+  assets: { logo: string; logoTransparent: string; avatar: string; heroImage: string; bioImage: string; heroImagePos: string; bioImagePos: string };
   theme: { accent: string; background: string; foreground: string; card: string; border: string; primary: string };
   socials: { spotify: string; instagram: string; tiktok: string };
   navigation: { key: string; href: string; icon: string }[];

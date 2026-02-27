@@ -69,6 +69,8 @@ export function getDynamicConfig() {
       avatar: settings["assets.avatar"] || siteConfig.assets.avatar,
       heroImage: settings["assets.heroImage"] || siteConfig.assets.heroImage,
       bioImage: settings["assets.bioImage"] || siteConfig.assets.bioImage,
+      heroImagePos: settings["assets.heroImagePos"] || siteConfig.assets.heroImagePos,
+      bioImagePos: settings["assets.bioImagePos"] || siteConfig.assets.bioImagePos,
     },
     theme: {
       accent: settings["theme.accent"] || siteConfig.theme.accent,
