@@ -588,7 +588,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           )}
 
           {/* Spyn — music detection */}
-          <SpynButton inline audioDeviceId={spynDeviceId} />
+          <SpynButton inline audioDeviceId={spynDeviceId} audioStream={localStream} />
         </div>
 
         {error && (

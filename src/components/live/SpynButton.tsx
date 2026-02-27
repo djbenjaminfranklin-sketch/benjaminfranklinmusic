@@ -13,9 +13,11 @@ interface TrackResult {
 interface SpynButtonProps {
   inline?: boolean;
   audioDeviceId?: string | null;
+  /** Pass a live stream to capture its audio directly (no mic needed) */
+  audioStream?: MediaStream | null;
 }
 
-export default function SpynButton({ inline = false, audioDeviceId }: SpynButtonProps) {
+export default function SpynButton({ inline = false, audioDeviceId, audioStream }: SpynButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +140,10 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
       if (mediaRecorderRef.current?.state === "recording") {
         mediaRecorderRef.current.stop();
       }
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      // Don't stop the live stream tracks — only stop if it's a mic we opened
+      if (!audioStream) {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+      }
       streamRef.current = null;
       setIsListening(false);
       setAttempt(0);
@@ -151,12 +156,22 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
     cancelledRef.current = false;
 
     try {
-      // Same audio constraints as SPYNNERS: no processing for clean audio
-      const audioConstraints: MediaStreamConstraints["audio"] = audioDeviceId
-        ? { deviceId: { exact: audioDeviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+      let stream: MediaStream;
+      let ownsStream = false; // Whether we need to stop the stream when done
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      if (audioStream && audioStream.getAudioTracks().length > 0) {
+        // Use the live stream audio directly (internal audio capture, like Shazam)
+        // Create a new stream with only the audio tracks so MediaRecorder works
+        stream = new MediaStream(audioStream.getAudioTracks());
+        ownsStream = false; // Don't stop — it's the live stream
+      } else {
+        // Fallback to mic (for admin/broadcaster)
+        const audioConstraints: MediaStreamConstraints["audio"] = audioDeviceId
+          ? { deviceId: { exact: audioDeviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+          : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+        stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        ownsStream = true;
+      }
       streamRef.current = stream;
 
       // Loop: record + identify, retry up to 5 times (60 seconds max)
@@ -191,8 +206,10 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
         }
       }
 
-      // Cleanup
-      stream.getTracks().forEach((t) => t.stop());
+      // Cleanup — only stop the stream if we created it (mic)
+      if (ownsStream) {
+        stream.getTracks().forEach((t) => t.stop());
+      }
       streamRef.current = null;
     } catch {
       setError("Accès micro refusé");
@@ -201,7 +218,7 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
       setIsListening(false);
       setAttempt(0);
     }
-  }, [isListening, recordAndIdentify, audioDeviceId]);
+  }, [isListening, recordAndIdentify, audioDeviceId, audioStream]);
 
   return (
     <div className={inline ? "relative" : "contents"}>

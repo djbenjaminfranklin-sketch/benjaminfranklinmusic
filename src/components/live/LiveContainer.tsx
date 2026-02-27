@@ -322,8 +322,8 @@ export default function LiveContainer() {
                   {/* Track display — adapté au fullscreen */}
                   <TrackDisplay track={streamStatus.currentTrack} />
 
-                  {/* Spyn detection button */}
-                  <SpynButton />
+                  {/* Spyn detection button — captures live stream audio directly */}
+                  <SpynButton audioStream={remoteStream} />
 
                   {/* Chat overlay style Instagram Live */}
                   <LiveChatOverlay
