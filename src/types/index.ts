@@ -81,7 +81,7 @@ export interface User {
   role: "fan" | "admin";
   created_at: string;
   email_verified: number;
-  banned?: number;
+  banned: number;
 }
 
 export interface Session {

@@ -260,18 +260,36 @@ export function useLiveBroadcast() {
     }
   }, []);
 
-  // Disconnect a guest
+  // Disconnect a guest — close local peer and notify the guest via signaling
   const disconnectGuest = useCallback((guestId: string) => {
     const pc = guestPeersRef.current.get(guestId);
     if (pc) {
       pc.close();
       guestPeersRef.current.delete(guestId);
     }
+    pendingCandidatesRef.current.delete(guestId);
     setGuestStreams((prev) => {
       const next = new Map(prev);
       next.delete(guestId);
       return next;
     });
+    setGuestNames((prev) => {
+      const next = new Map(prev);
+      next.delete(guestId);
+      return next;
+    });
+    // Notify the guest that they've been disconnected
+    if (clientIdRef.current) {
+      fetch("/api/live/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "guest-disconnect",
+          from: clientIdRef.current,
+          to: guestId,
+        }),
+      });
+    }
   }, []);
 
   // Toggle mute — modifies both the track AND the React state for proper re-render
@@ -636,23 +654,41 @@ export function useLiveBroadcast() {
     peersRef.current.clear();
     guestPeersRef.current.forEach((pc) => pc.close());
     guestPeersRef.current.clear();
+    pendingCandidatesRef.current.clear();
     setGuestStreams(new Map());
+    setGuestNames(new Map());
 
     // Arrêter le stream local
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setLocalStream(null);
 
+    // Cleanup mixed audio context if active
+    if (mixedAudioCtxRef.current) {
+      mixedAudioCtxRef.current.close().catch(() => {});
+      mixedAudioCtxRef.current = null;
+    }
+    externalStreamRef.current?.getTracks().forEach((t) => t.stop());
+    externalStreamRef.current = null;
+
     // Signaler l'arrêt au serveur
     if (clientIdRef.current) {
-      await fetch("/api/live/signal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "stop-broadcast",
-          from: clientIdRef.current,
-        }),
-      });
+      try {
+        await fetch("/api/live/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "stop-broadcast",
+            from: clientIdRef.current,
+          }),
+        });
+      } catch {
+        // Fallback: use sendBeacon if fetch fails
+        navigator.sendBeacon(
+          "/api/live/signal",
+          new Blob([JSON.stringify({ type: "stop-broadcast", from: clientIdRef.current })], { type: "application/json" })
+        );
+      }
     }
 
     // Fermer le SSE
@@ -661,6 +697,7 @@ export function useLiveBroadcast() {
     clientIdRef.current = null;
 
     setIsBroadcasting(false);
+    setIsCoHost(false);
     setViewerCount(0);
   }, []);
 
@@ -707,18 +744,34 @@ export function useLiveBroadcast() {
     peersRef.current.clear();
     guestPeersRef.current.forEach((pc) => pc.close());
     guestPeersRef.current.clear();
+    pendingCandidatesRef.current.clear();
     setGuestStreams(new Map());
 
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setLocalStream(null);
 
+    // Cleanup mixed audio context if active
+    if (mixedAudioCtxRef.current) {
+      mixedAudioCtxRef.current.close().catch(() => {});
+      mixedAudioCtxRef.current = null;
+    }
+    externalStreamRef.current?.getTracks().forEach((t) => t.stop());
+    externalStreamRef.current = null;
+
     if (clientIdRef.current) {
-      await fetch("/api/live/signal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "co-host-leave", from: clientIdRef.current }),
-      });
+      try {
+        await fetch("/api/live/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "co-host-leave", from: clientIdRef.current }),
+        });
+      } catch {
+        navigator.sendBeacon(
+          "/api/live/signal",
+          new Blob([JSON.stringify({ type: "co-host-leave", from: clientIdRef.current })], { type: "application/json" })
+        );
+      }
     }
 
     esRef.current?.close();
@@ -831,30 +884,32 @@ export function useLiveBroadcast() {
     }
   }, []);
 
-  // Send stop-broadcast on page close/refresh
+  // Send stop-broadcast (or co-host-leave) on page close/refresh
   useEffect(() => {
     if (!isBroadcasting) return;
     const handleUnload = () => {
       if (clientIdRef.current) {
+        const signalType = isCoHost ? "co-host-leave" : "stop-broadcast";
         navigator.sendBeacon(
           "/api/live/signal",
-          new Blob([JSON.stringify({ type: "stop-broadcast", from: clientIdRef.current })], { type: "application/json" })
+          new Blob([JSON.stringify({ type: signalType, from: clientIdRef.current })], { type: "application/json" })
         );
       }
     };
     window.addEventListener("beforeunload", handleUnload);
     return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [isBroadcasting]);
+  }, [isBroadcasting, isCoHost]);
 
   // Cleanup au démontage
   useEffect(() => {
     return () => {
       if (isBroadcasting) {
-        // Signal server to stop
+        // Signal server to stop (co-host-leave if co-host, stop-broadcast if main)
         if (clientIdRef.current) {
+          const signalType = isCoHost ? "co-host-leave" : "stop-broadcast";
           navigator.sendBeacon(
             "/api/live/signal",
-            new Blob([JSON.stringify({ type: "stop-broadcast", from: clientIdRef.current })], { type: "application/json" })
+            new Blob([JSON.stringify({ type: signalType, from: clientIdRef.current })], { type: "application/json" })
           );
         }
         peersRef.current.forEach((pc) => pc.close());
@@ -863,9 +918,14 @@ export function useLiveBroadcast() {
         guestPeersRef.current.clear();
         streamRef.current?.getTracks().forEach((t) => t.stop());
         esRef.current?.close();
+        // Cleanup mixed audio
+        if (mixedAudioCtxRef.current) {
+          mixedAudioCtxRef.current.close().catch(() => {});
+        }
+        externalStreamRef.current?.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [isBroadcasting]);
+  }, [isBroadcasting, isCoHost]);
 
   return {
     isBroadcasting,

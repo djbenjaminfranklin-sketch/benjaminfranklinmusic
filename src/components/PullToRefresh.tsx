@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 interface PullToRefreshProps {
@@ -8,49 +8,58 @@ interface PullToRefreshProps {
 }
 
 export default function PullToRefresh({ children }: PullToRefreshProps) {
-  const [pulling, setPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+
   const startY = useRef(0);
+  const pullingRef = useRef(false);
+  const pullDistanceRef = useRef(0);
+  const refreshingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const threshold = 80;
 
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (window.scrollY === 0) {
-      startY.current = e.touches[0].clientY;
-      setPulling(true);
-    }
-  }, []);
-
-  const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (!pulling || refreshing) return;
-      const diff = e.touches[0].clientY - startY.current;
-      if (diff > 0) {
-        // Apply resistance curve
-        const distance = Math.min(diff * 0.4, 120);
-        setPullDistance(distance);
-      }
-    },
-    [pulling, refreshing]
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    if (!pulling) return;
-    if (pullDistance >= threshold && !refreshing) {
-      setRefreshing(true);
-      setPullDistance(threshold * 0.5);
-      // Reload the page data
-      window.location.reload();
-    } else {
-      setPullDistance(0);
-    }
-    setPulling(false);
-  }, [pulling, pullDistance, refreshing]);
+  // Keep refs in sync with state for values read inside touch handlers
+  useEffect(() => {
+    refreshingRef.current = refreshing;
+  }, [refreshing]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
+    function handleTouchStart(e: TouchEvent) {
+      if (window.scrollY === 0 && !refreshingRef.current) {
+        startY.current = e.touches[0].clientY;
+        pullingRef.current = true;
+      }
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      if (!pullingRef.current || refreshingRef.current) return;
+      const diff = e.touches[0].clientY - startY.current;
+      if (diff > 0) {
+        // Apply resistance curve
+        const distance = Math.min(diff * 0.4, 120);
+        pullDistanceRef.current = distance;
+        setPullDistance(distance);
+      }
+    }
+
+    function handleTouchEnd() {
+      if (!pullingRef.current) return;
+      if (pullDistanceRef.current >= threshold && !refreshingRef.current) {
+        setRefreshing(true);
+        refreshingRef.current = true;
+        setPullDistance(threshold * 0.5);
+        pullDistanceRef.current = threshold * 0.5;
+        // Reload the page data
+        window.location.reload();
+      } else {
+        setPullDistance(0);
+        pullDistanceRef.current = 0;
+      }
+      pullingRef.current = false;
+    }
 
     el.addEventListener("touchstart", handleTouchStart, { passive: true });
     el.addEventListener("touchmove", handleTouchMove, { passive: true });
@@ -61,7 +70,7 @@ export default function PullToRefresh({ children }: PullToRefreshProps) {
       el.removeEventListener("touchmove", handleTouchMove);
       el.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, []);
 
   const progress = Math.min(pullDistance / threshold, 1);
 

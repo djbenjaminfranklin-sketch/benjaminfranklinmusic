@@ -22,6 +22,13 @@ const broadcastSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
+interface ChannelResult {
+  success: boolean;
+  sent: number;
+  failed: number;
+  error?: string;
+}
+
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin(request);
   if (!admin) {
@@ -42,17 +49,23 @@ export async function POST(request: NextRequest) {
     const { title, message, channels, imageUrl } = result.data;
     const users = getAllUsers();
     let recipientCount = 0;
+    const channelResults: Record<string, ChannelResult> = {};
 
     // Email broadcast
     if (channels.includes("email")) {
       const resendKey = process.env.RESEND_API_KEY;
-      if (resendKey) {
+      if (!resendKey) {
+        console.warn("[broadcast] RESEND_API_KEY not configured, skipping email channel");
+        channelResults.email = { success: false, sent: 0, failed: 0, error: "RESEND_API_KEY not configured" };
+      } else {
         const resend = new Resend(resendKey);
         const emails = users.map((u) => u.email).filter(Boolean);
+        let emailSent = 0;
+        let emailFailed = 0;
         // Send in batches of 50
         for (let i = 0; i < emails.length; i += 50) {
           const batch = emails.slice(i, i + 50);
-          await Promise.allSettled(
+          const results = await Promise.allSettled(
             batch.map((email) =>
               resend.emails.send({
                 from: "Benjamin Franklin <onboarding@resend.dev>",
@@ -70,29 +83,54 @@ export async function POST(request: NextRequest) {
               })
             )
           );
+          for (const r of results) {
+            if (r.status === "fulfilled") {
+              emailSent++;
+            } else {
+              emailFailed++;
+              console.error("[broadcast] Email send failed:", r.reason);
+            }
+          }
         }
-        recipientCount = Math.max(recipientCount, emails.length);
+        console.log(`[broadcast] Email: ${emailSent} sent, ${emailFailed} failed out of ${emails.length}`);
+        channelResults.email = { success: emailFailed === 0, sent: emailSent, failed: emailFailed };
+        recipientCount = Math.max(recipientCount, emailSent);
       }
     }
 
     // Push broadcast
     if (channels.includes("push")) {
-      const pushCount = await sendPushToAll(title, message);
-      recipientCount = Math.max(recipientCount, pushCount);
+      try {
+        const pushCount = await sendPushToAll(title, message, imageUrl);
+        console.log(`[broadcast] Push: ${pushCount} notifications sent`);
+        channelResults.push = { success: true, sent: pushCount, failed: 0 };
+        recipientCount = Math.max(recipientCount, pushCount);
+      } catch (err) {
+        console.error("[broadcast] Push channel failed:", err);
+        channelResults.push = { success: false, sent: 0, failed: 0, error: "Push notification delivery failed" };
+      }
     }
 
     // Chat broadcast
     if (channels.includes("chat")) {
-      const { getDynamicConfig } = await import("@/lib/dynamic-config");
-      const config = getDynamicConfig();
-      addChatMessage(config.artist.name, `${title}: ${message}`, true, undefined, undefined, imageUrl);
-      recipientCount = Math.max(recipientCount, 1);
+      try {
+        const { getDynamicConfig } = await import("@/lib/dynamic-config");
+        const config = getDynamicConfig();
+        addChatMessage(config.artist.name, `${title}: ${message}`, true, undefined, undefined, imageUrl);
+        console.log("[broadcast] Chat message posted");
+        channelResults.chat = { success: true, sent: 1, failed: 0 };
+        recipientCount = Math.max(recipientCount, 1);
+      } catch (err) {
+        console.error("[broadcast] Chat channel failed:", err);
+        channelResults.chat = { success: false, sent: 0, failed: 0, error: "Failed to post chat message" };
+      }
     }
 
     const broadcast = createBroadcast(title, message, channels, admin.id, recipientCount);
 
-    return NextResponse.json({ success: true, recipientCount, broadcast });
-  } catch {
+    return NextResponse.json({ success: true, recipientCount, broadcast, channelResults });
+  } catch (err) {
+    console.error("[broadcast] Unexpected error:", err);
     return NextResponse.json(
       { error: "Failed to send broadcast" },
       { status: 500 }

@@ -259,7 +259,7 @@ export function isBroadcasterOrCoHost(clientId: string): boolean {
 }
 
 export interface SignalMessage {
-  type: "offer" | "answer" | "ice-candidate" | "viewer-join" | "viewer-leave" | "guest-ready" | "co-host-join";
+  type: "offer" | "answer" | "ice-candidate" | "viewer-join" | "viewer-leave" | "guest-ready" | "guest-disconnect" | "co-host-join";
   from: string;
   to?: string;
   data: unknown;

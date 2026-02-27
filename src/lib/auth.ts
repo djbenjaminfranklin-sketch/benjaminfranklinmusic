@@ -54,6 +54,9 @@ export async function getAuthUser(request?: NextRequest): Promise<DBUser | null>
   const user = getUserById(payload.userId);
   if (!user) return null;
 
+  // Reject banned users — their existing sessions should not grant access
+  if (user.banned === 1) return null;
+
   return user;
 }
 

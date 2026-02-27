@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password } = result.data;
+    const { email: rawEmail, password } = result.data;
+    const email = rawEmail.toLowerCase();
 
     const user = getUserByEmail(email);
     if (!user) {

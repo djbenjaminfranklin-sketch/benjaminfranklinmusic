@@ -189,6 +189,8 @@ export function getUserCount(): number {
 
 export function banUser(userId: string): void {
   db.prepare("UPDATE users SET banned = 1 WHERE id = ?").run(userId);
+  // Invalidate all sessions for the banned user so they're logged out immediately
+  db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
 }
 
 export function unbanUser(userId: string): void {
@@ -201,7 +203,14 @@ export function deleteUser(userId: string): void {
 
 // --- Sessions ---
 
+export function cleanExpiredSessions(): void {
+  db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+}
+
 export function createSession(userId: string): DBSession {
+  // Opportunistically clean expired sessions on new session creation
+  cleanExpiredSessions();
+
   const id = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   db.prepare(

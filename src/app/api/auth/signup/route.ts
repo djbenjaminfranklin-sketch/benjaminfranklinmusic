@@ -6,7 +6,7 @@ import { hashPassword, createJWT, setAuthCookie, sanitizeUser } from "@/lib/auth
 const signupSchema = z.object({
   email: z.email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(50, "Name is too long"),
 });
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name } = result.data;
+    const { email: rawEmail, password, name } = result.data;
+    const email = rawEmail.toLowerCase();
 
     const existing = getUserByEmail(email);
     if (existing) {

@@ -299,6 +299,15 @@ export function useLiveStream() {
           body: JSON.stringify({ type: "answer", from: clientIdRef.current, to: from, data: answer }),
         });
       }
+    } else if (type === "guest-disconnect") {
+      // Broadcaster disconnected us as a guest — stop sharing camera
+      guestStreamRef.current?.getTracks().forEach((t) => t.stop());
+      setGuestStream(null);
+      guestStreamRef.current = null;
+      if (guestPcRef.current) {
+        guestPcRef.current.close();
+        guestPcRef.current = null;
+      }
     } else if (type === "ice-candidate") {
       // Buffer ICE candidates if remote description not yet set
       // Check main broadcaster
@@ -387,14 +396,15 @@ export function useLiveStream() {
   }, []);
 
   const stopGuest = useCallback(() => {
-    guestStream?.getTracks().forEach((t) => t.stop());
+    // Use ref to always get the latest stream (avoids stale closure)
+    guestStreamRef.current?.getTracks().forEach((t) => t.stop());
     setGuestStream(null);
     guestStreamRef.current = null;
     if (guestPcRef.current) {
       guestPcRef.current.close();
       guestPcRef.current = null;
     }
-  }, [guestStream]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -512,10 +522,33 @@ export function useLiveStream() {
 
     connect();
 
+    // Also send viewer-leave on page close/refresh for reliability
+    const handleUnload = () => {
+      if (clientIdRef.current) {
+        navigator.sendBeacon(
+          "/api/live/signal",
+          new Blob([JSON.stringify({ type: "viewer-leave", from: clientIdRef.current })], { type: "application/json" })
+        );
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("beforeunload", handleUnload);
+      // Notify the broadcaster that we're leaving
+      if (clientIdRef.current) {
+        fetch("/api/live/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "viewer-leave", from: clientIdRef.current }),
+        }).catch(() => {});
+      }
       esRef.current?.close();
       cleanupWebRTC();
+      // Cleanup guest stream if active
+      guestStreamRef.current?.getTracks().forEach((t) => t.stop());
+      guestStreamRef.current = null;
       setIsConnected(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

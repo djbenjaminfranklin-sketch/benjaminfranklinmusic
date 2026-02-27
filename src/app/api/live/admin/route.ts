@@ -11,7 +11,6 @@ import {
 import { getAuthUser } from "@/lib/auth";
 import { sendPushToAll } from "@/lib/push";
 import { getScheduledLive, setScheduledLive, getDynamicConfig } from "@/lib/dynamic-config";
-import siteConfig from "../../../../../site.config";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser(request);
@@ -32,7 +31,8 @@ export async function POST(request: NextRequest) {
     // Auth: accepte soit le cookie admin soit le mot de passe legacy
     const user = await getAuthUser(request);
     const isAdmin = user?.role === "admin";
-    const isPasswordValid = djPassword === siteConfig.live.adminPassword;
+    const config = getDynamicConfig();
+    const isPasswordValid = djPassword === config.live.adminPassword;
 
     if (!isAdmin && !isPasswordValid) {
       return NextResponse.json(
@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
 
         // Notification push a tous les abonnes
         {
-          const config = getDynamicConfig();
           const pushTitle = `${config.artist.name} is LIVE!`;
           const pushMessage = venue
             ? `Join the live now from ${venue}`
@@ -94,7 +93,6 @@ export async function POST(request: NextRequest) {
         setScheduledLive({ date, venue, city, flyerUrl: flyerUrl || undefined });
         emitScheduledLive({ date, venue, city, flyerUrl: flyerUrl || undefined });
         {
-          const config = getDynamicConfig();
           const d = new Date(date);
           const formatted = d.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" })
             + " — " + d.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" });

@@ -98,7 +98,9 @@ export default function LiveContainer() {
       const ids = allStreamEntries.map((e) => e.id);
       setDualPair([ids[0] || "main", ids[1] || "main"]);
     }
-  }, [totalCameras, hasMultipleAngles, autoSwitchEnabled, allStreamEntries]);
+  // totalCameras is a stable primitive derived from allStreamEntries.length
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalCameras, hasMultipleAngles, autoSwitchEnabled]);
 
   const isLiveHLS = streamStatus.isLive && streamStatus.streamType === "hls" && streamStatus.streamUrl;
   const isLiveWebRTC = streamStatus.isLive && streamStatus.streamType === "webrtc";
@@ -146,16 +148,27 @@ export default function LiveContainer() {
     const stream = currentStream || remoteStream;
     if (!stream) return;
     recordedChunksRef.current = [];
-    const mr = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9,opus" });
+
+    // Pick a supported mime type (Safari doesn't support webm/vp9)
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+      ? "video/webm;codecs=vp9,opus"
+      : MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : MediaRecorder.isTypeSupported("video/mp4")
+          ? "video/mp4"
+          : "";
+    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunksRef.current.push(e.data);
     };
     mr.onstop = () => {
-      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+      const blob = new Blob(recordedChunksRef.current, { type: mimeType || "video/webm" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `live-${new Date().toISOString().slice(0, 19)}.webm`;
+      a.download = `live-${new Date().toISOString().slice(0, 19)}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
     };
@@ -178,12 +191,17 @@ export default function LiveContainer() {
   }, [streamStatus.isLive, isRecording, stopRecording]);
 
   // --- Auto-switch cinématique (angles + layouts) ---
+  // Use a ref to access the latest coHostEntries from the timer callback
+  // without re-creating the interval on every render
+  const coHostEntriesRef = useRef(coHostEntries);
+  coHostEntriesRef.current = coHostEntries;
+
   useEffect(() => {
     if (!autoSwitchEnabled || !hasMultipleAngles) return;
 
-    const allAngles = ["main", ...coHostEntries.map(([id]) => id)];
-
     const pickNext = () => {
+      const allAngles = ["main", ...coHostEntriesRef.current.map(([id]) => id)];
+
       // Build weighted layout pool based on available cameras
       const layouts: ("single" | "dual" | "quad")[] = ["single", "single"];
       if (allAngles.length >= 2) layouts.push("dual", "dual");
@@ -213,7 +231,7 @@ export default function LiveContainer() {
 
     let timerRef = scheduleNext();
     return () => clearTimeout(timerRef);
-  }, [autoSwitchEnabled, hasMultipleAngles, coHostEntries, setActiveAngle]);
+  }, [autoSwitchEnabled, hasMultipleAngles, setActiveAngle]);
 
   return (
     <div className="min-h-screen bg-background pt-40 sm:pt-24 pb-16">

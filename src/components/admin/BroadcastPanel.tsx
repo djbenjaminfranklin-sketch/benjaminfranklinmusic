@@ -26,6 +26,10 @@ export default function BroadcastPanel() {
   const [channels, setChannels] = useState<string[]>(["chat"]);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sendResult, setSendResult] = useState<{
+    recipientCount: number;
+    channelResults?: Record<string, { success: boolean; sent: number; failed: number; error?: string }>;
+  } | null>(null);
   const [error, setError] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -81,6 +85,7 @@ export default function BroadcastPanel() {
     setSending(true);
     setError("");
     setSent(false);
+    setSendResult(null);
 
     try {
       const res = await fetch("/api/admin/broadcast", {
@@ -89,12 +94,14 @@ export default function BroadcastPanel() {
         body: JSON.stringify({ title, message, channels, imageUrl: imageUrl || undefined }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Failed to send");
       }
 
       setSent(true);
+      setSendResult({ recipientCount: data.recipientCount, channelResults: data.channelResults });
       setTitle("");
       setMessage("");
       setImageUrl("");
@@ -216,7 +223,29 @@ export default function BroadcastPanel() {
         )}
 
         {error && <p className="text-xs text-red-400">{error}</p>}
-        {sent && <p className="text-xs text-green-400">{t("sent")}</p>}
+        {sent && (
+          <div className="space-y-1">
+            <p className="text-xs text-green-400">{t("sent")}</p>
+            {sendResult?.channelResults && (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(sendResult.channelResults).map(([ch, res]) => (
+                  <span
+                    key={ch}
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      res.success
+                        ? "bg-green-500/10 text-green-400"
+                        : "bg-red-500/10 text-red-400"
+                    )}
+                  >
+                    {ch}: {res.sent} {res.failed > 0 ? `(${res.failed} failed)` : ""}
+                    {res.error ? ` — ${res.error}` : ""}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           onClick={handleSend}

@@ -7,6 +7,8 @@ const VAPID_EMAIL = process.env.VAPID_EMAIL || "mailto:booking@benjaminfranklinm
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} else {
+  console.warn("[push] VAPID keys not configured — push notifications will not work");
 }
 
 export async function sendPushNotification(
@@ -15,6 +17,11 @@ export async function sendPushNotification(
   body: string,
   image?: string
 ): Promise<boolean> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.warn("[push] Cannot send notification: VAPID keys not configured");
+    return false;
+  }
+
   try {
     await webpush.sendNotification(
       {
@@ -27,7 +34,10 @@ export async function sendPushNotification(
   } catch (error: unknown) {
     const statusCode = (error as { statusCode?: number }).statusCode;
     if (statusCode === 404 || statusCode === 410) {
+      console.log(`[push] Removing expired subscription (status ${statusCode}): ${subscription.endpoint}`);
       deletePushSubscription(subscription.endpoint);
+    } else {
+      console.error(`[push] Failed to send to ${subscription.endpoint}:`, error);
     }
     return false;
   }
@@ -35,6 +45,12 @@ export async function sendPushNotification(
 
 export async function sendPushToAll(title: string, body: string, image?: string): Promise<number> {
   const subscriptions = getPushSubscriptions();
+
+  if (subscriptions.length === 0) {
+    console.log("[push] No subscriptions found, skipping sendPushToAll");
+    return 0;
+  }
+
   let successCount = 0;
 
   await Promise.allSettled(
@@ -49,5 +65,6 @@ export async function sendPushToAll(title: string, body: string, image?: string)
     })
   );
 
+  console.log(`[push] sendPushToAll: ${successCount}/${subscriptions.length} delivered`);
   return successCount;
 }

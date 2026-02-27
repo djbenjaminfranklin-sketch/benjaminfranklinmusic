@@ -17,6 +17,11 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // Prevent banning another admin
+  if (user.role === "admin") {
+    return NextResponse.json({ error: "Cannot ban an admin" }, { status: 403 });
+  }
+
   banUser(id);
   return NextResponse.json({ success: true });
 }

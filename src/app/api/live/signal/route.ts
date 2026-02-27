@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { relaySignal, setBroadcaster, setLiveStatus, getBroadcaster, getRandomViewer, sendInvite, sendInviteResponse, addCoHost, removeCoHost, getCoHosts, validateCoHostCode, getCoHostCode } from "@/lib/sse-hub";
+import { relaySignal, setBroadcaster, setLiveStatus, getBroadcaster, getRandomViewer, sendInvite, sendInviteResponse, addCoHost, removeCoHost, getCoHosts, validateCoHostCode } from "@/lib/sse-hub";
 import { getAuthUser } from "@/lib/auth";
 import { sendPushToAll } from "@/lib/push";
 
@@ -89,7 +89,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Pour les signaux WebRTC (offer, answer, ice-candidate, viewer-join, viewer-leave)
+    // Viewer leaves — relay to broadcaster + co-hosts so they can cleanup the peer
+    if (type === "viewer-leave") {
+      const broadcaster = getBroadcaster();
+      const coHosts = getCoHosts();
+      if (broadcaster) {
+        relaySignal({ type: "viewer-leave", from, to: broadcaster, data });
+      }
+      coHosts.forEach((coHostId) => {
+        relaySignal({ type: "viewer-leave", from, to: coHostId, data });
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    // Pour les signaux WebRTC (offer, answer, ice-candidate, viewer-join)
     if (type === "viewer-join") {
       const broadcaster = getBroadcaster();
       if (!broadcaster) {
