@@ -5,6 +5,7 @@ import UserNotifications
 struct BenjaminFranklinApp: App {
     #if os(iOS)
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     #endif
 
     var body: some Scene {
@@ -18,6 +19,12 @@ struct BenjaminFranklinApp: App {
         #else
         WindowGroup {
             ContentView()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+                UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+            }
         }
         #endif
     }
@@ -35,12 +42,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
         requestPushPermission(application)
         return true
-    }
-
-    // Clear badge when app becomes active
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        application.applicationIconBadgeNumber = 0
-        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
     private func requestPushPermission(_ application: UIApplication) {
@@ -112,12 +113,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         completionHandler([.banner, .badge, .sound])
     }
 
-    // Handle notification tap
+    // Handle notification tap — clear badge
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
         completionHandler()
     }
 }
