@@ -116,6 +116,20 @@ try {
   // Column already exists — ignore
 }
 
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_tokens (
+      id TEXT PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      platform TEXT NOT NULL DEFAULT 'ios',
+      bundle_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+} catch {
+  // Table already exists or SQLITE_BUSY — ignore
+}
+
 // --- Types ---
 
 export interface DBUser {
@@ -282,6 +296,37 @@ export function getBroadcastCount(): number {
 
 export function getPushSubscriptionCount(): number {
   const row = db.prepare("SELECT COUNT(*) as count FROM push_subscriptions").get() as { count: number };
+  return row.count;
+}
+
+// --- Device Tokens (APNs for iOS) ---
+
+export interface DBDeviceToken {
+  id: string;
+  token: string;
+  platform: string;
+  bundle_id: string | null;
+  created_at: string;
+}
+
+export function saveDeviceToken(token: string, platform: string, bundleId?: string): DBDeviceToken {
+  const id = crypto.randomUUID();
+  db.prepare(
+    "INSERT OR REPLACE INTO device_tokens (id, token, platform, bundle_id) VALUES (?, ?, ?, ?)"
+  ).run(id, token, platform, bundleId || null);
+  return db.prepare("SELECT * FROM device_tokens WHERE id = ?").get(id) as DBDeviceToken;
+}
+
+export function getDeviceTokens(): DBDeviceToken[] {
+  return db.prepare("SELECT * FROM device_tokens").all() as DBDeviceToken[];
+}
+
+export function deleteDeviceToken(token: string): void {
+  db.prepare("DELETE FROM device_tokens WHERE token = ?").run(token);
+}
+
+export function getDeviceTokenCount(): number {
+  const row = db.prepare("SELECT COUNT(*) as count FROM device_tokens").get() as { count: number };
   return row.count;
 }
 

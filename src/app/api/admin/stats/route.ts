@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserCount, getBroadcastCount, getPushSubscriptionCount } from "@/shared/lib/db";
+import { getUserCount, getBroadcastCount, getPushSubscriptionCount, getDeviceTokenCount } from "@/shared/lib/db";
 import { requireAdmin } from "@/features/auth/lib/auth";
 import { getChatState } from "@/shared/lib/sse-hub";
 
@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     userCount: getUserCount(),
     broadcastCount: getBroadcastCount(),
-    pushSubscriptionCount: getPushSubscriptionCount(),
+    pushSubscriptionCount: getPushSubscriptionCount() + getDeviceTokenCount(),
+    deviceTokenCount: getDeviceTokenCount(),
     onlineCount: getChatState().onlineCount,
   });
 }

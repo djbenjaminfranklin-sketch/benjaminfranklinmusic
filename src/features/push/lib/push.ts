@@ -44,27 +44,35 @@ export async function sendPushNotification(
 }
 
 export async function sendPushToAll(title: string, body: string, image?: string): Promise<number> {
+  // Web Push (browsers)
   const subscriptions = getPushSubscriptions();
+  let webCount = 0;
 
-  if (subscriptions.length === 0) {
-    console.log("[push] No subscriptions found, skipping sendPushToAll");
-    return 0;
+  if (subscriptions.length > 0) {
+    await Promise.allSettled(
+      subscriptions.map(async (sub) => {
+        const success = await sendPushNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          title,
+          body,
+          image
+        );
+        if (success) webCount++;
+      })
+    );
+    console.log(`[push] Web push: ${webCount}/${subscriptions.length} delivered`);
   }
 
-  let successCount = 0;
+  // APNs (iOS native app)
+  let apnsCount = 0;
+  try {
+    const { sendAPNsToAll } = await import("./apns");
+    apnsCount = await sendAPNsToAll(title, body, image);
+  } catch (err) {
+    console.error("[push] APNs send error:", err);
+  }
 
-  await Promise.allSettled(
-    subscriptions.map(async (sub) => {
-      const success = await sendPushNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        title,
-        body,
-        image
-      );
-      if (success) successCount++;
-    })
-  );
-
-  console.log(`[push] sendPushToAll: ${successCount}/${subscriptions.length} delivered`);
-  return successCount;
+  const total = webCount + apnsCount;
+  console.log(`[push] sendPushToAll total: ${total} (web: ${webCount}, apns: ${apnsCount})`);
+  return total;
 }
