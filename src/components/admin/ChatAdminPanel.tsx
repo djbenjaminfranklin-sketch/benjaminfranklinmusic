@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { ImagePlus, Send } from "lucide-react";
+import { Paperclip, Send } from "lucide-react";
 import { useChat } from "@/hooks/useChat";
 import { useSiteConfig } from "@/contexts/SiteConfigContext";
 import PostCard from "@/components/fan-zone/PostCard";
@@ -17,6 +17,8 @@ export default function ChatAdminPanel() {
     sendMessage,
     addReaction,
     uploadImage,
+    uploadAudio,
+    uploadVideo,
     deleteMessage,
   } = useChat();
 
@@ -48,15 +50,16 @@ export default function ChatAdminPanel() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    await uploadImage(
-      file,
-      config.artist.name,
-      undefined,
-      config.fanZone.djPassword,
-    );
+    if (file.type.startsWith("audio/")) {
+      await uploadAudio(file, file.name, config.artist.name, config.fanZone.djPassword);
+    } else if (file.type.startsWith("video/")) {
+      await uploadVideo(file, file.name, config.artist.name, config.fanZone.djPassword);
+    } else {
+      await uploadImage(file, config.artist.name, undefined, config.fanZone.djPassword);
+    }
     // Reset file input so the same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -104,6 +107,7 @@ export default function ChatAdminPanel() {
             post={msg}
             onReaction={addReaction}
             onDelete={handleDelete}
+            variant="admin"
           />
         ))}
         <div ref={messagesEndRef} />
@@ -120,21 +124,21 @@ export default function ChatAdminPanel() {
           className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder:text-foreground/30 focus:outline-none focus:border-accent"
         />
 
-        {/* Hidden file input for image upload */}
+        {/* Hidden file input for image/audio upload */}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
+          accept="image/*,audio/*,video/*"
+          onChange={handleFileUpload}
           className="hidden"
         />
 
-        {/* Image upload button */}
+        {/* File upload button */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center justify-center h-9 w-9 rounded-lg border border-border text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
         >
-          <ImagePlus className="h-4 w-4" />
+          <Paperclip className="h-4 w-4" />
         </button>
 
         {/* Send button */}

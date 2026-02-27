@@ -62,6 +62,8 @@ export function addChatMessage(
   audioTitle?: string,
   imageUrl?: string,
   imageCaption?: string,
+  videoUrl?: string,
+  videoCaption?: string,
 ): ChatMessage {
   const msg: ChatMessage = {
     id: crypto.randomUUID(),
@@ -74,6 +76,8 @@ export function addChatMessage(
     audioTitle,
     imageUrl,
     imageCaption,
+    videoUrl,
+    videoCaption,
   };
   chatMessages.push(msg);
   if (chatMessages.length > 100) chatMessages = chatMessages.slice(-100);
@@ -285,7 +289,7 @@ export function sendInviteResponse(inviteId: string, viewerId: string, accepted:
 
 // --- Scheduled Live broadcast ---
 
-export function emitScheduledLive(data: { date: string; venue: string; city: string } | null) {
+export function emitScheduledLive(data: { date: string; venue: string; city: string; flyerUrl?: string } | null) {
   emitter.emit("live:scheduled", data);
 }
 

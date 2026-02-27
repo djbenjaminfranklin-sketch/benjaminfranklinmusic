@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addChatMessage, addChatReaction } from "@/lib/sse-hub";
 import { getDynamicConfig } from "@/lib/dynamic-config";
+import { sendPushToAll } from "@/lib/push";
 
 const VALID_REACTIONS = ["fire", "heart", "100", "headphones", "vinyl"];
 
@@ -19,6 +20,11 @@ export async function POST(request: NextRequest) {
     const config = getDynamicConfig();
     const isDJ = djPassword === config.fanZone.djPassword;
     const msg = addChatMessage(author, content, isDJ);
+
+    if (isDJ) {
+      sendPushToAll(config.artist.name, content).catch(() => {});
+    }
+
     return NextResponse.json(msg, { status: 201 });
   } catch {
     return NextResponse.json(

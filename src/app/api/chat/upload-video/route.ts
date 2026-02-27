@@ -6,6 +6,8 @@ import { addChatMessage } from "@/lib/sse-hub";
 import { getDynamicConfig } from "@/lib/dynamic-config";
 import { sendPushToAll } from "@/lib/push";
 
+const VIDEO_MAX = 100 * 1024 * 1024; // 100MB
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -29,39 +31,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!file.type.startsWith("audio/")) {
+    if (!file.type.startsWith("video/")) {
       return NextResponse.json(
-        { error: "Only audio files are allowed" },
+        { error: "Only video files are allowed" },
         { status: 400 },
       );
     }
 
-    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
-    if (file.size > MAX_SIZE) {
+    if (file.size > VIDEO_MAX) {
       return NextResponse.json(
-        { error: "File too large (max 50MB)" },
+        { error: "File too large (max 100MB)" },
         { status: 400 },
       );
     }
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads/audio");
+    const uploadsDir = path.join(process.cwd(), "public/uploads/video");
     await mkdir(uploadsDir, { recursive: true });
 
-    const ext = file.name.split(".").pop() || "mp3";
+    const ext = file.name.split(".").pop() || "mp4";
     const filename = `${crypto.randomUUID()}.${ext}`;
     const filepath = path.join(uploadsDir, filename);
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const audioUrl = `/uploads/audio/${filename}`;
-    const msg = addChatMessage(author, `🎵 ${title}`, true, audioUrl, title);
+    const videoUrl = `/uploads/video/${filename}`;
+    const msg = addChatMessage(
+      author,
+      `🎬 ${title}`,
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      videoUrl,
+      title,
+    );
 
-    sendPushToAll(config.artist.name, `${config.artist.name} a partage un son`).catch(() => {});
+    sendPushToAll(config.artist.name, `${config.artist.name} a partage une video`).catch(() => {});
 
     return NextResponse.json(msg, { status: 201 });
   } catch {
     return NextResponse.json(
-      { error: "Failed to upload audio" },
+      { error: "Failed to upload video" },
       { status: 500 },
     );
   }

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
 import LiveChatOverlay from "@/components/live/LiveChatOverlay";
 import SpynButton from "@/components/live/SpynButton";
+import PermissionDialog from "@/components/ui/PermissionDialog";
 import { useAudioDevices } from "@/hooks/useAudioDevices";
 import type { LiveChatMessage } from "@/types";
 
@@ -90,6 +91,15 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   const videoRef = useRef<HTMLVideoElement>(null);
   const t = useTranslations("admin");
   const tLive = useTranslations("live");
+
+  // Permission dialog for camera+mic
+  const [showPermDialog, setShowPermDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const requestPermissionThen = (action: () => void) => {
+    setPendingAction(() => action);
+    setShowPermDialog(true);
+  };
 
   // Audio device detection (Pioneer mixer, USB interfaces, etc.)
   const { audioSource, audioSourceName, externalDeviceId, internalDeviceId, availableDevices, setAudioSource } = useAudioDevices();
@@ -695,7 +705,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           <>
             {isLiveAlready ? (
               <button
-                onClick={() => joinAsCoHost({ video: true, audio: true })}
+                onClick={() => requestPermissionThen(() => joinAsCoHost({ video: true, audio: true }))}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all",
                   "bg-accent text-background hover:bg-accent/90 active:scale-[0.98]"
@@ -706,7 +716,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
               </button>
             ) : (
               <button
-                onClick={() => startBroadcast({ video: true, audio: true })}
+                onClick={() => requestPermissionThen(() => startBroadcast({ video: true, audio: true }))}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all",
                   "bg-red-500 text-white hover:bg-red-600 active:scale-[0.98]"
@@ -741,6 +751,20 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           </>
         )}
       </div>
+
+      <PermissionDialog
+        type="camera+microphone"
+        open={showPermDialog}
+        onAllow={() => {
+          setShowPermDialog(false);
+          pendingAction?.();
+          setPendingAction(null);
+        }}
+        onDeny={() => {
+          setShowPermDialog(false);
+          setPendingAction(null);
+        }}
+      />
     </div>
   );
 }

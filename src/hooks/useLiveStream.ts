@@ -67,6 +67,7 @@ export interface ScheduledLiveData {
   date: string;
   venue: string;
   city: string;
+  flyerUrl?: string;
 }
 
 interface LiveState {

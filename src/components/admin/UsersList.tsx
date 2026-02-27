@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Users as UsersIcon } from "lucide-react";
+import { Download, Users as UsersIcon, Ban, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types";
@@ -24,18 +24,36 @@ export default function UsersList() {
   }, []);
 
   const exportCSV = () => {
+    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
     const header = "Name,Email,Role,Registered";
     const rows = users.map(
-      (u) => `"${u.name}","${u.email}","${u.role}","${new Date(u.created_at).toISOString()}"`
+      (u) => `${escape(u.name)},${escape(u.email)},${escape(u.role)},${escape(new Date(u.created_at).toISOString())}`
     );
     const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "users.csv";
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const toggleBan = async (user: User) => {
+    const isBanned = user.banned === 1;
+    if (!isBanned && !confirm(t("confirmBan"))) return;
+    const method = isBanned ? "DELETE" : "POST";
+    const res = await fetch(`/api/admin/users/${user.id}/ban`, { method });
+    if (res.ok) {
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, banned: isBanned ? 0 : 1 } : u
+        )
+      );
+    }
   };
 
   return (
@@ -87,12 +105,24 @@ export default function UsersList() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
                     {t("registered")}
                   </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
+                    {t("actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-foreground/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-primary">{user.name}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-primary">
+                      <span className="flex items-center gap-2">
+                        {user.name}
+                        {user.banned === 1 && (
+                          <span className="inline-flex items-center rounded-full bg-red-500/20 text-red-400 px-2 py-0.5 text-xs font-medium">
+                            {t("banned")}
+                          </span>
+                        )}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm text-foreground/60">{user.email}</td>
                     <td className="px-4 py-3">
                       <span
@@ -108,6 +138,31 @@ export default function UsersList() {
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground/40">
                       {new Date(user.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.role !== "admin" && (
+                        <button
+                          onClick={() => toggleBan(user)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                            user.banned === 1
+                              ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                              : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                          )}
+                        >
+                          {user.banned === 1 ? (
+                            <>
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              {t("unban")}
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="h-3.5 w-3.5" />
+                              {t("ban")}
+                            </>
+                          )}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

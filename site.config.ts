@@ -25,7 +25,7 @@ const siteConfig = {
   socials: {
     spotify: "https://open.spotify.com/artist/7GALLXYUZiyfa1gYGMJOHU",
     instagram: "https://instagram.com/benjaminfranklinmusic",
-    soundcloud: "https://soundcloud.com/benjaminfranklin",
+
     tiktok: "https://tiktok.com/@benjamin.franklin2153",
   },
 

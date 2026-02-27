@@ -1,17 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useChat } from "@/hooks/useChat";
+import { useSiteConfig } from "@/contexts/SiteConfigContext";
 import LiveFeed from "./LiveFeed";
-import PostForm from "./PostForm";
-import AudioShareForm from "./AudioShareForm";
 import { Wifi, WifiOff } from "lucide-react";
 
 export default function FanZoneContainer() {
-  const { messages, onlineCount, isConnected, sendMessage, addReaction, uploadAudio } = useChat();
-  const [showAudioForm, setShowAudioForm] = useState(false);
+  const { messages, onlineCount, isConnected, addReaction } = useChat();
+  const config = useSiteConfig();
   const t = useTranslations("fanZone");
 
   return (
@@ -25,17 +23,27 @@ export default function FanZoneContainer() {
       {/* Gradient top pour transition avec le header du site */}
       <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-32 bg-gradient-to-b from-black/80 to-transparent" />
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-16">
         <div className="mx-auto max-w-3xl px-4 py-8">
           <div className="mb-8 pt-32 sm:pt-16">
             <div className="flex items-center justify-between rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/[0.08] p-5">
-              <div>
-                <h1 className="text-3xl font-bold text-white">
-                  {t("title")}
-                </h1>
-                <p className="mt-1 text-white/60">
-                  {t("subtitle")}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="relative h-10 w-10 rounded-full overflow-hidden ring-2 ring-amber-500/40">
+                  <Image
+                    src={config.assets.avatar}
+                    alt={config.artist.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-white">
+                    {t("title")}
+                  </h1>
+                  <p className="text-sm text-white/50">
+                    @{config.artist.name.toLowerCase().replace(/\s+/g, "")}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
@@ -56,25 +64,19 @@ export default function FanZoneContainer() {
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={() => setShowAudioForm(!showAudioForm)}
-              className="mt-4 text-xs text-accent hover:text-accent/80 transition-colors"
-            >
-              {showAudioForm ? t("close") : t("shareSound")}
-            </button>
-
-            {showAudioForm && (
-              <AudioShareForm
-                onUpload={uploadAudio}
-                onClose={() => setShowAudioForm(false)}
-              />
-            )}
           </div>
-          <LiveFeed posts={messages} isLoading={false} onReaction={addReaction} />
+          <LiveFeed posts={messages} isLoading={false} onReaction={addReaction} variant="broadcast" />
         </div>
       </div>
-      <PostForm onSubmit={sendMessage} />
+
+      {/* Footer sticky "Vue par X" */}
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-white/[0.08] bg-black/70 backdrop-blur-md">
+        <div className="mx-auto max-w-3xl px-4 py-3 text-center">
+          <span className="text-sm text-white/50">
+            {t("seenBy", { count: onlineCount })}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

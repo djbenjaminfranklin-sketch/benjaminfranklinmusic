@@ -8,7 +8,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   const settings = getAllSettings();
-  return NextResponse.json({ settings });
+  return NextResponse.json(groupSettings(settings));
+}
+
+/**
+ * Convert flat DB keys ("artist.name") into nested structure
+ * that the frontend Settings interface expects.
+ */
+function groupSettings(flat: Record<string, string>): Record<string, Record<string, string>> {
+  const result: Record<string, Record<string, string>> = {};
+  for (const [key, value] of Object.entries(flat)) {
+    const dot = key.indexOf(".");
+    if (dot === -1) continue;
+    const section = key.slice(0, dot);
+    const field = key.slice(dot + 1);
+    if (!result[section]) result[section] = {};
+    result[section][field] = value;
+  }
+  return result;
 }
 
 export async function PUT(request: NextRequest) {
@@ -30,7 +47,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const settings = getAllSettings();
-    return NextResponse.json({ settings });
+    return NextResponse.json(groupSettings(settings));
   } catch {
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
   }

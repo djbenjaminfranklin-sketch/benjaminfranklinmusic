@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import PermissionDialog from "@/components/ui/PermissionDialog";
 
 interface TrackResult {
   artist: string;
@@ -22,6 +23,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [showPermDialog, setShowPermDialog] = useState(false);
   const cancelledRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -254,7 +256,15 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
           )}
         </AnimatePresence>
         <button
-          onClick={identify}
+          onClick={() => {
+            if (isListening) {
+              identify();
+            } else if (audioStream && audioStream.getAudioTracks().length > 0) {
+              identify();
+            } else {
+              setShowPermDialog(true);
+            }
+          }}
           className={
             inline
               ? "relative z-10 flex items-center justify-center w-14 h-14 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation"
@@ -330,6 +340,16 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PermissionDialog
+        type="microphone"
+        open={showPermDialog}
+        onAllow={() => {
+          setShowPermDialog(false);
+          identify();
+        }}
+        onDeny={() => setShowPermDialog(false)}
+      />
     </div>
   );
 }

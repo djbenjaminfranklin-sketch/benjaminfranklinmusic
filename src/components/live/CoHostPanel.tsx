@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import { useState } from "react";
 import { Video, VideoOff, Mic, MicOff, Camera, SwitchCamera } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
+import PermissionDialog from "@/components/ui/PermissionDialog";
 
 interface CoHostPanelProps {
   code: string;
@@ -25,6 +27,7 @@ export default function CoHostPanel({ code }: CoHostPanelProps) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const t = useTranslations("live");
+  const [showPermDialog, setShowPermDialog] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -116,7 +119,7 @@ export default function CoHostPanel({ code }: CoHostPanelProps) {
         )}
 
         <button
-          onClick={() => joinAsCoHost({ video: true, audio: true, coHostCode: code })}
+          onClick={() => setShowPermDialog(true)}
           disabled={!code}
           className={cn(
             "w-full flex items-center justify-center gap-2 rounded-xl py-4 text-sm font-semibold transition-all",
@@ -127,6 +130,16 @@ export default function CoHostPanel({ code }: CoHostPanelProps) {
           {t("coHostJoin")}
         </button>
       </div>
+
+      <PermissionDialog
+        type="camera+microphone"
+        open={showPermDialog}
+        onAllow={() => {
+          setShowPermDialog(false);
+          joinAsCoHost({ video: true, audio: true, coHostCode: code });
+        }}
+        onDeny={() => setShowPermDialog(false)}
+      />
     </div>
   );
 }

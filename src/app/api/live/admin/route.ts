@@ -6,10 +6,11 @@ import {
   updateLocation,
   ensureCoHostCode,
   emitScheduledLive,
+  addChatMessage,
 } from "@/lib/sse-hub";
 import { getAuthUser } from "@/lib/auth";
 import { sendPushToAll } from "@/lib/push";
-import { getScheduledLive, setScheduledLive } from "@/lib/dynamic-config";
+import { getScheduledLive, setScheduledLive, getDynamicConfig } from "@/lib/dynamic-config";
 import siteConfig from "../../../../../site.config";
 
 export async function GET(request: NextRequest) {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, djPassword, streamUrl, streamType, artist, title, venue, lat, lng, date, city } = body;
+    const { action, djPassword, streamUrl, streamType, artist, title, venue, lat, lng, date, city, flyerUrl } = body;
 
     // Auth: accepte soit le cookie admin soit le mot de passe legacy
     const user = await getAuthUser(request);
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
 
         // Notification push a tous les abonnes
         {
-          const pushTitle = "Benjamin Franklin est en live !";
+          const config = getDynamicConfig();
+          const pushTitle = `${config.artist.name} est en live !`;
           const pushMessage = venue
             ? `Rejoins le live maintenant depuis ${venue}`
             : "Rejoins le live maintenant !";
@@ -89,8 +91,32 @@ export async function POST(request: NextRequest) {
             { status: 400 },
           );
         }
-        setScheduledLive({ date, venue, city });
-        emitScheduledLive({ date, venue, city });
+        setScheduledLive({ date, venue, city, flyerUrl: flyerUrl || undefined });
+        emitScheduledLive({ date, venue, city, flyerUrl: flyerUrl || undefined });
+        {
+          const config = getDynamicConfig();
+          const d = new Date(date);
+          const formatted = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
+            + " a " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+          const chatContent = `📅 ${formatted.charAt(0).toUpperCase() + formatted.slice(1)}\n📍 ${venue}, ${city}`;
+          addChatMessage(
+            config.artist.name,
+            chatContent,
+            true,
+            undefined,
+            undefined,
+            flyerUrl || undefined,
+            flyerUrl ? `Live — ${venue}, ${city}` : undefined,
+          );
+          // Build absolute image URL for push
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
+          const pushImage = flyerUrl && baseUrl ? `${baseUrl}${flyerUrl}` : undefined;
+          sendPushToAll(
+            `${config.artist.name} programme un live !`,
+            `${venue}, ${city}`,
+            pushImage
+          ).catch(() => {});
+        }
         break;
 
       case "cancel-schedule":

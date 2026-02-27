@@ -1,25 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Radio, Square, MapPin, Eye, Video, Link, Copy, Check, Calendar, Share2, X } from "lucide-react";
+import { MapPin, Eye, Link, Copy, Check, Calendar, Share2, X, ImagePlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/hooks/useLiveStream";
-import { useLiveAdmin } from "@/hooks/useLiveAdmin";
 import { usePlacesSearch } from "@/hooks/usePlacesSearch";
 import CameraBroadcast from "./CameraBroadcast";
 
-type LiveMode = "camera" | "hls";
-
 export default function LiveControlPanel() {
   const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage } = useLiveStream();
-  const { goLive, stopLive } = useLiveAdmin();
   const { results: scheduleVenueResults, isSearching: isScheduleSearching, search: searchScheduleVenues } = usePlacesSearch();
-
-  const [liveMode, setLiveMode] = useState<LiveMode>("camera");
-  const [streamUrl, setStreamUrl] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [coHostCode, setCoHostCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const t = useTranslations("admin");
@@ -29,6 +21,8 @@ export default function LiveControlPanel() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleVenueQuery, setScheduleVenueQuery] = useState("");
   const [scheduleCity, setScheduleCity] = useState("");
+  const [scheduleFlyerUrl, setScheduleFlyerUrl] = useState("");
+  const [uploadingScheduleFlyer, setUploadingScheduleFlyer] = useState(false);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [copiedShareText, setCopiedShareText] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState<ScheduledLiveData | null>(null);
@@ -48,6 +42,23 @@ export default function LiveControlPanel() {
       .catch(() => {});
   }, []);
 
+  const handleScheduleFlyerUpload = async (file: File) => {
+    setUploadingScheduleFlyer(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "flyers");
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setScheduleFlyerUrl(data.url);
+    } catch {
+      // silently fail
+    } finally {
+      setUploadingScheduleFlyer(false);
+    }
+  };
+
   const handleScheduleLive = async () => {
     if (!scheduleDate || !scheduleVenueQuery.trim() || !scheduleCity.trim()) return;
     setScheduleLoading(true);
@@ -61,16 +72,18 @@ export default function LiveControlPanel() {
           date: scheduleDate,
           venue: scheduleVenueQuery.trim(),
           city: scheduleCity.trim(),
+          flyerUrl: scheduleFlyerUrl || undefined,
         }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to schedule");
       }
-      setCurrentSchedule({ date: scheduleDate, venue: scheduleVenueQuery.trim(), city: scheduleCity.trim() });
+      setCurrentSchedule({ date: scheduleDate, venue: scheduleVenueQuery.trim(), city: scheduleCity.trim(), flyerUrl: scheduleFlyerUrl || undefined });
       setScheduleDate("");
       setScheduleVenueQuery("");
       setScheduleCity("");
+      setScheduleFlyerUrl("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
@@ -133,32 +146,6 @@ export default function LiveControlPanel() {
       })
       .catch(() => {});
   }, []);
-
-  const handleGoLiveHLS = async () => {
-    if (!streamUrl.trim()) return;
-    setLoading(true);
-    setError("");
-    try {
-      await goLive(streamUrl.trim(), "");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopLive = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      await stopLive("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
 
 
   return (
@@ -255,6 +242,38 @@ export default function LiveControlPanel() {
                 />
               </div>
 
+              {/* Flyer upload */}
+              <div>
+                <label className="block text-xs font-medium text-foreground/50 mb-1.5">Flyer</label>
+                {scheduleFlyerUrl ? (
+                  <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-border bg-background group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={scheduleFlyerUrl} alt="Flyer" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setScheduleFlyerUrl("")}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 rounded-lg bg-purple-500/10 border border-purple-500/20 px-4 py-2.5 text-sm font-medium text-purple-400 hover:bg-purple-500/20 transition-colors cursor-pointer w-fit">
+                    <ImagePlus className="h-4 w-4" />
+                    {uploadingScheduleFlyer ? "..." : "Ajouter un flyer"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleScheduleFlyerUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
               <button
                 onClick={handleScheduleLive}
                 disabled={!scheduleDate || !scheduleVenueQuery.trim() || !scheduleCity.trim() || scheduleLoading}
@@ -270,20 +289,30 @@ export default function LiveControlPanel() {
           ) : (
             <div className="space-y-4">
               {/* Schedule summary */}
-              <div className="rounded-lg bg-accent/5 border border-accent/20 p-4 space-y-2">
-                <p className="text-sm font-medium text-accent">
-                  {tLive("scheduledFor")} {new Date(currentSchedule.date).toLocaleDateString("fr-FR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-                <p className="text-xs text-foreground/50 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {currentSchedule.venue}, {currentSchedule.city}
-                </p>
+              <div className="rounded-lg bg-accent/5 border border-accent/20 p-4 space-y-3">
+                <div className="flex gap-4">
+                  {currentSchedule.flyerUrl && (
+                    <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-accent/20">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={currentSchedule.flyerUrl} alt="Flyer" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-accent">
+                      {tLive("scheduledFor")} {new Date(currentSchedule.date).toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <p className="text-xs text-foreground/50 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {currentSchedule.venue}, {currentSchedule.city}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Share text */}
@@ -329,87 +358,10 @@ export default function LiveControlPanel() {
         </div>
       )}
 
-      {/* Mode de diffusion */}
-      {!streamStatus.isLive && (
-        <div className="flex gap-1 p-1 rounded-lg bg-background border border-border">
-          <button
-            onClick={() => setLiveMode("camera")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-md transition-colors",
-              liveMode === "camera"
-                ? "bg-card text-primary shadow-sm"
-                : "text-foreground/50 hover:text-foreground"
-            )}
-          >
-            <Video className="h-4 w-4" />
-            {t("cameraMode")}
-          </button>
-          <button
-            onClick={() => setLiveMode("hls")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-md transition-colors",
-              liveMode === "hls"
-                ? "bg-card text-primary shadow-sm"
-                : "text-foreground/50 hover:text-foreground"
-            )}
-          >
-            <Radio className="h-4 w-4" />
-            {t("hlsMode")}
-          </button>
-        </div>
-      )}
-
-      {/* Mode Caméra (WebRTC) */}
-      {(liveMode === "camera" && !streamStatus.isLive) || (streamStatus.isLive && streamStatus.streamType === "webrtc") ? (
+      {/* Caméra (WebRTC) */}
+      {!streamStatus.isLive || streamStatus.streamType === "webrtc" ? (
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground/60 mb-4">{t("cameraBroadcast")}</h3>
           <CameraBroadcast isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} venue={streamStatus.venue} />
-        </div>
-      ) : null}
-
-      {/* Mode HLS */}
-      {(liveMode === "hls" && !streamStatus.isLive) || (streamStatus.isLive && streamStatus.streamType === "hls") ? (
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground/60">{t("streamControl")}</h3>
-
-          <div>
-            <label className="block text-xs font-medium text-foreground/50 mb-1.5">{tLive("hlsStreamUrl")}</label>
-            <input
-              type="text"
-              placeholder={tLive("hlsPlaceholder")}
-              value={streamUrl}
-              onChange={(e) => setStreamUrl(e.target.value)}
-              className="w-full rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            {!streamStatus.isLive ? (
-              <button
-                onClick={handleGoLiveHLS}
-                disabled={!streamUrl.trim() || loading}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg bg-red-500/20 border border-red-500/30 px-4 py-2.5 text-sm font-medium text-red-400",
-                  "hover:bg-red-500/30 disabled:opacity-50 transition-colors"
-                )}
-              >
-                <Radio className="h-4 w-4" />
-                {tLive("goLive")}
-              </button>
-            ) : (
-              <button
-                onClick={handleStopLive}
-                disabled={loading}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg bg-foreground/10 border border-border px-4 py-2.5 text-sm font-medium text-foreground/60",
-                  "hover:bg-foreground/15 disabled:opacity-50 transition-colors"
-                )}
-              >
-                <Square className="h-4 w-4" />
-                {tLive("stopLive")}
-              </button>
-            )}
-          </div>
         </div>
       ) : null}
 

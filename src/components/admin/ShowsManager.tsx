@@ -13,6 +13,7 @@ import {
   MapPin,
   Calendar,
   Ticket,
+  ImagePlus,
 } from "lucide-react";
 
 interface Show {
@@ -26,6 +27,7 @@ interface Show {
   soldOut: boolean;
   isPast: boolean;
   tracklist?: string[];
+  flyerUrl?: string;
   sortOrder?: number;
 }
 
@@ -75,6 +77,9 @@ export default function ShowsManager() {
   const [editingTracklistId, setEditingTracklistId] = useState<string | null>(null);
   const [tracklistDraft, setTracklistDraft] = useState<string[]>([]);
   const [newTrack, setNewTrack] = useState("");
+
+  // Flyer upload
+  const [uploadingFlyer, setUploadingFlyer] = useState<string | null>(null); // "add" | showId | null
 
   // Seeding
   const [seeding, setSeeding] = useState(false);
@@ -246,6 +251,46 @@ export default function ShowsManager() {
     }
   };
 
+  // --- Flyer upload ---
+  const handleFlyerUpload = async (file: File, showId: string) => {
+    setUploadingFlyer(showId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "flyers");
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      // Update the show with the flyer URL
+      await fetch(`/api/admin/shows/${showId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flyerUrl: data.url }),
+      });
+      await fetchShows();
+    } catch {
+      // silently fail
+    } finally {
+      setUploadingFlyer(null);
+    }
+  };
+
+  const removeFlyer = async (showId: string) => {
+    try {
+      await fetch(`/api/admin/shows/${showId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flyerUrl: null }),
+      });
+      await fetchShows();
+    } catch {
+      // silently fail
+    }
+  };
+
   // --- Helpers ---
   const toDatetimeLocal = (iso: string) => {
     try {
@@ -278,16 +323,16 @@ export default function ShowsManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">{t("shows")}</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={handleSeed}
             disabled={seeding}
-            className="bg-accent/10 text-accent border border-accent/20 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent/20 transition-colors disabled:opacity-50"
+            className="bg-accent/10 text-accent border border-accent/20 px-3 py-2 rounded-lg text-xs font-medium hover:bg-accent/20 transition-colors disabled:opacity-50"
           >
-            <span className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
+            <span className="flex items-center gap-1.5">
+              <Download className="h-3.5 w-3.5" />
               {seeding ? "..." : t("importFromConfig")}
             </span>
           </button>
@@ -296,10 +341,10 @@ export default function ShowsManager() {
               setShowAddForm(!showAddForm);
               setAddForm(emptyForm);
             }}
-            className="bg-accent text-background px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors"
+            className="bg-accent text-background px-3 py-2 rounded-lg text-xs font-medium hover:bg-accent/90 transition-colors"
           >
-            <span className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
+            <span className="flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
               {t("addShow")}
             </span>
           </button>
@@ -505,8 +550,22 @@ export default function ShowsManager() {
                 </div>
               ) : (
                 /* --- Display mode --- */
-                <div>
-                  <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3">
+                  {/* Show info + flyer */}
+                  <div className="flex gap-4">
+                    {/* Flyer thumbnail */}
+                    {show.flyerUrl && (
+                      <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-border bg-background group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={show.flyerUrl} alt="Flyer" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removeFlyer(show.id)}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-semibold text-primary">{show.name}</h3>
@@ -519,7 +578,7 @@ export default function ShowsManager() {
                       <div className="mt-1.5 flex flex-col gap-1">
                         <p className="text-sm text-foreground/60 flex items-center gap-1.5">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          {show.venue} &mdash; {show.city}, {show.country}
+                          <span className="break-all">{show.venue} &mdash; {show.city}, {show.country}</span>
                         </p>
                         <p className="text-sm text-foreground/40 flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 shrink-0" />
@@ -533,63 +592,80 @@ export default function ShowsManager() {
                             className="text-sm text-accent hover:underline flex items-center gap-1.5 w-fit"
                           >
                             <Ticket className="h-3.5 w-3.5 shrink-0" />
-                            {show.ticketUrl}
+                            <span className="truncate max-w-[200px]">{show.ticketUrl}</span>
                           </a>
                         )}
                       </div>
                     </div>
+                  </div>
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {activeTab === "past" && (
-                        <button
-                          onClick={() => startTracklistEdit(show)}
-                          className="bg-accent/10 text-accent border border-accent/20 px-3 py-1.5 rounded-lg text-sm hover:bg-accent/20 transition-colors"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <Music className="h-3.5 w-3.5" />
-                            {t("tracklist")}
-                          </span>
-                        </button>
-                      )}
+                  {/* Action buttons — stacked row */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
+                    {/* Flyer upload */}
+                    <label className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1.5 rounded-lg text-xs hover:bg-purple-500/20 transition-colors cursor-pointer">
+                      <span className="flex items-center gap-1.5">
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        {uploadingFlyer === show.id ? "..." : "Flyer"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFlyerUpload(file, show.id);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {activeTab === "past" && (
                       <button
-                        onClick={() => startEdit(show)}
-                        className="bg-foreground/5 text-foreground/50 border border-border px-3 py-1.5 rounded-lg text-sm hover:bg-foreground/10 transition-colors"
+                        onClick={() => startTracklistEdit(show)}
+                        className="bg-accent/10 text-accent border border-accent/20 px-3 py-1.5 rounded-lg text-xs hover:bg-accent/20 transition-colors"
                       >
                         <span className="flex items-center gap-1.5">
-                          <Pencil className="h-3.5 w-3.5" />
-                          {t("editShow")}
+                          <Music className="h-3.5 w-3.5" />
+                          {t("tracklist")}
                         </span>
                       </button>
-                      {deletingId === show.id ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-red-400 mr-1">{t("confirmDelete")}</span>
-                          <button
-                            onClick={() => handleDelete(show.id)}
-                            disabled={deleting}
-                            className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-sm hover:bg-red-500/20 transition-colors disabled:opacity-50"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingId(null)}
-                            className="bg-foreground/5 text-foreground/50 border border-border px-3 py-1.5 rounded-lg text-sm hover:bg-foreground/10 transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
+                    )}
+                    <button
+                      onClick={() => startEdit(show)}
+                      className="bg-foreground/5 text-foreground/50 border border-border px-3 py-1.5 rounded-lg text-xs hover:bg-foreground/10 transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t("editShow")}
+                      </span>
+                    </button>
+                    {deletingId === show.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-400">{t("confirmDelete")}</span>
                         <button
-                          onClick={() => setDeletingId(show.id)}
-                          className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-sm hover:bg-red-500/20 transition-colors"
+                          onClick={() => handleDelete(show.id)}
+                          disabled={deleting}
+                          className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-xs hover:bg-red-500/20 transition-colors disabled:opacity-50"
                         >
-                          <span className="flex items-center gap-1.5">
-                            <Trash2 className="h-3.5 w-3.5" />
-                            {t("deleteShow")}
-                          </span>
+                          <Check className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                    </div>
+                        <button
+                          onClick={() => setDeletingId(null)}
+                          className="bg-foreground/5 text-foreground/50 border border-border px-3 py-1.5 rounded-lg text-xs hover:bg-foreground/10 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingId(show.id)}
+                        className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-xs hover:bg-red-500/20 transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {t("deleteShow")}
+                        </span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Tracklist display for past shows */}

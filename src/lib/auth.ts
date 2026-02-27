@@ -93,5 +93,6 @@ export function sanitizeUser(user: DBUser) {
     role: user.role,
     created_at: user.created_at,
     email_verified: user.email_verified,
+    banned: user.banned,
   };
 }

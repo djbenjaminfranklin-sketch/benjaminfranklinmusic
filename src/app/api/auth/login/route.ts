@@ -39,6 +39,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (user.banned === 1) {
+      return NextResponse.json(
+        { error: "Account suspended" },
+        { status: 403 }
+      );
+    }
+
     // Auto-promote admin emails on login
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
     if (adminEmails.includes(email.toLowerCase()) && user.role !== "admin") {

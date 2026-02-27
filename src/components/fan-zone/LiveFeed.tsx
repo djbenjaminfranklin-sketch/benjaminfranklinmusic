@@ -10,6 +10,7 @@ interface LiveFeedProps {
   posts: ChatMessage[];
   isLoading: boolean;
   onReaction: (postId: string, reaction: string) => void;
+  variant?: "admin" | "broadcast";
 }
 
 function Skeleton() {
@@ -43,19 +44,39 @@ function formatDateSeparator(date: Date, locale: string): string {
     .toUpperCase();
 }
 
+function formatDateTimeSeparator(date: Date, locale: string): string {
+  const datePart = date
+    .toLocaleDateString(locale, { day: "numeric", month: "short" })
+    .toUpperCase()
+    .replace(".", "");
+  const timePart = date.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${datePart} À ${timePart}`;
+}
+
 function getDayKey(timestamp: string): string {
   const d = new Date(timestamp);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-export default function LiveFeed({ posts, isLoading, onReaction }: LiveFeedProps) {
+export default function LiveFeed({ posts, isLoading, onReaction, variant = "admin" }: LiveFeedProps) {
   const t = useTranslations("fanZone");
   const locale = useLocale();
 
+  const sorted = useMemo(
+    () =>
+      [...posts].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      ),
+    [posts],
+  );
+
+  // Admin mode: group by day
   const grouped = useMemo(() => {
-    const sorted = [...posts].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
+    if (variant === "broadcast") return [];
 
     const groups: { key: string; label: string; posts: ChatMessage[] }[] = [];
     let currentKey = "";
@@ -74,10 +95,39 @@ export default function LiveFeed({ posts, isLoading, onReaction }: LiveFeedProps
     }
 
     return groups;
-  }, [posts, locale]);
+  }, [sorted, locale, variant]);
 
   if (isLoading) return <Skeleton />;
 
+  /* ── Broadcast mode: each message has its own date+time separator ── */
+  if (variant === "broadcast") {
+    return (
+      <div className="space-y-4">
+        <AnimatePresence mode="popLayout">
+          {sorted.map((post) => (
+            <div key={post.id} className="space-y-3">
+              {/* Date + time separator per message */}
+              <div className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-[11px] font-semibold tracking-widest text-white/30">
+                  {formatDateTimeSeparator(new Date(post.timestamp), locale)}
+                </span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+              <PostCard post={post} onReaction={onReaction} variant="broadcast" />
+            </div>
+          ))}
+        </AnimatePresence>
+        {sorted.length === 0 && (
+          <p className="text-center text-white/40 py-12 text-sm">
+            {t("noMessages")}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Admin mode: grouped by day ── */
   return (
     <div className="space-y-4">
       {grouped.map((group) => (
@@ -93,7 +143,7 @@ export default function LiveFeed({ posts, isLoading, onReaction }: LiveFeedProps
 
           <AnimatePresence mode="popLayout">
             {group.posts.map((post) => (
-              <PostCard key={post.id} post={post} onReaction={onReaction} />
+              <PostCard key={post.id} post={post} onReaction={onReaction} variant="admin" />
             ))}
           </AnimatePresence>
         </div>

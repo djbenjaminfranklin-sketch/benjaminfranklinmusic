@@ -1,33 +1,44 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteConfig } from "@/contexts/SiteConfigContext";
 
-interface AuthModalProps {
-  open: boolean;
-  onClose: () => void;
-}
+export default function AuthGate({ children }: { children: React.ReactNode }) {
+  const { user, loading, login, signup } = useAuth();
+  const pathname = usePathname();
+  const t = useTranslations("auth");
+  const config = useSiteConfig();
 
-export default function AuthModal({ open, onClose }: AuthModalProps) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const { login, signup } = useAuth();
-  const t = useTranslations("auth");
 
-  if (!open) return null;
+  // Allow legal pages without auth
+  const isLegalPage = pathname.includes("/privacy") || pathname.includes("/terms");
+  if (isLegalPage) return <>{children}</>;
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-[100]">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user) return <>{children}</>;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
+    setFormLoading(true);
 
     try {
       if (mode === "login") {
@@ -35,40 +46,40 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       } else {
         await signup(email, password, name);
       }
-      setEmail("");
-      setPassword("");
-      setName("");
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md mx-4 rounded-2xl border border-border bg-card p-6 shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1 text-foreground/40 hover:text-foreground transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
+    <div className="fixed inset-0 bg-background z-[100] flex flex-col items-center justify-center px-4 overflow-y-auto">
+      <div className="w-full max-w-md py-8">
+        {/* Logo */}
+        {config.assets.logo && (
+          <img
+            src={config.assets.logo}
+            alt={config.artist.name}
+            className="h-16 mx-auto mb-6 object-contain"
+          />
+        )}
 
-        <h2 className="text-xl font-bold text-primary mb-6">
-          {mode === "login" ? t("signIn") : t("signUp")}
-        </h2>
+        <h1 className="text-2xl font-bold text-primary text-center mb-1">
+          {t("welcomeTitle")}
+        </h1>
+        <p className="text-sm text-foreground/50 text-center mb-8">
+          {t("welcomeSubtitle")}
+        </p>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1 rounded-lg bg-background">
+        <div className="flex gap-1 mb-6 p-1 rounded-lg bg-card border border-border">
           <button
             onClick={() => { setMode("login"); setError(""); }}
             className={cn(
               "flex-1 py-2 text-sm font-medium rounded-md transition-colors",
               mode === "login"
-                ? "bg-card text-primary shadow-sm"
+                ? "bg-background text-primary shadow-sm"
                 : "text-foreground/50 hover:text-foreground"
             )}
           >
@@ -79,7 +90,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             className={cn(
               "flex-1 py-2 text-sm font-medium rounded-md transition-colors",
               mode === "signup"
-                ? "bg-card text-primary shadow-sm"
+                ? "bg-background text-primary shadow-sm"
                 : "text-foreground/50 hover:text-foreground"
             )}
           >
@@ -99,7 +110,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
                 onChange={(e) => setName(e.target.value)}
                 required
                 minLength={2}
-                className="w-full rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+                className="w-full rounded-lg bg-card border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
                 placeholder={t("namePlaceholder")}
               />
             </div>
@@ -114,7 +125,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              className="w-full rounded-lg bg-card border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               placeholder={t("emailPlaceholder")}
             />
           </div>
@@ -129,7 +140,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              className="w-full rounded-lg bg-card border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               placeholder={t("passwordPlaceholder")}
             />
           </div>
@@ -166,37 +177,19 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
 
           <button
             type="submit"
-            disabled={loading || (mode === "signup" && !acceptedTerms)}
+            disabled={formLoading || (mode === "signup" && !acceptedTerms)}
             className={cn(
               "w-full rounded-lg bg-accent text-background py-2.5 text-sm font-semibold",
               "hover:bg-accent/90 transition-colors disabled:opacity-50"
             )}
           >
-            {loading
+            {formLoading
               ? "..."
               : mode === "login"
               ? t("signIn")
               : t("signUp")}
           </button>
         </form>
-
-        <p className="mt-4 text-center text-xs text-foreground/40">
-          {mode === "login" ? (
-            <>
-              {t("noAccount")}{" "}
-              <button onClick={() => { setMode("signup"); setError(""); }} className="text-accent hover:underline">
-                {t("signUp")}
-              </button>
-            </>
-          ) : (
-            <>
-              {t("hasAccount")}{" "}
-              <button onClick={() => { setMode("login"); setError(""); }} className="text-accent hover:underline">
-                {t("signIn")}
-              </button>
-            </>
-          )}
-        </p>
       </div>
     </div>
   );

@@ -103,6 +103,19 @@ try {
   try { db.pragma("foreign_keys = ON"); } catch {}
 }
 
+// --- Migrations ---
+try {
+  db.exec("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0");
+} catch {
+  // Column already exists — ignore
+}
+
+try {
+  db.exec("ALTER TABLE shows ADD COLUMN flyer_url TEXT");
+} catch {
+  // Column already exists — ignore
+}
+
 // --- Types ---
 
 export interface DBUser {
@@ -113,6 +126,7 @@ export interface DBUser {
   role: string;
   created_at: string;
   email_verified: number;
+  banned: number;
 }
 
 export interface DBSession {
@@ -171,6 +185,18 @@ export function promoteToAdmin(userId: string): void {
 export function getUserCount(): number {
   const row = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
   return row.count;
+}
+
+export function banUser(userId: string): void {
+  db.prepare("UPDATE users SET banned = 1 WHERE id = ?").run(userId);
+}
+
+export function unbanUser(userId: string): void {
+  db.prepare("UPDATE users SET banned = 0 WHERE id = ?").run(userId);
+}
+
+export function deleteUser(userId: string): void {
+  db.prepare("DELETE FROM users WHERE id = ?").run(userId);
 }
 
 // --- Sessions ---

@@ -51,7 +51,7 @@ export function getDynamicConfig() {
     socials: {
       spotify: settings["socials.spotify"] || siteConfig.socials.spotify,
       instagram: settings["socials.instagram"] || siteConfig.socials.instagram,
-      soundcloud: settings["socials.soundcloud"] || siteConfig.socials.soundcloud,
+
       tiktok: settings["socials.tiktok"] || siteConfig.socials.tiktok,
     },
     navigation: siteConfig.navigation,
@@ -75,6 +75,7 @@ export interface ScheduledLive {
   date: string;
   venue: string;
   city: string;
+  flyerUrl?: string;
 }
 
 export function getScheduledLive(): ScheduledLive | null {
@@ -120,6 +121,7 @@ interface DBShow {
   sold_out: number;
   is_past: number;
   tracklist: string | null;
+  flyer_url: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -137,6 +139,7 @@ function mapShow(row: DBShow) {
     soldOut: row.sold_out === 1,
     isPast: row.is_past === 1,
     tracklist: row.tracklist ? JSON.parse(row.tracklist) : undefined,
+    flyerUrl: row.flyer_url || undefined,
     sortOrder: row.sort_order,
   };
 }
@@ -166,12 +169,13 @@ export function createShow(data: {
   soldOut?: boolean;
   isPast?: boolean;
   tracklist?: string[];
+  flyerUrl?: string;
   sortOrder?: number;
 }) {
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO shows (id, name, venue, city, country, date, ticket_url, sold_out, is_past, tracklist, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO shows (id, name, venue, city, country, date, ticket_url, sold_out, is_past, tracklist, flyer_url, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     data.name,
@@ -183,6 +187,7 @@ export function createShow(data: {
     data.soldOut ? 1 : 0,
     data.isPast ? 1 : 0,
     data.tracklist ? JSON.stringify(data.tracklist) : null,
+    data.flyerUrl || null,
     data.sortOrder ?? 0,
   );
   return getShowById(id)!;
@@ -198,13 +203,14 @@ export function updateShow(id: string, data: {
   soldOut?: boolean;
   isPast?: boolean;
   tracklist?: string[] | null;
+  flyerUrl?: string | null;
   sortOrder?: number;
 }) {
   const existing = db.prepare("SELECT * FROM shows WHERE id = ?").get(id) as DBShow | undefined;
   if (!existing) return null;
 
   db.prepare(
-    `UPDATE shows SET name = ?, venue = ?, city = ?, country = ?, date = ?, ticket_url = ?, sold_out = ?, is_past = ?, tracklist = ?, sort_order = ?, updated_at = datetime('now')
+    `UPDATE shows SET name = ?, venue = ?, city = ?, country = ?, date = ?, ticket_url = ?, sold_out = ?, is_past = ?, tracklist = ?, flyer_url = ?, sort_order = ?, updated_at = datetime('now')
      WHERE id = ?`
   ).run(
     data.name ?? existing.name,
@@ -216,6 +222,7 @@ export function updateShow(id: string, data: {
     data.soldOut !== undefined ? (data.soldOut ? 1 : 0) : existing.sold_out,
     data.isPast !== undefined ? (data.isPast ? 1 : 0) : existing.is_past,
     data.tracklist !== undefined ? (data.tracklist ? JSON.stringify(data.tracklist) : null) : existing.tracklist,
+    data.flyerUrl !== undefined ? data.flyerUrl : existing.flyer_url,
     data.sortOrder ?? existing.sort_order,
     id,
   );

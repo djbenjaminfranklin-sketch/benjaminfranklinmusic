@@ -4,6 +4,7 @@ import path from "path";
 import crypto from "crypto";
 import { addChatMessage } from "@/lib/sse-hub";
 import { getDynamicConfig } from "@/lib/dynamic-config";
+import { sendPushToAll } from "@/lib/push";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const IMAGE_MAX = 10 * 1024 * 1024; // 10MB
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
       imageUrl,
       caption || undefined,
     );
+
+    if (isDJ) {
+      sendPushToAll(config.artist.name, `${config.artist.name} a partage une photo`).catch(() => {});
+    }
 
     return NextResponse.json(msg, { status: 201 });
   } catch {

@@ -35,7 +35,6 @@ interface Settings {
   socials: {
     spotify: string;
     instagram: string;
-    soundcloud: string;
     tiktok: string;
   };
   bio: { en: string; fr: string; es: string };
@@ -55,7 +54,7 @@ const DEFAULT_SETTINGS: Settings = {
     border: "#27272a",
     primary: "#ffffff",
   },
-  socials: { spotify: "", instagram: "", soundcloud: "", tiktok: "" },
+  socials: { spotify: "", instagram: "", tiktok: "" },
   bio: { en: "", fr: "", es: "" },
   tagline: { en: "", fr: "", es: "" },
   fanZone: { djPassword: "" },
@@ -104,11 +103,13 @@ function SaveButton({
   saved,
   onClick,
   label,
+  savedLabel,
 }: {
   saving: boolean;
   saved: boolean;
   onClick: () => void;
   label: string;
+  savedLabel: string;
 }) {
   return (
     <button
@@ -129,7 +130,7 @@ function SaveButton({
       ) : (
         <Save className="h-4 w-4" />
       )}
-      {saved ? "Saved" : label}
+      {saved ? savedLabel : label}
     </button>
   );
 }
@@ -276,21 +277,21 @@ export default function SettingsPanel() {
       {/*  1. Artist Info                                               */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={User} title="Artist Info" />
+        <SectionHeading icon={User} title={t("artistInfo")} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Name</label>
+            <label className={labelClass}>{t("name")}</label>
             <input
               type="text"
               value={settings.artist.name}
               onChange={(e) => updateNested("artist", "name", e.target.value)}
-              placeholder="Artist name"
+              placeholder={t("name")}
               className={inputClass}
             />
           </div>
           <div>
-            <label className={labelClass}>Email</label>
+            <label className={labelClass}>{t("email")}</label>
             <input
               type="email"
               value={settings.artist.email}
@@ -307,7 +308,8 @@ export default function SettingsPanel() {
           onClick={() =>
             saveSection("artist", { "artist.name": settings.artist.name, "artist.email": settings.artist.email })
           }
-          label="Save Artist Info"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
 
@@ -315,15 +317,15 @@ export default function SettingsPanel() {
       {/*  2. Images                                                    */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={ImageIcon} title="Images" />
+        <SectionHeading icon={ImageIcon} title={t("images")} />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {(
             [
-              ["logo", "Logo", logoRef],
-              ["avatar", "Avatar", avatarRef],
-              ["heroImage", "Hero Image", heroRef],
-            ] as const
+              ["logo", t("logo"), logoRef],
+              ["avatar", t("avatar"), avatarRef],
+              ["heroImage", t("heroImage"), heroRef],
+            ] as [keyof Settings["assets"], string, React.RefObject<HTMLInputElement | null>][]
           ).map(([key, label, ref]) => (
             <div key={key} className="space-y-2">
               <label className={labelClass}>{label}</label>
@@ -349,7 +351,7 @@ export default function SettingsPanel() {
                 ref={ref}
                 className="hidden"
                 onChange={(e) =>
-                  handleFileChange(e, key as keyof Settings["assets"])
+                  handleFileChange(e, key)
                 }
               />
               <button
@@ -357,7 +359,7 @@ export default function SettingsPanel() {
                 className="flex items-center gap-2 rounded-lg bg-background border border-border px-3 py-2 text-sm text-foreground/60 hover:text-foreground hover:border-accent/40 transition-colors w-full justify-center"
               >
                 <Upload className="h-4 w-4" />
-                Upload {label}
+                {t("upload")} {label}
               </button>
             </div>
           ))}
@@ -373,7 +375,8 @@ export default function SettingsPanel() {
               "assets.heroImage": settings.assets.heroImage,
             })
           }
-          label="Save Images"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
 
@@ -381,18 +384,18 @@ export default function SettingsPanel() {
       {/*  3. Theme Colors                                              */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={Palette} title="Theme Colors" />
+        <SectionHeading icon={Palette} title={t("themeColors")} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(
             [
-              ["accent", "Accent"],
-              ["background", "Background"],
-              ["foreground", "Foreground"],
-              ["card", "Card"],
-              ["border", "Border"],
-              ["primary", "Primary"],
-            ] as const
+              ["accent", t("accent")],
+              ["background", t("background")],
+              ["foreground", t("foreground")],
+              ["card", t("card")],
+              ["border", t("border")],
+              ["primary", t("primary")],
+            ] as [keyof Settings["theme"], string][]
           ).map(([key, label]) => (
             <div key={key} className="flex items-center gap-3">
               <input
@@ -426,7 +429,8 @@ export default function SettingsPanel() {
               "theme.primary": settings.theme.primary,
             })
           }
-          label="Save Theme"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
 
@@ -434,16 +438,15 @@ export default function SettingsPanel() {
       {/*  4. Social Links                                              */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={Share2} title="Social Links" />
+        <SectionHeading icon={Share2} title={t("socialLinks")} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {(
             [
-              ["spotify", "Spotify"],
-              ["instagram", "Instagram"],
-              ["soundcloud", "SoundCloud"],
-              ["tiktok", "TikTok"],
-            ] as const
+              ["spotify", t("spotify")],
+              ["instagram", t("instagram")],
+              ["tiktok", t("tiktok")],
+            ] as [keyof Settings["socials"], string][]
           ).map(([key, label]) => (
             <div key={key}>
               <label className={labelClass}>{label}</label>
@@ -465,11 +468,11 @@ export default function SettingsPanel() {
             saveSection("socials", {
               "socials.spotify": settings.socials.spotify,
               "socials.instagram": settings.socials.instagram,
-              "socials.soundcloud": settings.socials.soundcloud,
               "socials.tiktok": settings.socials.tiktok,
             })
           }
-          label="Save Social Links"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
 
@@ -477,7 +480,7 @@ export default function SettingsPanel() {
       {/*  5. Bio & Tagline                                             */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={FileText} title="Bio & Tagline" />
+        <SectionHeading icon={FileText} title={t("bioTagline")} />
 
         {/* Locale tabs */}
         <div className="flex gap-1 rounded-lg bg-background border border-border p-1 w-fit">
@@ -536,7 +539,8 @@ export default function SettingsPanel() {
               "tagline.es": settings.tagline.es,
             })
           }
-          label="Save Bio & Tagline"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
 
@@ -544,10 +548,10 @@ export default function SettingsPanel() {
       {/*  6. Passwords                                                 */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={Lock} title="Passwords" />
+        <SectionHeading icon={Lock} title={t("passwords")} />
 
         <div>
-          <label className={labelClass}>Fan Zone DJ Password</label>
+          <label className={labelClass}>{t("djPassword")}</label>
           <input
             type="text"
             value={settings.fanZone.djPassword}
@@ -567,7 +571,8 @@ export default function SettingsPanel() {
               "fanZone.djPassword": settings.fanZone.djPassword,
             })
           }
-          label="Save Password"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
 
@@ -575,10 +580,10 @@ export default function SettingsPanel() {
       {/*  7. Booking                                                   */}
       {/* ------------------------------------------------------------ */}
       <div className={cardClass}>
-        <SectionHeading icon={CalendarCheck} title="Booking" />
+        <SectionHeading icon={CalendarCheck} title={t("booking")} />
 
         <div>
-          <label className={labelClass}>Recipient Email</label>
+          <label className={labelClass}>{t("recipientEmail")}</label>
           <input
             type="email"
             value={settings.booking.recipientEmail}
@@ -598,7 +603,8 @@ export default function SettingsPanel() {
               "booking.recipientEmail": settings.booking.recipientEmail,
             })
           }
-          label="Save Booking"
+          label={t("save")}
+          savedLabel={t("saved")}
         />
       </div>
     </div>

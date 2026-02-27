@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import PullToRefresh from "@/components/PullToRefresh";
 
 const navItems = [
   { key: "dashboard", href: "/admin", icon: LayoutDashboard },
@@ -75,7 +76,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
 
           {/* Content */}
-          <div className="flex-1 min-w-0">{children}</div>
+          <div className="flex-1 min-w-0">
+            <PullToRefresh>{children}</PullToRefresh>
+          </div>
         </div>
       </div>
     </div>

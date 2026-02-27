@@ -20,13 +20,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, venue, city, country, date, ticketUrl, soldOut, isPast, tracklist, sortOrder } = body;
+    const { name, venue, city, country, date, ticketUrl, soldOut, isPast, tracklist, flyerUrl, sortOrder } = body;
 
     if (!name || !venue || !city || !country || !date) {
       return NextResponse.json({ error: "name, venue, city, country, and date are required" }, { status: 400 });
     }
 
-    const show = createShow({ name, venue, city, country, date, ticketUrl, soldOut, isPast, tracklist, sortOrder });
+    const show = createShow({ name, venue, city, country, date, ticketUrl, soldOut, isPast, tracklist, flyerUrl, sortOrder });
     return NextResponse.json(show, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Failed to create show" }, { status: 500 });

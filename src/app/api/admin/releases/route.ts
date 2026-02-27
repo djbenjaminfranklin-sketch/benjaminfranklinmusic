@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { getReleases, createRelease } from "@/lib/dynamic-config";
+import { getReleases, createRelease, getDynamicConfig } from "@/lib/dynamic-config";
+import { sendPushToAll } from "@/lib/push";
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);
@@ -26,6 +27,13 @@ export async function POST(request: NextRequest) {
     }
 
     const release = createRelease({ title, type, releaseDate, coverUrl, audioUrl, spotifyUrl, spotifyEmbedId, featured, sortOrder });
+
+    const config = getDynamicConfig();
+    sendPushToAll(
+      `${config.artist.name} — nouveau ${type} !`,
+      `${title} est disponible`
+    ).catch(() => {});
+
     return NextResponse.json(release, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Failed to create release" }, { status: 500 });

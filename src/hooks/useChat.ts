@@ -142,6 +142,25 @@ export function useChat() {
     [],
   );
 
+  const uploadVideo = useCallback(
+    async (file: File, title: string, author: string, djPassword: string) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", title);
+      formData.append("author", author);
+      formData.append("djPassword", djPassword);
+      const res = await fetch("/api/chat/upload-video", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Upload failed");
+      }
+    },
+    [],
+  );
+
   const deleteMessage = useCallback(
     async (messageId: string) => {
       const res = await fetch(`/api/admin/chat/${messageId}`, {
@@ -155,5 +174,5 @@ export function useChat() {
     [],
   );
 
-  return { messages, onlineCount, isConnected, sendMessage, addReaction, uploadAudio, uploadImage, deleteMessage };
+  return { messages, onlineCount, isConnected, sendMessage, addReaction, uploadAudio, uploadImage, uploadVideo, deleteMessage };
 }

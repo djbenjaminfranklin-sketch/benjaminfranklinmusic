@@ -12,7 +12,8 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 export async function sendPushNotification(
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
   title: string,
-  body: string
+  body: string,
+  image?: string
 ): Promise<boolean> {
   try {
     await webpush.sendNotification(
@@ -20,7 +21,7 @@ export async function sendPushNotification(
         endpoint: subscription.endpoint,
         keys: subscription.keys,
       },
-      JSON.stringify({ title, body, icon: "/logo.png", badge: "/logo.png" })
+      JSON.stringify({ title, body, icon: "/logo.png", badge: "/logo.png", image })
     );
     return true;
   } catch (error: unknown) {
@@ -32,7 +33,7 @@ export async function sendPushNotification(
   }
 }
 
-export async function sendPushToAll(title: string, body: string): Promise<number> {
+export async function sendPushToAll(title: string, body: string, image?: string): Promise<number> {
   const subscriptions = getPushSubscriptions();
   let successCount = 0;
 
@@ -41,7 +42,8 @@ export async function sendPushToAll(title: string, body: string): Promise<number
       const success = await sendPushNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         title,
-        body
+        body,
+        image
       );
       if (success) successCount++;
     })

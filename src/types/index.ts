@@ -12,6 +12,8 @@ export interface ChatMessage extends FanZonePost {
   audioTitle?: string;
   imageUrl?: string;
   imageCaption?: string;
+  videoUrl?: string;
+  videoCaption?: string;
 }
 
 export interface LiveChatMessage {
@@ -79,6 +81,7 @@ export interface User {
   role: "fan" | "admin";
   created_at: string;
   email_verified: number;
+  banned?: number;
 }
 
 export interface Session {

@@ -5,10 +5,10 @@ import crypto from "crypto";
 import { requireAdmin } from "@/lib/auth";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const AUDIO_TYPES = ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-wav"];
+const AUDIO_TYPES = ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-wav", "audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac", "audio/ogg", "audio/flac", "audio/webm"];
 const IMAGE_MAX = 10 * 1024 * 1024; // 10MB
 const AUDIO_MAX = 50 * 1024 * 1024; // 50MB
-const VALID_CATEGORIES = ["images", "covers", "audio", "chat"];
+const VALID_CATEGORIES = ["images", "covers", "audio", "chat", "flyers"];
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin(request);
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const isAudio = AUDIO_TYPES.includes(file.type);
 
     if (!isImage && !isAudio) {
-      return NextResponse.json({ error: "Only images (jpg/png/webp/gif) and audio (mp3/wav) files are allowed" }, { status: 400 });
+      return NextResponse.json({ error: "Only images (jpg/png/webp/gif) and audio (mp3/wav/m4a/aac/ogg/flac/webm) files are allowed" }, { status: 400 });
     }
 
     if (isImage && file.size > IMAGE_MAX) {

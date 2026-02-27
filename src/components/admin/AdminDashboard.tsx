@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Megaphone, Bell } from "lucide-react";
+import { Users, Megaphone, Bell, Wifi } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { User } from "@/types";
 
@@ -9,6 +9,7 @@ interface Stats {
   userCount: number;
   broadcastCount: number;
   pushSubscriptionCount: number;
+  onlineCount: number;
 }
 
 export default function AdminDashboard() {
@@ -33,7 +34,7 @@ export default function AdminDashboard() {
       <h1 className="text-2xl font-bold text-primary">{t("dashboard")}</h1>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
@@ -67,6 +68,19 @@ export default function AdminDashboard() {
           </div>
           <p className="text-3xl font-bold text-primary tabular-nums">
             {stats?.pushSubscriptionCount ?? "..."}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center relative">
+              <Wifi className="h-5 w-5 text-green-400" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            </div>
+            <span className="text-sm font-medium text-foreground/50">{t("usersOnline")}</span>
+          </div>
+          <p className="text-3xl font-bold text-primary tabular-nums">
+            {stats?.onlineCount ?? "..."}
           </p>
         </div>
       </div>

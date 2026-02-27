@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, LogOut, Shield } from "lucide-react";
+import { X, User, LogOut, Shield, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useSiteConfig } from "@/contexts/SiteConfigContext";
@@ -26,8 +26,10 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
   const t = useTranslations("nav");
   const tHeader = useTranslations("header");
   const tAuth = useTranslations("auth");
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const config = useSiteConfig();
 
   return (
@@ -104,12 +106,31 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
             ))}
           </nav>
 
+          {/* Admin panel button — right after nav, before user info */}
+          {user?.role === "admin" && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.35 }}
+              className="flex justify-center mt-6"
+            >
+              <Link
+                href="/admin"
+                onClick={onClose}
+                className="flex items-center gap-2 rounded-full bg-accent text-background px-6 py-3 text-sm font-bold shadow-lg shadow-accent/20 hover:bg-accent/90 transition-colors"
+              >
+                <Shield className="h-4 w-4" />
+                {tAuth("adminPanel")}
+              </Link>
+            </motion.div>
+          )}
+
           {/* Auth section */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="flex flex-col items-center gap-2 mt-8"
+            transition={{ delay: 0.4 }}
+            className="flex flex-col items-center gap-2 mt-6"
           >
             {user ? (
               <>
@@ -117,22 +138,19 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
                   <User className="h-4 w-4" />
                   <span className="text-sm font-medium">{user.name}</span>
                 </div>
-                {user.role === "admin" && (
-                  <Link
-                    href="/admin"
-                    onClick={onClose}
-                    className="flex items-center gap-2 text-sm text-accent"
-                  >
-                    <Shield className="h-4 w-4" />
-                    {tAuth("adminPanel")}
-                  </Link>
-                )}
                 <button
                   onClick={() => { logout(); onClose(); }}
                   className="flex items-center gap-2 text-sm text-foreground/40 hover:text-foreground"
                 >
                   <LogOut className="h-4 w-4" />
                   {tAuth("logout")}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 mt-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {tAuth("deleteAccount")}
                 </button>
               </>
             ) : (
@@ -173,6 +191,57 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
     {showAuthModal && (
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     )}
+    {/* Delete account confirmation dialog */}
+    <AnimatePresence>
+      {showDeleteConfirm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[70] flex items-center justify-center"
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="relative w-full max-w-sm mx-4 rounded-2xl border border-border bg-card p-6 shadow-2xl"
+          >
+            <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <Trash2 className="h-6 w-6 text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-primary text-center mb-2">{tAuth("confirmDelete")}</h3>
+            <p className="text-sm text-foreground/60 text-center mb-6">{tAuth("deleteWarning")}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-xl py-2.5 text-sm font-medium bg-foreground/10 text-foreground/60 hover:bg-foreground/15 transition-colors"
+              >
+                {tAuth("and") === "et" ? "Annuler" : tAuth("and") === "y" ? "Cancelar" : "Cancel"}
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteAccount();
+                    onClose();
+                  } catch {
+                    // error handled by context
+                  } finally {
+                    setDeleting(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                disabled={deleting}
+                className="flex-1 rounded-xl py-2.5 text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deleting ? "..." : tAuth("confirmDelete")}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
     </>
   );
 }
