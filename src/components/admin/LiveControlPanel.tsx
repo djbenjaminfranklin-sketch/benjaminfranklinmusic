@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Radio, Square, Music, MapPin, Eye, Video, Link, Copy, Check, Calendar, Share2, X } from "lucide-react";
+import { Radio, Square, MapPin, Eye, Video, Link, Copy, Check, Calendar, Share2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/hooks/useLiveStream";
@@ -13,13 +13,11 @@ type LiveMode = "camera" | "hls";
 
 export default function LiveControlPanel() {
   const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage } = useLiveStream();
-  const { goLive, stopLive, updateTrack } = useLiveAdmin();
+  const { goLive, stopLive } = useLiveAdmin();
   const { results: scheduleVenueResults, isSearching: isScheduleSearching, search: searchScheduleVenues } = usePlacesSearch();
 
   const [liveMode, setLiveMode] = useState<LiveMode>("camera");
   const [streamUrl, setStreamUrl] = useState("");
-  const [trackArtist, setTrackArtist] = useState("");
-  const [trackTitle, setTrackTitle] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [coHostCode, setCoHostCode] = useState<string | null>(null);
@@ -161,17 +159,6 @@ export default function LiveControlPanel() {
     }
   };
 
-  const handleUpdateTrack = async () => {
-    if (!trackArtist.trim() || !trackTitle.trim()) return;
-    setError("");
-    try {
-      await updateTrack(trackArtist.trim(), trackTitle.trim(), "");
-      setTrackArtist("");
-      setTrackTitle("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
-    }
-  };
 
 
   return (
@@ -425,42 +412,6 @@ export default function LiveControlPanel() {
           </div>
         </div>
       ) : null}
-
-      {/* Track en cours (saisie manuelle) */}
-      {streamStatus.isLive && (
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground/60">{tLive("currentTrack")}</h3>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder={tLive("artistPlaceholder")}
-              value={trackArtist}
-              onChange={(e) => setTrackArtist(e.target.value)}
-              className="flex-1 rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent"
-            />
-            <input
-              type="text"
-              placeholder={tLive("titlePlaceholder")}
-              value={trackTitle}
-              onChange={(e) => setTrackTitle(e.target.value)}
-              className="flex-1 rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent"
-            />
-          </div>
-
-          <button
-            onClick={handleUpdateTrack}
-            disabled={!trackArtist.trim() || !trackTitle.trim()}
-            className={cn(
-              "flex items-center gap-2 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-sm font-medium text-accent",
-              "hover:bg-accent/20 disabled:opacity-50 transition-colors"
-            )}
-          >
-            <Music className="h-4 w-4" />
-            {tLive("updateTrack")}
-          </button>
-        </div>
-      )}
 
       {/* Lien co-host — always visible so admin can share before going live */}
       {coHostCode && (
