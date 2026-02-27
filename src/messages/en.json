@@ -172,7 +172,9 @@
     "shareText": "Share announcement",
     "copied": "Copied!",
     "nextLive": "Next live",
-    "guestJoined": "{name} joined the live!"
+    "guestJoined": "{name} joined the live!",
+    "copy": "Copy",
+    "addFlyer": "Add a flyer"
   },
   "countdown": {
     "days": "days",
@@ -226,7 +228,8 @@
     "and": "and",
     "privacyPolicy": "Privacy Policy",
     "welcomeTitle": "Welcome",
-    "welcomeSubtitle": "Sign in or create an account to access the app"
+    "welcomeSubtitle": "Sign in or create an account to access the app",
+    "cancel": "Cancel"
   },
   "permissions": {
     "cameraTitle": "Camera access",

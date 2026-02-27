@@ -172,7 +172,9 @@
     "shareText": "Compartir anuncio",
     "copied": "Copiado!",
     "nextLive": "Proximo live",
-    "guestJoined": "{name} se unio al live!"
+    "guestJoined": "{name} se unio al live!",
+    "copy": "Copiar",
+    "addFlyer": "Agregar un flyer"
   },
   "countdown": {
     "days": "dias",
@@ -226,7 +228,8 @@
     "and": "y",
     "privacyPolicy": "Politica de privacidad",
     "welcomeTitle": "Bienvenido",
-    "welcomeSubtitle": "Inicia sesion o crea una cuenta para acceder a la aplicacion"
+    "welcomeSubtitle": "Inicia sesion o crea una cuenta para acceder a la aplicacion",
+    "cancel": "Cancelar"
   },
   "permissions": {
     "cameraTitle": "Acceso a la camara",

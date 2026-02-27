@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Radio, Eye, Wifi, WifiOff, Maximize, Minimize, Camera, Circle, Square, Shuffle, MapPin, Calendar } from "lucide-react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import siteConfig from "../../../site.config";
 import { useLiveStream } from "@/hooks/useLiveStream";
 import VideoPlayer from "./VideoPlayer";
@@ -29,6 +29,7 @@ export default function LiveContainer() {
   const currentStream = activeAngle === "main" ? remoteStream : coHostStreams.get(activeAngle) || remoteStream;
   const t = useTranslations("live");
   const tCountdown = useTranslations("countdown");
+  const locale = useLocale();
 
   // Countdown timer for scheduled live
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
@@ -386,7 +387,7 @@ export default function LiveContainer() {
                         {scheduledLive!.venue}, {scheduledLive!.city}
                       </p>
                       <p className="text-xs text-foreground/30">
-                        {new Date(scheduledLive!.date).toLocaleDateString("fr-FR", {
+                        {new Date(scheduledLive!.date).toLocaleDateString(locale, {
                           weekday: "long",
                           day: "numeric",
                           month: "long",

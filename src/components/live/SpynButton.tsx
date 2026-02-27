@@ -61,7 +61,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
           ? new MediaRecorder(stream, { mimeType })
           : new MediaRecorder(stream);
       } catch (err) {
-        resolve({ _error: `Recorder: ${err}` } as unknown as TrackResult);
+        resolve({ _error: `Recorder error: ${err}` } as unknown as TrackResult);
         return;
       }
       mediaRecorderRef.current = recorder;
@@ -72,19 +72,19 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
       };
 
       recorder.onerror = () => {
-        resolve({ _error: "Erreur enregistrement" } as unknown as TrackResult);
+        resolve({ _error: "Recording error" } as unknown as TrackResult);
       };
 
       recorder.onstop = async () => {
         if (chunks.length === 0) {
-          resolve({ _error: "Aucune donnée audio" } as unknown as TrackResult);
+          resolve({ _error: "No audio data" } as unknown as TrackResult);
           return;
         }
 
         const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
 
         if (blob.size < 1000) {
-          resolve({ _error: `Audio trop petit (${blob.size}o)` } as unknown as TrackResult);
+          resolve({ _error: `Audio too small (${blob.size}b)` } as unknown as TrackResult);
           return;
         }
 
@@ -93,7 +93,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
           const audioBase64 = await blobToBase64(blob);
 
           if (!audioBase64 || audioBase64.length < 100) {
-            resolve({ _error: "Base64 vide" } as unknown as TrackResult);
+            resolve({ _error: "Empty base64" } as unknown as TrackResult);
             return;
           }
 
@@ -114,7 +114,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
             return;
           }
           if (res.status === 503) {
-            resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
+            resolve({ _error: "ACRCloud not configured" } as unknown as TrackResult);
             return;
           }
           if (res.status === 404) {
@@ -123,9 +123,9 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
             return;
           }
           // Real error — show message
-          resolve({ _error: data.error || `Erreur ${res.status}` } as unknown as TrackResult);
+          resolve({ _error: data.error || `Error ${res.status}` } as unknown as TrackResult);
         } catch (err) {
-          resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
+          resolve({ _error: `Network: ${err}` } as unknown as TrackResult);
         }
       };
 
@@ -213,7 +213,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
 
         // Last attempt failed — show message
         if (i === maxAttempts - 1) {
-          setError("Aucun morceau détecté");
+          setError("No track detected");
           setTimeout(() => setError(null), 4000);
         }
       }
@@ -224,7 +224,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
       }
       streamRef.current = null;
     } catch {
-      setError("Accès micro refusé");
+      setError("Microphone access denied");
       setTimeout(() => setError(null), 4000);
     } finally {
       setIsListening(false);

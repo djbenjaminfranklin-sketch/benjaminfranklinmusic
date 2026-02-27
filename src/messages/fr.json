@@ -172,7 +172,9 @@
     "shareText": "Partager l'annonce",
     "copied": "Copie !",
     "nextLive": "Prochain live",
-    "guestJoined": "{name} a rejoint le live !"
+    "guestJoined": "{name} a rejoint le live !",
+    "copy": "Copier",
+    "addFlyer": "Ajouter un flyer"
   },
   "countdown": {
     "days": "jours",
@@ -226,7 +228,8 @@
     "and": "et",
     "privacyPolicy": "Politique de confidentialite",
     "welcomeTitle": "Bienvenue",
-    "welcomeSubtitle": "Connectez-vous ou creez un compte pour acceder a l'application"
+    "welcomeSubtitle": "Connectez-vous ou creez un compte pour acceder a l'application",
+    "cancel": "Annuler"
   },
   "permissions": {
     "cameraTitle": "Acces a la camera",

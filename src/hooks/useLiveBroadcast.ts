@@ -236,7 +236,7 @@ export function useLiveBroadcast() {
   // Invite a random viewer
   const inviteRandomViewer = useCallback(async () => {
     if (!clientIdRef.current) {
-      setError("Connexion en cours, réessaye dans un instant");
+      setError("Connecting, please try again shortly");
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -249,11 +249,11 @@ export function useLiveBroadcast() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Aucun viewer disponible");
+        setError(data.error || "No viewer available");
         setTimeout(() => setError(null), 3000);
       }
     } catch {
-      setError("Impossible d'inviter un viewer");
+      setError("Unable to invite viewer");
       setTimeout(() => setError(null), 3000);
     } finally {
       setInviting(false);
@@ -502,7 +502,7 @@ export function useLiveBroadcast() {
       setLocalStream(newStream);
       setFacingMode(newFacing);
     } catch {
-      setError("Impossible de changer de caméra");
+      setError("Unable to switch camera");
       setTimeout(() => setError(null), 3000);
     }
   }, [facingMode]);
@@ -625,7 +625,7 @@ export function useLiveBroadcast() {
 
       setIsBroadcasting(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible d'accéder à la caméra");
+      setError(err instanceof Error ? err.message : "Unable to access camera");
     }
   }, [setupSSE, detectVenue]);
 
@@ -698,7 +698,7 @@ export function useLiveBroadcast() {
       setIsBroadcasting(true);
       setIsCoHost(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible d'accéder à la caméra");
+      setError(err instanceof Error ? err.message : "Unable to access camera");
     }
   }, [setupSSE]);
 

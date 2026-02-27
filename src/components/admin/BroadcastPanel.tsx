@@ -68,7 +68,7 @@ export default function BroadcastPanel() {
       const data = await res.json();
       setImageUrl(data.url);
     } catch {
-      setError("Erreur lors de l'upload de l'image");
+      setError("Failed to upload image");
     } finally {
       setUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = "";

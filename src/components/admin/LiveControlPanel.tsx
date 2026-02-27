@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MapPin, Eye, Link, Copy, Check, Calendar, Share2, X, ImagePlus } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/hooks/useLiveStream";
 import { usePlacesSearch } from "@/hooks/usePlacesSearch";
@@ -16,6 +16,7 @@ export default function LiveControlPanel() {
   const [copiedLink, setCopiedLink] = useState(false);
   const t = useTranslations("admin");
   const tLive = useTranslations("live");
+  const locale = useLocale();
 
   // Schedule live state
   const [scheduleDate, setScheduleDate] = useState("");
@@ -114,13 +115,13 @@ export default function LiveControlPanel() {
 
   const generateShareText = (schedule: ScheduledLiveData) => {
     const d = new Date(schedule.date);
-    const formatted = d.toLocaleDateString("fr-FR", {
+    const formatted = d.toLocaleDateString(locale, {
       weekday: "long",
       day: "numeric",
       month: "long",
-    }) + " à " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-    const liveUrl = typeof window !== "undefined" ? `${window.location.origin}/fr/live` : "/fr/live";
-    return `🎧 Benjamin Franklin EN LIVE !\n📅 ${formatted.charAt(0).toUpperCase() + formatted.slice(1)}\n📍 ${schedule.venue}, ${schedule.city}\n\nRejoins le set en direct 👇\n${liveUrl}`;
+    }) + " — " + d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    const liveUrl = typeof window !== "undefined" ? `${window.location.origin}/${locale}/live` : `/${locale}/live`;
+    return `🎧 Benjamin Franklin LIVE!\n📅 ${formatted.charAt(0).toUpperCase() + formatted.slice(1)}\n📍 ${schedule.venue}, ${schedule.city}\n\nJoin the live set 👇\n${liveUrl}`;
   };
 
   const handleCopyShareText = (text: string) => {
@@ -259,7 +260,7 @@ export default function LiveControlPanel() {
                 ) : (
                   <label className="flex items-center gap-2 rounded-lg bg-purple-500/10 border border-purple-500/20 px-4 py-2.5 text-sm font-medium text-purple-400 hover:bg-purple-500/20 transition-colors cursor-pointer w-fit">
                     <ImagePlus className="h-4 w-4" />
-                    {uploadingScheduleFlyer ? "..." : "Ajouter un flyer"}
+                    {uploadingScheduleFlyer ? "..." : t("addImage")}
                     <input
                       type="file"
                       accept="image/*"
@@ -299,7 +300,7 @@ export default function LiveControlPanel() {
                   )}
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-accent">
-                      {tLive("scheduledFor")} {new Date(currentSchedule.date).toLocaleDateString("fr-FR", {
+                      {tLive("scheduledFor")} {new Date(currentSchedule.date).toLocaleDateString(locale, {
                         weekday: "long",
                         day: "numeric",
                         month: "long",
@@ -332,7 +333,7 @@ export default function LiveControlPanel() {
                     )}
                   >
                     {copiedShareText ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copiedShareText ? tLive("copied") : "Copier"}
+                    {copiedShareText ? tLive("copied") : tLive("copy")}
                   </button>
                   <button
                     onClick={() => handleShare(generateShareText(currentSchedule))}

@@ -222,7 +222,7 @@ export default function PostCard({ post, onReaction, onDelete, variant = "admin"
               <button
                 onClick={() => onDelete(post.id)}
                 className="ml-auto flex items-center justify-center w-6 h-6 rounded-full text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                title="Supprimer"
+                title="Delete"
               >
                 <span className="text-base leading-none">&times;</span>
               </button>

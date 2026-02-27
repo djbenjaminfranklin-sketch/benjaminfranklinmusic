@@ -217,7 +217,7 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
                 onClick={() => setShowDeleteConfirm(false)}
                 className="flex-1 rounded-xl py-2.5 text-sm font-medium bg-foreground/10 text-foreground/60 hover:bg-foreground/15 transition-colors"
               >
-                {tAuth("and") === "et" ? "Annuler" : tAuth("and") === "y" ? "Cancelar" : "Cancel"}
+                {tAuth("cancel")}
               </button>
               <button
                 onClick={async () => {

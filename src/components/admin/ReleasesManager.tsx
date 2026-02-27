@@ -202,7 +202,7 @@ export default function ReleasesManager() {
       }
       closeForm();
     } catch {
-      setSaveError(editingId ? "Erreur lors de la mise à jour" : "Erreur lors de l'ajout");
+      setSaveError(editingId ? "Failed to update release" : "Failed to add release");
     } finally {
       setSaving(false);
     }

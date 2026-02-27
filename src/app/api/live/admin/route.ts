@@ -62,10 +62,10 @@ export async function POST(request: NextRequest) {
         // Notification push a tous les abonnes
         {
           const config = getDynamicConfig();
-          const pushTitle = `${config.artist.name} est en live !`;
+          const pushTitle = `${config.artist.name} is LIVE!`;
           const pushMessage = venue
-            ? `Rejoins le live maintenant depuis ${venue}`
-            : "Rejoins le live maintenant !";
+            ? `Join the live now from ${venue}`
+            : "Join the live now!";
           sendPushToAll(pushTitle, pushMessage).catch(() => {});
         }
         break;
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
         {
           const config = getDynamicConfig();
           const d = new Date(date);
-          const formatted = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
-            + " a " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+          const formatted = d.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" })
+            + " — " + d.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" });
           const chatContent = `📅 ${formatted.charAt(0).toUpperCase() + formatted.slice(1)}\n📍 ${venue}, ${city}`;
           addChatMessage(
             config.artist.name,

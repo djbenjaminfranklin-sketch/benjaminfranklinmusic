@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
       setLiveStatus(true, undefined, "webrtc", location, venue);
 
       // Notification push a tous les abonnes
-      const title = "Benjamin Franklin est en live !";
+      const title = "Benjamin Franklin is LIVE!";
       const message = venue
-        ? `Rejoins le live maintenant depuis ${venue}`
-        : "Rejoins le live maintenant !";
+        ? `Join the live now from ${venue}`
+        : "Join the live now!";
       sendPushToAll(title, message).catch(() => {});
 
       return NextResponse.json({ success: true });
