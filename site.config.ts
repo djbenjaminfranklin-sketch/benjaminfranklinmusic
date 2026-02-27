@@ -14,6 +14,7 @@ const siteConfig = {
     logoTransparent: "/logo.png",
     avatar: "/avatar.jpg",
     heroImage: "/hero.jpg",
+    bioImage: "/hero.jpg",
   },
 
   theme: {

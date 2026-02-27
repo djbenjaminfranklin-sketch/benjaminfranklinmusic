@@ -342,6 +342,7 @@
     "logo": "Logo",
     "avatar": "Avatar",
     "heroImage": "Imagen hero",
+    "bioImage": "Foto bio",
     "accent": "Acento",
     "background": "Fondo",
     "foreground": "Texto",

@@ -23,7 +23,7 @@ import { cn } from "@/shared/lib/utils";
 
 interface Settings {
   artist: { name: string; email: string };
-  assets: { logo: string; avatar: string; heroImage: string };
+  assets: { logo: string; avatar: string; heroImage: string; bioImage: string };
   theme: {
     accent: string;
     background: string;
@@ -45,7 +45,7 @@ interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   artist: { name: "", email: "" },
-  assets: { logo: "", avatar: "", heroImage: "" },
+  assets: { logo: "", avatar: "", heroImage: "", bioImage: "" },
   theme: {
     accent: "#e11d48",
     background: "#09090b",
@@ -156,6 +156,7 @@ export default function SettingsPanel() {
   const logoRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
   const heroRef = useRef<HTMLInputElement>(null);
+  const bioRef = useRef<HTMLInputElement>(null);
 
   /* Per-asset upload state */
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
@@ -349,12 +350,13 @@ export default function SettingsPanel() {
       <div className={cardClass}>
         <SectionHeading icon={ImageIcon} title={t("images")} />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {(
             [
               ["logo", t("logo"), logoRef],
               ["avatar", t("avatar"), avatarRef],
               ["heroImage", t("heroImage"), heroRef],
+              ["bioImage", t("bioImage"), bioRef],
             ] as [keyof Settings["assets"], string, React.RefObject<HTMLInputElement | null>][]
           ).map(([key, label, ref]) => (
             <div key={key} className="space-y-2">
@@ -414,6 +416,7 @@ export default function SettingsPanel() {
               "assets.logo": settings.assets.logo,
               "assets.avatar": settings.assets.avatar,
               "assets.heroImage": settings.assets.heroImage,
+              "assets.bioImage": settings.assets.bioImage,
             })
           }
           label={t("save")}

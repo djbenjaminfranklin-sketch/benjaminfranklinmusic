@@ -52,7 +52,7 @@ export default function BioSection({ bioOverride }: BioSectionProps) {
           >
             <div className="relative aspect-[3/4] w-full max-w-sm mx-auto rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl">
               <Image
-                src={config.assets.heroImage}
+                src={config.assets.bioImage}
                 alt={config.artist.name}
                 fill
                 className="object-cover object-[center_15%]"

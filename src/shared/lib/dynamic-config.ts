@@ -68,6 +68,7 @@ export function getDynamicConfig() {
       logoTransparent: settings["assets.logoTransparent"] || siteConfig.assets.logoTransparent,
       avatar: settings["assets.avatar"] || siteConfig.assets.avatar,
       heroImage: settings["assets.heroImage"] || siteConfig.assets.heroImage,
+      bioImage: settings["assets.bioImage"] || siteConfig.assets.bioImage,
     },
     theme: {
       accent: settings["theme.accent"] || siteConfig.theme.accent,
