@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Mail, Bell, MessageSquare, Clock, ImagePlus, X } from "lucide-react";
+import { Send, Mail, Bell, MessageSquare, Clock, ImagePlus, X, ChevronDown, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 
@@ -34,11 +34,14 @@ export default function BroadcastPanel() {
   const [imageUrl, setImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [history, setHistory] = useState<BroadcastRecord[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [pushSubCount, setPushSubCount] = useState<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const t = useTranslations("admin");
 
   useEffect(() => {
     fetchHistory();
+    fetch("/api/admin/stats").then((r) => r.json()).then((d) => setPushSubCount(d.pushSubscriptionCount ?? 0)).catch(() => {});
   }, []);
 
   const fetchHistory = async () => {
@@ -164,6 +167,20 @@ export default function BroadcastPanel() {
           </div>
         </div>
 
+        {channels.includes("push") && pushSubCount === 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-3 py-2.5 text-xs text-yellow-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {t("noPushSubscribers")}
+          </div>
+        )}
+
+        {channels.includes("push") && pushSubCount !== null && pushSubCount > 0 && (
+          <p className="text-xs text-foreground/40">
+            <Bell className="h-3 w-3 inline mr-1" />
+            {pushSubCount} {t("pushSubscribers")}
+          </p>
+        )}
+
         {/* Image attachment */}
         <div>
           <label className="block text-xs font-medium text-foreground/50 mb-2">{t("attachment")}</label>
@@ -260,41 +277,51 @@ export default function BroadcastPanel() {
         </button>
       </div>
 
-      {/* History */}
+      {/* History — collapsible */}
       {history.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground/60 mb-4">{t("history")}</h3>
-          <div className="space-y-3">
-            {history.map((b) => {
-              const parsedChannels: string[] = (() => {
-                try { return JSON.parse(b.channels); } catch { return []; }
-              })();
-              return (
-                <div key={b.id} className="flex items-start justify-between p-3 rounded-lg bg-background border border-border/50">
-                  <div>
-                    <p className="text-sm font-medium text-primary">{b.title}</p>
-                    <p className="text-xs text-foreground/40 mt-0.5 line-clamp-1">{b.message}</p>
-                    <div className="flex gap-1 mt-1.5">
-                      {parsedChannels.map((ch: string) => (
-                        <span key={ch} className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-foreground/40">
-                          {ch}
-                        </span>
-                      ))}
+        <div className="rounded-2xl border border-border bg-card">
+          <button
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="w-full flex items-center justify-between p-5 text-left"
+          >
+            <h3 className="text-sm font-semibold text-foreground/60">
+              {t("history")} ({history.length})
+            </h3>
+            <ChevronDown className={cn("h-4 w-4 text-foreground/40 transition-transform", historyOpen && "rotate-180")} />
+          </button>
+          {historyOpen && (
+            <div className="px-5 pb-5 space-y-3">
+              {history.map((b) => {
+                const parsedChannels: string[] = (() => {
+                  try { return JSON.parse(b.channels); } catch { return []; }
+                })();
+                return (
+                  <div key={b.id} className="flex items-start justify-between p-3 rounded-lg bg-background border border-border/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-primary">{b.title}</p>
+                      <p className="text-xs text-foreground/40 mt-0.5 line-clamp-1">{b.message}</p>
+                      <div className="flex gap-1 mt-1.5">
+                        {parsedChannels.map((ch: string) => (
+                          <span key={ch} className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-foreground/40">
+                            {ch}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-4">
+                      <div className="flex items-center gap-1 text-xs text-foreground/30">
+                        <Clock className="h-3 w-3" />
+                        {new Date(b.sent_at).toLocaleString()}
+                      </div>
+                      <p className="text-xs text-foreground/30 mt-0.5">
+                        {t("recipientCount")}: {b.recipient_count}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right shrink-0 ml-4">
-                    <div className="flex items-center gap-1 text-xs text-foreground/30">
-                      <Clock className="h-3 w-3" />
-                      {new Date(b.sent_at).toLocaleString()}
-                    </div>
-                    <p className="text-xs text-foreground/30 mt-0.5">
-                      {t("recipientCount")}: {b.recipient_count}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
