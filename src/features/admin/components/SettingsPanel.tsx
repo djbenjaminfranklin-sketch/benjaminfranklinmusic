@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useState, useRef, useCallback, type ChangeEvent } from "react";
 import { useTranslations } from "next-intl";
 import {
   Loader2,
@@ -287,16 +287,23 @@ export default function SettingsPanel() {
     if (file) uploadFile(file, "images", settingsKey);
   }
 
-  /* ---- Save image position ---- */
-  async function saveImagePosition(key: "heroImage" | "bioImage", value: string) {
+  /* ---- Save image position (debounced) ---- */
+  const posTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  const handlePositionChange = useCallback((key: "heroImage" | "bioImage", value: string) => {
     setImagePositions((prev) => ({ ...prev, [key]: value }));
-    const dbKey = `assets.${key}Pos`;
-    await fetch("/api/admin/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [dbKey]: value }),
-    });
-  }
+
+    // Debounce the save — wait 500ms after last change
+    if (posTimerRef.current[key]) clearTimeout(posTimerRef.current[key]);
+    posTimerRef.current[key] = setTimeout(async () => {
+      const dbKey = `assets.${key}Pos`;
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [dbKey]: value }),
+      });
+    }, 500);
+  }, []);
 
   /* ---- Generic updaters ---- */
   function updateNested<S extends keyof Settings>(
@@ -418,9 +425,7 @@ export default function SettingsPanel() {
                     min="0"
                     max="100"
                     value={imagePositions[key] || "50"}
-                    onChange={(e) => setImagePositions((prev) => ({ ...prev, [key]: e.target.value }))}
-                    onMouseUp={(e) => saveImagePosition(key, (e.target as HTMLInputElement).value)}
-                    onTouchEnd={(e) => saveImagePosition(key, (e.target as HTMLInputElement).value)}
+                    onChange={(e) => handlePositionChange(key, e.target.value)}
                     className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
                   />
                 </div>
