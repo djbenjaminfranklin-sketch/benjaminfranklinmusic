@@ -47,7 +47,7 @@ export default function HeroSection({ taglineOverride }: HeroSectionProps) {
           src={config.assets.heroImage}
           alt=""
           fill
-          style={{ objectFit: "cover", objectPosition: `center ${config.assets.heroImagePos}%` }}
+          style={{ objectFit: "cover", objectPosition: "var(--hero-image-pos, center 25%)" }}
           priority
           sizes="100vw"
         />

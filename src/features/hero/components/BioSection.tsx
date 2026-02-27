@@ -55,7 +55,7 @@ export default function BioSection({ bioOverride }: BioSectionProps) {
                 src={config.assets.bioImage}
                 alt={config.artist.name}
                 fill
-                style={{ objectFit: "cover", objectPosition: `center ${config.assets.bioImagePos}%` }}
+                style={{ objectFit: "cover", objectPosition: "var(--bio-image-pos, center 15%)" }}
                 sizes="(max-width: 1024px) 100vw, 40vw"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
