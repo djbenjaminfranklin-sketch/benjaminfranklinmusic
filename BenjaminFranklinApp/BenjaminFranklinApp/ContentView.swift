@@ -157,6 +157,7 @@ struct WebView: UIViewRepresentable {
         webView.scrollView.minimumZoomScale = 1.0
         webView.scrollView.maximumZoomScale = 1.0
         webView.scrollView.bouncesZoom = false
+        webView.scrollView.delegate = context.coordinator
         webView.isOpaque = false
         webView.backgroundColor = .black
 
@@ -175,11 +176,20 @@ struct WebView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, UIScrollViewDelegate {
         let parent: WebView
 
         init(_ parent: WebView) {
             self.parent = parent
+        }
+
+        // Prevent any zoom — WKWebView ignores scrollView min/max zoom settings
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+            return nil
+        }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            scrollView.setZoomScale(1.0, animated: false)
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
