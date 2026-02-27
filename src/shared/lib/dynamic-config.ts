@@ -2,6 +2,26 @@ import db from "@/shared/lib/db";
 import crypto from "crypto";
 import siteConfig from "../../../site.config";
 
+// Auto-migrate local URLs to R2 on module load
+try {
+  const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+  if (r2Base) {
+    const releases = db.prepare("SELECT id, audio_url, cover_url FROM releases").all() as { id: string; audio_url: string | null; cover_url: string | null }[];
+    for (const r of releases) {
+      let audioUrl = r.audio_url;
+      let coverUrl = r.cover_url;
+      let changed = false;
+      if (audioUrl && audioUrl.startsWith("/audio/")) { audioUrl = `${r2Base}${audioUrl}`; changed = true; }
+      if (coverUrl && coverUrl.startsWith("/covers/")) { coverUrl = `${r2Base}${coverUrl}`; changed = true; }
+      if (changed) {
+        db.prepare("UPDATE releases SET audio_url = ?, cover_url = ?, updated_at = datetime('now') WHERE id = ?").run(audioUrl, coverUrl, r.id);
+      }
+    }
+  }
+} catch {
+  // silently ignore during build
+}
+
 // --- Site Settings ---
 
 export function getSetting(key: string): string | null {
@@ -342,6 +362,40 @@ export function deleteRelease(id: string): boolean {
   return result.changes > 0;
 }
 
+// --- Migrate local URLs to R2 ---
+
+export function migrateUrlsToR2() {
+  const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+  if (!r2Base) return { migrated: 0 };
+
+  let migrated = 0;
+
+  // Migrate audio_url and cover_url that start with /audio/ or /covers/
+  const releases = db.prepare("SELECT id, audio_url, cover_url FROM releases").all() as { id: string; audio_url: string | null; cover_url: string | null }[];
+
+  for (const r of releases) {
+    let audioUrl = r.audio_url;
+    let coverUrl = r.cover_url;
+    let changed = false;
+
+    if (audioUrl && audioUrl.startsWith("/audio/")) {
+      audioUrl = `${r2Base}${audioUrl}`;
+      changed = true;
+    }
+    if (coverUrl && coverUrl.startsWith("/covers/")) {
+      coverUrl = `${r2Base}${coverUrl}`;
+      changed = true;
+    }
+
+    if (changed) {
+      db.prepare("UPDATE releases SET audio_url = ?, cover_url = ?, updated_at = datetime('now') WHERE id = ?").run(audioUrl, coverUrl, r.id);
+      migrated++;
+    }
+  }
+
+  return { migrated };
+}
+
 // --- Seed from static config ---
 
 export function seedFromStaticConfig() {
@@ -401,5 +455,8 @@ export function seedFromStaticConfig() {
     }
   }
 
-  return { seededShows, seededReleases };
+  // Always migrate local URLs to R2 if configured
+  const { migrated } = migrateUrlsToR2();
+
+  return { seededShows, seededReleases, migratedToR2: migrated };
 }
