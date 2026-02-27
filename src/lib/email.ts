@@ -7,7 +7,6 @@ interface BookingData {
   eventDate: string;
   venue: string;
   city: string;
-  budget: string;
   message: string;
 }
 
@@ -45,10 +44,6 @@ export async function sendBookingEmail(to: string, data: BookingData) {
           <tr>
             <td style="padding: 8px 0; font-weight: bold; color: #666;">City</td>
             <td style="padding: 8px 0;">${data.city}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; font-weight: bold; color: #666;">Budget</td>
-            <td style="padding: 8px 0;">${data.budget}</td>
           </tr>
         </table>
         <div style="margin-top: 16px; padding: 16px; background: #f5f5f5; border-radius: 8px;">

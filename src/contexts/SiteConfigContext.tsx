@@ -10,7 +10,7 @@ export interface SiteConfig {
   navigation: { key: string; href: string; icon: string }[];
   fanZone: { djPassword: string };
   live: { adminPassword: string };
-  booking: { recipientEmail: string; eventTypeKeys: readonly string[]; budgetRangeKeys: readonly string[] };
+  booking: { recipientEmail: string; eventTypeKeys: readonly string[] };
 }
 
 const SiteConfigContext = createContext<SiteConfig | undefined>(undefined);

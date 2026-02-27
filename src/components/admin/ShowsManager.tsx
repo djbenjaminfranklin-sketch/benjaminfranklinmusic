@@ -186,14 +186,32 @@ export default function ShowsManager() {
     setDeleting(true);
     try {
       const res = await fetch(`/api/admin/shows/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete show");
+        return;
+      }
       setDeletingId(null);
       await fetchShows();
     } catch {
-      // silently fail
+      alert("Network error — could not delete show");
     } finally {
       setDeleting(false);
     }
+  };
+
+  // --- Delete all shows ---
+  const handleDeleteAll = async () => {
+    if (!window.confirm(t("confirmDeleteAll") || "Delete ALL shows? This cannot be undone.")) return;
+    const allShows = [...upcoming, ...past];
+    for (const show of allShows) {
+      try {
+        await fetch(`/api/admin/shows/${show.id}`, { method: "DELETE" });
+      } catch {
+        // continue
+      }
+    }
+    await fetchShows();
   };
 
   // --- Tracklist ---
@@ -325,17 +343,18 @@ export default function ShowsManager() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">{t("shows")}</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="bg-accent/10 text-accent border border-accent/20 px-3 py-2 rounded-lg text-xs font-medium hover:bg-accent/20 transition-colors disabled:opacity-50"
-          >
-            <span className="flex items-center gap-1.5">
-              <Download className="h-3.5 w-3.5" />
-              {seeding ? "..." : t("importFromConfig")}
-            </span>
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {(upcoming.length > 0 || past.length > 0) && (
+            <button
+              onClick={handleDeleteAll}
+              className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <Trash2 className="h-3.5 w-3.5" />
+                {t("deleteAll") || "Delete All"}
+              </span>
+            </button>
+          )}
           <button
             onClick={() => {
               setShowAddForm(!showAddForm);

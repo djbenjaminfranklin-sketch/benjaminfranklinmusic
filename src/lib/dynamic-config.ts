@@ -64,7 +64,6 @@ export function getDynamicConfig() {
     booking: {
       recipientEmail: settings["booking.recipientEmail"] || siteConfig.booking.recipientEmail,
       eventTypeKeys: siteConfig.booking.eventTypeKeys,
-      budgetRangeKeys: siteConfig.booking.budgetRangeKeys,
     },
   };
 }

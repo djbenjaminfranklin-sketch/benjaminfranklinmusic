@@ -11,7 +11,6 @@ const bookingSchema = z.object({
   eventDate: z.string().min(1),
   venue: z.string().min(2),
   city: z.string().min(2),
-  budget: z.string().min(1),
   message: z.string().min(10),
 });
 
@@ -32,7 +31,6 @@ export async function POST(request: Request) {
       eventDate: data.eventDate,
       venue: data.venue,
       city: data.city,
-      budget: data.budget,
       message: data.message,
     });
 

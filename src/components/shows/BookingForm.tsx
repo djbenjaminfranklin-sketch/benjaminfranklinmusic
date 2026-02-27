@@ -29,7 +29,6 @@ export default function BookingForm() {
         eventDate: z.string().min(1, t("dateRequired")),
         venue: z.string().min(2, t("venueRequired")),
         city: z.string().min(2, t("cityRequired")),
-        budget: z.string().min(1, t("budgetRequired")),
         message: z.string().min(10, t("messageMinLength")),
       }),
     [t],
@@ -140,30 +139,6 @@ export default function BookingForm() {
           error={errors.eventDate?.message}
           {...register("eventDate")}
         />
-
-        <div className="space-y-1.5">
-          <label htmlFor="budget" className="block text-sm font-medium text-foreground/70">
-            {t("budgetLabel")}
-          </label>
-          <select
-            id="budget"
-            className={cn(selectClass, errors.budget && selectErrorClass)}
-            defaultValue=""
-            {...register("budget")}
-          >
-            <option value="" disabled>
-              {t("budgetPlaceholder")}
-            </option>
-            {siteConfig.booking.budgetRangeKeys.map((key) => (
-              <option key={key} value={key}>
-                {t(`budgetRanges.${key}`)}
-              </option>
-            ))}
-          </select>
-          {errors.budget && (
-            <p className="text-xs text-red-400">{errors.budget.message}</p>
-          )}
-        </div>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">

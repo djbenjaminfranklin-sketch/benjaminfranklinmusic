@@ -354,6 +354,8 @@
     "addShow": "Anadir show",
     "editShow": "Editar",
     "deleteShow": "Eliminar",
+    "deleteAll": "Eliminar todo",
+    "confirmDeleteAll": "¿Eliminar TODOS los shows? Esta acción no se puede deshacer.",
     "showName": "Nombre del show",
     "venue": "Lugar",
     "city": "Ciudad",

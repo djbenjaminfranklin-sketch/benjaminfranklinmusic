@@ -354,6 +354,8 @@
     "addShow": "Add show",
     "editShow": "Edit",
     "deleteShow": "Delete",
+    "deleteAll": "Delete All",
+    "confirmDeleteAll": "Delete ALL shows? This cannot be undone.",
     "showName": "Show name",
     "venue": "Venue",
     "city": "City",

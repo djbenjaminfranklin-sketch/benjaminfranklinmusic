@@ -48,77 +48,8 @@ const siteConfig = {
   ],
 
   shows: {
-    upcoming: [
-      {
-        id: "show-1",
-        name: "Who The Fuck is Benjamin Franklin?",
-        venue: "La Machine du Moulin Rouge",
-        city: "Paris",
-        country: "France",
-        date: "2026-04-15T22:00:00",
-        ticketUrl: "https://example.com/tickets/1",
-      },
-      {
-        id: "show-2",
-        name: "Latin House Night",
-        venue: "Pacha",
-        city: "Barcelona",
-        country: "Spain",
-        date: "2026-05-20T23:00:00",
-      },
-      {
-        id: "show-3",
-        name: "Summer Percussions",
-        venue: "Ushuaia",
-        city: "Ibiza",
-        country: "Spain",
-        date: "2026-06-10T16:00:00",
-        ticketUrl: "https://example.com/tickets/3",
-        soldOut: true,
-      },
-    ] as Show[],
-
-    past: [
-      {
-        id: "past-1",
-        name: "NYE Special - MIYU Records Showcase",
-        venue: "Rex Club",
-        city: "Paris",
-        country: "France",
-        date: "2025-12-31T23:00:00",
-        tracklist: [
-          "Benjamin Franklin - This Is MY House",
-          "Benjamin Franklin & Lalita K - Peace In The World",
-          "Benjamin Franklin - Ain't No Love",
-          "Benjamin Franklin - Saudade",
-          "Benjamin Franklin & Fabien Koufach feat Ortal - L'Amour Toujours",
-          "Benjamin Franklin - THIS SOUND",
-        ],
-      },
-      {
-        id: "past-2",
-        name: "Who The Fuck is Benjamin Franklin?",
-        venue: "Wanderlust",
-        city: "Paris",
-        country: "France",
-        date: "2025-10-15T22:00:00",
-        tracklist: [
-          "Benjamin Franklin - Chupa Sin Mano",
-          "Benjamin Franklin - Try To Fight",
-          "Sasha Kaay & Benjamin Franklin - Como Como",
-          "Benjamin Franklin - God Save The World",
-          "Benjamin Franklin - Pray For Tomorrow",
-        ],
-      },
-      {
-        id: "past-3",
-        name: "Ultra Music Conference",
-        venue: "WMC",
-        city: "Miami",
-        country: "USA",
-        date: "2025-03-22T18:00:00",
-      },
-    ] as PastSet[],
+    upcoming: [] as Show[],
+    past: [] as PastSet[],
   },
 
   releases: [
@@ -344,7 +275,6 @@ const siteConfig = {
   booking: {
     recipientEmail: "booking@benjaminfranklinmusic.com",
     eventTypeKeys: ["club", "festival", "private", "corporate", "wedding", "other"] as const,
-    budgetRangeKeys: ["under1k", "1kTo3k", "3kTo5k", "5kTo10k", "over10k"] as const,
   },
 };
 

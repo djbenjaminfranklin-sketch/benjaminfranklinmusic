@@ -354,6 +354,8 @@
     "addShow": "Ajouter un show",
     "editShow": "Modifier",
     "deleteShow": "Supprimer",
+    "deleteAll": "Tout supprimer",
+    "confirmDeleteAll": "Supprimer TOUS les shows ? Cette action est irréversible.",
     "showName": "Nom du show",
     "venue": "Lieu",
     "city": "Ville",
