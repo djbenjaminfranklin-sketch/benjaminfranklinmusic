@@ -143,7 +143,6 @@ struct WebView: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         config.suppressesIncrementalRendering = false
-        config.limitsNavigationsToAppBoundDomains = true
 
         // Inject viewport at document start (before layout) to avoid re-layout
         let source = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'; document.head.appendChild(meta);"
@@ -207,14 +206,30 @@ struct WebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            if let url = navigationAction.request.url,
-               navigationAction.navigationType == .linkActivated,
-               url.host != "benjaminfranklinmusic.onrender.com" {
-                UIApplication.shared.open(url)
-                decisionHandler(.cancel)
+            guard let url = navigationAction.request.url else {
+                decisionHandler(.allow)
                 return
             }
-            decisionHandler(.allow)
+
+            let appHost = "benjaminfranklinmusic.onrender.com"
+
+            // Always allow same-domain navigations (any navigation type)
+            if url.host == appHost || url.host?.hasSuffix("." + appHost) == true {
+                decisionHandler(.allow)
+                return
+            }
+
+            // Allow about:blank, data: URLs, etc.
+            if url.scheme == "about" || url.scheme == "data" || url.scheme == "blob" {
+                decisionHandler(.allow)
+                return
+            }
+
+            // Only open external links in Safari if user explicitly tapped a link
+            if navigationAction.navigationType == .linkActivated {
+                UIApplication.shared.open(url)
+            }
+            decisionHandler(.cancel)
         }
 
         // Auto-grant camera & microphone permissions for getUserMedia
