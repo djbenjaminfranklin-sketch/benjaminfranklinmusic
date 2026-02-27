@@ -11,7 +11,7 @@ const AUDIO_MAX = 50 * 1024 * 1024; // 50MB
 const VALID_CATEGORIES = ["images", "covers", "audio", "chat", "flyers"];
 
 // R2 categories — these get uploaded to Cloudflare R2 instead of local filesystem
-const R2_CATEGORIES = ["audio", "covers", "flyers"];
+const R2_CATEGORIES = ["audio", "covers", "flyers", "images", "chat"];
 
 async function uploadToR2(buffer: Buffer, key: string, contentType: string): Promise<string> {
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
