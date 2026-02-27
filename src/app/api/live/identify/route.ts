@@ -71,20 +71,28 @@ export async function POST(request: NextRequest) {
     const data = await res.json();
     console.log("[ACRCloud] Response:", JSON.stringify(data, null, 2));
 
-    if (data.status?.code === 0 && data.metadata?.music?.length > 0) {
-      const track = data.metadata.music[0];
-      return NextResponse.json({
-        artist: track.artists?.[0]?.name || "Unknown",
-        title: track.title || "Unknown",
-        album: track.album?.name || "",
-        spotify_url: track.external_metadata?.spotify?.track?.id
-          ? `https://open.spotify.com/track/${track.external_metadata.spotify.track.id}`
-          : null,
-      });
+    if (data.status?.code === 0) {
+      // ACRCloud returns results under different keys depending on bucket type:
+      // "music" for standard music recognition, "custom_files" for custom buckets, "humming" for humming
+      const metadata = data.metadata || {};
+      const musicResults = metadata.music || metadata.custom_files || metadata.humming || [];
+      console.log("[ACRCloud] metadata keys:", Object.keys(metadata), "music length:", musicResults.length);
+
+      if (musicResults.length > 0) {
+        const track = musicResults[0];
+        return NextResponse.json({
+          artist: track.artists?.[0]?.name || track.artist || "Unknown",
+          title: track.title || "Unknown",
+          album: track.album?.name || track.album || "",
+          spotify_url: track.external_metadata?.spotify?.track?.id
+            ? `https://open.spotify.com/track/${track.external_metadata.spotify.track.id}`
+            : null,
+        });
+      }
     }
 
     // No track found — ACRCloud returns code 0 + "Success" even when no match
-    console.log("[ACRCloud] No match. Status code:", data.status?.code, "msg:", data.status?.msg);
+    console.log("[ACRCloud] No match. Status code:", data.status?.code, "msg:", data.status?.msg, "metadata keys:", Object.keys(data.metadata || {}));
 
     return NextResponse.json(
       { error: "not_found" },
