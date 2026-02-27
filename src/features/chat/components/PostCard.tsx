@@ -256,6 +256,7 @@ export default function PostCard({ post, onReaction, onDelete, variant = "admin"
               <AudioPlayer
                 src={post.audioUrl}
                 title={post.audioTitle || "Audio"}
+                coverUrl=""
               />
             </div>
           )}
