@@ -56,7 +56,7 @@ export default function ReleaseCard({ release, className }: ReleaseCardProps) {
 
           {/* Audio player */}
           {release.audioUrl && (
-            <AudioPlayer src={release.audioUrl} title={release.title} />
+            <AudioPlayer src={release.audioUrl} title={release.title} coverUrl={release.coverUrl} />
           )}
 
           {/* Spotify embed */}
