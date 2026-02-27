@@ -6,6 +6,10 @@ import { sendPushToAll } from "@/features/push/lib/push";
 import { addChatMessage } from "@/shared/lib/sse-hub";
 import { Resend } from "resend";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);
   if (!admin) {
@@ -73,8 +77,8 @@ export async function POST(request: NextRequest) {
                 subject: title,
                 html: `
                   <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; color: #ededed; padding: 32px; border-radius: 12px;">
-                    <h2 style="color: #c9a84c; margin-bottom: 16px;">${title}</h2>
-                    <p style="line-height: 1.6; white-space: pre-wrap;">${message}</p>
+                    <h2 style="color: #c9a84c; margin-bottom: 16px;">${escapeHtml(title)}</h2>
+                    <p style="line-height: 1.6; white-space: pre-wrap;">${escapeHtml(message)}</p>
                     ${imageUrl ? `<img src="${request.nextUrl.origin}${imageUrl}" alt="" style="max-width: 100%; border-radius: 8px; margin-top: 16px;" />` : ""}
                     <hr style="border: none; border-top: 1px solid #1e1e22; margin: 24px 0;" />
                     <p style="font-size: 12px; color: #666;">Benjamin Franklin Music</p>

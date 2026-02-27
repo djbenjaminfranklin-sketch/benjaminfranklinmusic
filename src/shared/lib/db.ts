@@ -19,6 +19,7 @@ try {
   db.pragma("busy_timeout = 30000");
   db.pragma("foreign_keys = ON");
   db.pragma("journal_mode = WAL");
+  db.pragma("synchronous = NORMAL");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -129,6 +130,12 @@ try {
 } catch {
   // Table already exists or SQLITE_BUSY — ignore
 }
+
+// --- Indexes ---
+db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_shows_is_past ON shows(is_past, sort_order, date)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_releases_sort ON releases(sort_order, release_date)`);
 
 // --- Types ---
 

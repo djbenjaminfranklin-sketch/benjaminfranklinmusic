@@ -4,7 +4,15 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { getSession, getUserById, type DBUser } from "@/shared/lib/db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    console.error("WARNING: JWT_SECRET not set — using fallback. Set JWT_SECRET in production!");
+  }
+  return "dev-secret-only-for-local-development";
+}
+const JWT_SECRET = getJwtSecret();
 const COOKIE_NAME = "auth-token";
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
 

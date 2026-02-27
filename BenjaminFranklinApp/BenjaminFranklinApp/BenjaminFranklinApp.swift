@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import WebKit
 
 @main
 struct BenjaminFranklinApp: App {
@@ -74,34 +75,35 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     private func sendTokenToServer(_ token: String) {
         guard let url = URL(string: "\(serverBase)/api/push/register-device") else { return }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Include cookies from WKWebView shared storage for auth
-        let cookieStore = HTTPCookieStorage.shared
-        if let cookies = cookieStore.cookies(for: URL(string: serverBase)!) {
-            let headers = HTTPCookie.requestHeaderFields(with: cookies)
+        // Use WKWebView's cookie store (not HTTPCookieStorage.shared)
+        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [self] cookies in
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            let serverCookies = cookies.filter { $0.domain.contains("benjaminfranklinmusic.onrender.com") }
+            let headers = HTTPCookie.requestHeaderFields(with: serverCookies)
             for (key, value) in headers {
                 request.setValue(value, forHTTPHeaderField: key)
             }
+
+            let body: [String: Any] = [
+                "token": token,
+                "platform": "ios",
+                "bundleId": Bundle.main.bundleIdentifier ?? "com.benjaminfranklin.app"
+            ]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+            URLSession.shared.dataTask(with: request) { data, response, error in
+                if let error = error {
+                    print("[Push] Token send error: \(error)")
+                    return
+                }
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                print("[Push] Token sent to server, status: \(status)")
+            }.resume()
         }
-
-        let body: [String: Any] = [
-            "token": token,
-            "platform": "ios",
-            "bundleId": Bundle.main.bundleIdentifier ?? "com.benjaminfranklin.app"
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("[Push] Token send error: \(error)")
-                return
-            }
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            print("[Push] Token sent to server, status: \(status)")
-        }.resume()
     }
 
     // Show notifications even when app is in foreground

@@ -336,7 +336,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
                 : "absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
             }
           >
-            <p className="text-xs text-accent font-medium animate-pulse">Écoute{attempt > 1 ? ` (${attempt}/5)` : ""}...</p>
+            <p className="text-xs text-accent font-medium animate-pulse">Listening{attempt > 1 ? ` (${attempt}/5)` : ""}...</p>
           </motion.div>
         )}
       </AnimatePresence>

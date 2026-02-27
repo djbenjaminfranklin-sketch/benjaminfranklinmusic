@@ -58,7 +58,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.3))
                         .multilineTextAlignment(.center)
-                    Text("Make sure npm run dev is running")
+                    Text("Vérifiez votre connexion Internet")
                         .font(.caption2)
                         .foregroundStyle(.yellow.opacity(0.6))
                 }
@@ -144,11 +144,6 @@ struct WebView: UIViewRepresentable {
         config.mediaTypesRequiringUserActionForPlayback = []
         config.suppressesIncrementalRendering = false
 
-        // Inject viewport at document start (before layout) to avoid re-layout
-        let source = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'; document.head.appendChild(meta);"
-        let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
-        config.userContentController.addUserScript(script)
-
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
@@ -159,13 +154,18 @@ struct WebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         webView.scrollView.decelerationRate = .normal
+        webView.scrollView.minimumZoomScale = 1.0
+        webView.scrollView.maximumZoomScale = 1.0
+        webView.scrollView.bouncesZoom = false
         webView.isOpaque = false
         webView.backgroundColor = .black
 
-        // Allow keyboard to appear without user tap requirement
+        // Allow web inspector in debug builds only
+        #if DEBUG
         if #available(iOS 16.4, *) {
             webView.isInspectable = true
         }
+        #endif
 
         webView.load(URLRequest(url: url))
         return webView
@@ -232,12 +232,17 @@ struct WebView: UIViewRepresentable {
             decisionHandler(.cancel)
         }
 
-        // Auto-grant camera & microphone permissions for getUserMedia
+        // Grant camera & microphone permissions only for our domain
         func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-            decisionHandler(.grant)
+            if origin.host == "benjaminfranklinmusic.onrender.com" {
+                decisionHandler(.grant)
+            } else {
+                decisionHandler(.deny)
+            }
         }
 
-        // Accept self-signed certificates (for local dev HTTPS)
+        // Accept self-signed certificates (for local dev HTTPS only)
+        #if DEBUG
         func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
             if let trust = challenge.protectionSpace.serverTrust {
                 completionHandler(.useCredential, URLCredential(trust: trust))
@@ -245,6 +250,7 @@ struct WebView: UIViewRepresentable {
                 completionHandler(.performDefaultHandling, nil)
             }
         }
+        #endif
     }
 }
 #endif

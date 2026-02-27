@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLiveChatMessage } from "@/shared/lib/sse-hub";
-import siteConfig from "../../../../../site.config";
+import { getDynamicConfig } from "@/shared/lib/dynamic-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isDJ = djPassword === siteConfig.live.adminPassword;
+    const config = getDynamicConfig();
+    const isDJ = djPassword === config.live.adminPassword;
     const msg = addLiveChatMessage(author, content, isDJ);
     return NextResponse.json(msg, { status: 201 });
   } catch {

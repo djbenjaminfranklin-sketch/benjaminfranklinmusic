@@ -265,11 +265,11 @@ const siteConfig = {
   ] as Release[],
 
   fanZone: {
-    djPassword: "wtfisbf2026",
+    djPassword: process.env.DJ_PASSWORD || "changeme",
   },
 
   live: {
-    adminPassword: "wtfisbf2026",
+    adminPassword: process.env.LIVE_ADMIN_PASSWORD || "changeme",
   },
 
   booking: {
