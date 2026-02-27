@@ -3,9 +3,9 @@ import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
-    const host = process.env.ACRCLOUD_HOST;
-    const accessKey = process.env.ACRCLOUD_ACCESS_KEY;
-    const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET;
+    const host = process.env.ACRCLOUD_HOST?.trim();
+    const accessKey = process.env.ACRCLOUD_ACCESS_KEY?.trim();
+    const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET?.trim();
 
     if (!host || !accessKey || !accessSecret) {
       console.error("[ACRCloud] Missing env vars:", { host: !!host, accessKey: !!accessKey, accessSecret: !!accessSecret });
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     formData.append("signature", signature);
     formData.append("timestamp", timestamp);
 
-    console.log("[ACRCloud] Sending to", host, "sample_bytes:", audioBuffer.length);
+    console.log("[ACRCloud] Sending to", host, "sample_bytes:", audioBuffer.length, "key:", accessKey?.slice(0, 8) + "...", "secret_len:", accessSecret?.length);
 
     const res = await fetch(`https://${host}/v1/identify`, {
       method: "POST",
