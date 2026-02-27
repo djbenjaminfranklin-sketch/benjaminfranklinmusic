@@ -180,7 +180,12 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
         if (cancelledRef.current) break;
         setAttempt(i + 1);
 
-        const track = await recordAndIdentify(stream);
+        // Create a fresh MediaStream for each attempt (reusing can produce empty blobs)
+        const recordStream = audioStream && audioStream.getAudioTracks().length > 0
+          ? new MediaStream(audioStream.getAudioTracks())
+          : stream;
+
+        const track = await recordAndIdentify(recordStream);
 
         if (cancelledRef.current) break;
 
