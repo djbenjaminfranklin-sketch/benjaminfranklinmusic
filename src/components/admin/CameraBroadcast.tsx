@@ -126,6 +126,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   const animFrameRef = useRef<number>(0);
   const recordingVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const combinedStreamRef = useRef<MediaStream | null>(null);
 
   const startRecording = useCallback(() => {
     if (!localStream) return;
@@ -246,6 +247,23 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
       if (saved) return; // Prevent double save
       saved = true;
       const chunks = recordedChunksRef.current;
+      recordedChunksRef.current = [];
+
+      // Cleanup all recording resources AFTER MediaRecorder has flushed
+      combinedStreamRef.current?.getTracks().forEach((t) => t.stop());
+      combinedStreamRef.current = null;
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = 0;
+      }
+      recordingVideosRef.current.forEach((v) => { v.srcObject = null; });
+      recordingVideosRef.current.clear();
+      recordingCanvasRef.current = null;
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+
       if (chunks.length === 0) return;
       const blob = new Blob(chunks, { type: mimeType || "video/mp4" });
       if (blob.size < 10000) return;
@@ -260,6 +278,7 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     };
     mr.start(1000);
     mediaRecorderRef.current = mr;
+    combinedStreamRef.current = combinedStream;
     setIsRecording(true);
 
     // Start counter
@@ -269,6 +288,8 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   }, [localStream]);
 
   const stopRecording = useCallback(() => {
+    // Stop the MediaRecorder — cleanup happens in its onstop handler
+    // (resources must stay alive until MediaRecorder finishes flushing the container)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
@@ -278,18 +299,6 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
-    }
-    // Cleanup canvas compositing
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = 0;
-    }
-    recordingVideosRef.current.forEach((v) => { v.srcObject = null; });
-    recordingVideosRef.current.clear();
-    recordingCanvasRef.current = null;
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
     }
   }, []);
 
