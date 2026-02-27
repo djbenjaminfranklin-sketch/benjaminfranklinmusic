@@ -157,6 +157,10 @@ export default function SettingsPanel() {
   const avatarRef = useRef<HTMLInputElement>(null);
   const heroRef = useRef<HTMLInputElement>(null);
 
+  /* Per-asset upload state */
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const [uploadError, setUploadError] = useState<Record<string, string>>({});
+
   /* ---- Fetch settings on mount ---- */
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -216,6 +220,8 @@ export default function SettingsPanel() {
     category: string,
     settingsKey: keyof Settings["assets"]
   ) {
+    setUploading((prev) => ({ ...prev, [settingsKey]: true }));
+    setUploadError((prev) => ({ ...prev, [settingsKey]: "" }));
     const formData = new FormData();
     formData.append("file", file);
     formData.append("category", category);
@@ -224,14 +230,38 @@ export default function SettingsPanel() {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed");
+      }
       const data = await res.json();
+      const newUrl = data.url;
+
       setSettings((prev) => ({
         ...prev,
-        assets: { ...prev.assets, [settingsKey]: data.url },
+        assets: { ...prev.assets, [settingsKey]: newUrl },
       }));
-    } catch {
-      // silent for now
+
+      // Auto-save to DB so the user doesn't have to click Save
+      const dbKey = `assets.${settingsKey}`;
+      const saveRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [dbKey]: newUrl }),
+      });
+      if (!saveRes.ok) throw new Error("Save failed");
+
+      setSectionState((prev) => ({ ...prev, assets: "saved" }));
+      setTimeout(() => {
+        setSectionState((prev) => ({ ...prev, assets: "idle" }));
+      }, 2000);
+    } catch (err) {
+      setUploadError((prev) => ({
+        ...prev,
+        [settingsKey]: err instanceof Error ? err.message : "Upload failed",
+      }));
+    } finally {
+      setUploading((prev) => ({ ...prev, [settingsKey]: false }));
     }
   }
 
@@ -356,11 +386,22 @@ export default function SettingsPanel() {
               />
               <button
                 onClick={() => ref.current?.click()}
-                className="flex items-center gap-2 rounded-lg bg-background border border-border px-3 py-2 text-sm text-foreground/60 hover:text-foreground hover:border-accent/40 transition-colors w-full justify-center"
+                disabled={uploading[key]}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg bg-background border border-border px-3 py-2 text-sm text-foreground/60 hover:text-foreground hover:border-accent/40 transition-colors w-full justify-center",
+                  uploading[key] && "opacity-50 cursor-not-allowed"
+                )}
               >
-                <Upload className="h-4 w-4" />
-                {t("upload")} {label}
+                {uploading[key] ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {uploading[key] ? t("uploading") : `${t("upload")} ${label}`}
               </button>
+              {uploadError[key] && (
+                <p className="text-xs text-red-400">{uploadError[key]}</p>
+              )}
             </div>
           ))}
         </div>
