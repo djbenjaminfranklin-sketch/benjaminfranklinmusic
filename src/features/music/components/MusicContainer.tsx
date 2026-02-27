@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Music2 } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useSiteConfig } from "@/shared/contexts/SiteConfigContext";
+import { usePlayer } from "../context/PlayerContext";
 import Badge from "@/shared/ui/Badge";
 import ReleaseCard from "./ReleaseCard";
 import type { Release } from "@/shared/types";
@@ -16,7 +18,20 @@ interface MusicContainerProps {
 export default function MusicContainer({ releases: releasesProp }: MusicContainerProps) {
   const t = useTranslations("music");
   const config = useSiteConfig();
+  const { setQueue } = usePlayer();
   const releases = releasesProp || [];
+
+  // Set the player queue with all playable tracks
+  useEffect(() => {
+    const tracks = releases
+      .filter((r) => r.audioUrl)
+      .map((r) => ({
+        src: r.audioUrl!,
+        title: r.title,
+        coverUrl: r.coverUrl,
+      }));
+    setQueue(tracks);
+  }, [releases, setQueue]);
 
   return (
     <section className="relative min-h-screen bg-background pt-40 sm:pt-24 pb-16 overflow-hidden">

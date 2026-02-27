@@ -11,6 +11,8 @@ import { SiteConfigProvider } from "@/shared/contexts/SiteConfigContext";
 import AuthGate from "@/features/auth/components/AuthGate";
 import PullToRefresh from "@/shared/layout/PullToRefresh";
 import PushAutoSubscribe from "@/features/push/components/PushAutoSubscribe";
+import { PlayerProvider } from "@/features/music/context/PlayerContext";
+import MiniPlayer from "@/features/music/components/MiniPlayer";
 import "../globals.css";
 
 const inter = Inter({
@@ -79,13 +81,16 @@ export default async function LocaleLayout({ children, params }: Props) {
           <AuthProvider>
             <PushAutoSubscribe />
             <SiteConfigProvider config={config}>
-              <AuthGate>
-                <PullToRefresh>
-                  <Header />
-                  <main className="min-h-screen">{children}</main>
-                  <Footer />
-                </PullToRefresh>
-              </AuthGate>
+              <PlayerProvider>
+                <AuthGate>
+                  <PullToRefresh>
+                    <Header />
+                    <main className="min-h-screen">{children}</main>
+                    <Footer />
+                  </PullToRefresh>
+                  <MiniPlayer />
+                </AuthGate>
+              </PlayerProvider>
             </SiteConfigProvider>
           </AuthProvider>
         </NextIntlClientProvider>
