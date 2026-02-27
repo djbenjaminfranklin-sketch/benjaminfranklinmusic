@@ -42,15 +42,17 @@ export default function HeroSection({ taglineOverride }: HeroSectionProps) {
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center px-4 overflow-hidden">
       {/* Background photo */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 overflow-hidden">
         <div
-          className="absolute inset-0"
+          className="absolute"
           role="img"
           aria-label={config.artist.name}
           style={{
+            inset: "-20%",
             backgroundImage: `url(${config.assets.heroImage})`,
             backgroundSize: "cover",
-            backgroundPosition: `${config.assets.heroImagePosX}% ${config.assets.heroImagePosY}%`,
+            backgroundPosition: "center center",
+            transform: `translate(${(50 - parseFloat(config.assets.heroImagePosX || "50")) * 0.4}%, ${(50 - parseFloat(config.assets.heroImagePosY || "50")) * 0.4}%)`,
           }}
         />
         <div className="absolute inset-0 bg-background/65" />

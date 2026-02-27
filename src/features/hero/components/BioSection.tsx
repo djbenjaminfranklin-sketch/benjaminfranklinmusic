@@ -52,15 +52,22 @@ export default function BioSection({ bioOverride }: BioSectionProps) {
           >
             <div className="relative aspect-[3/4] w-full max-w-sm mx-auto rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl">
               <div
-                className="absolute inset-0"
-                role="img"
-                aria-label={config.artist.name}
-                style={{
-                  backgroundImage: `url(${config.assets.bioImage})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: `${config.assets.bioImagePosX}% ${config.assets.bioImagePosY}%`,
-                }}
-              />
+                className="absolute overflow-hidden"
+                style={{ inset: 0 }}
+              >
+                <div
+                  className="absolute"
+                  role="img"
+                  aria-label={config.artist.name}
+                  style={{
+                    inset: "-20%",
+                    backgroundImage: `url(${config.assets.bioImage})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center center",
+                    transform: `translate(${(50 - parseFloat(config.assets.bioImagePosX || "50")) * 0.4}%, ${(50 - parseFloat(config.assets.bioImagePosY || "50")) * 0.4}%)`,
+                  }}
+                />
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
               {/* Accent glow en bas */}
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent/60" />

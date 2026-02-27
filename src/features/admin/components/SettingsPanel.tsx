@@ -399,17 +399,25 @@ export default function SettingsPanel() {
 
               {settings.assets[key] ? (
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-background">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={settings.assets[key]}
-                    alt={label}
-                    className="w-full h-full object-cover"
-                    style={
-                      (key === "heroImage" || key === "bioImage")
-                        ? { objectPosition: `${imagePositions[`${key}PosX`] || "50"}% ${imagePositions[`${key}PosY`] || "50"}%` }
-                        : undefined
-                    }
-                  />
+                  {(key === "heroImage" || key === "bioImage") ? (
+                    <div
+                      className="absolute"
+                      style={{
+                        inset: "-20%",
+                        backgroundImage: `url(${settings.assets[key]})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center center",
+                        transform: `translate(${(50 - parseFloat(imagePositions[`${key}PosX`] || "50")) * 0.4}%, ${(50 - parseFloat(imagePositions[`${key}PosY`] || "50")) * 0.4}%)`,
+                      }}
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={settings.assets[key]}
+                      alt={label}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-background flex items-center justify-center">
