@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/features/auth/lib/auth";
 import { getAllSettings, setSetting } from "@/shared/lib/dynamic-config";
 
@@ -45,6 +46,9 @@ export async function PUT(request: NextRequest) {
         setSetting(key, value);
       }
     }
+
+    // Purge Next.js cache so pages re-render with new values
+    revalidatePath("/", "layout");
 
     const settings = getAllSettings();
     return NextResponse.json(groupSettings(settings));
