@@ -43,8 +43,48 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
     });
   }, []);
 
+  // Create a processed audio stream: high-pass filter + normalization
+  const createProcessedStream = useCallback((stream: MediaStream): { processedStream: MediaStream; cleanup: () => void } => {
+    const audioContext = new AudioContext({ sampleRate: 48000 });
+    const source = audioContext.createMediaStreamSource(stream);
+
+    // High-pass filter: cut bass below 300Hz for better fingerprinting
+    const highpass = audioContext.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 300;
+    highpass.Q.value = 0.7;
+
+    // Compressor: normalize quiet audio so ACRCloud gets a strong signal
+    const compressor = audioContext.createDynamicsCompressor();
+    compressor.threshold.value = -50;
+    compressor.knee.value = 40;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0;
+    compressor.release.value = 0.25;
+
+    // Gain boost
+    const gain = audioContext.createGain();
+    gain.gain.value = 1.5;
+
+    // Connect pipeline: source → highpass → compressor → gain → output
+    source.connect(highpass);
+    highpass.connect(compressor);
+    compressor.connect(gain);
+
+    const destination = audioContext.createMediaStreamDestination();
+    gain.connect(destination);
+
+    return {
+      processedStream: destination.stream,
+      cleanup: () => audioContext.close(),
+    };
+  }, []);
+
   // Record 12 seconds of audio and send to ACRCloud as base64
   const recordAndIdentify = useCallback(async (stream: MediaStream): Promise<TrackResult | null> => {
+    // Apply audio processing (high-pass filter + normalization)
+    const { processedStream, cleanup } = createProcessedStream(stream);
+
     return new Promise((resolve) => {
       // Pick best supported mime type
       let mimeType = "";
@@ -58,9 +98,10 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
       let recorder: MediaRecorder;
       try {
         recorder = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
+          ? new MediaRecorder(processedStream, { mimeType })
+          : new MediaRecorder(processedStream);
       } catch (err) {
+        cleanup();
         resolve({ _error: `Recorder error: ${err}` } as unknown as TrackResult);
         return;
       }
@@ -72,10 +113,13 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
       };
 
       recorder.onerror = () => {
+        cleanup();
         resolve({ _error: "Recording error" } as unknown as TrackResult);
       };
 
       recorder.onstop = async () => {
+        cleanup();
+
         if (chunks.length === 0) {
           resolve({ _error: "No audio data" } as unknown as TrackResult);
           return;
@@ -138,7 +182,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
         }
       }, 12000);
     });
-  }, [blobToBase64]);
+  }, [blobToBase64, createProcessedStream]);
 
   const identify = useCallback(async () => {
     // If already listening, cancel

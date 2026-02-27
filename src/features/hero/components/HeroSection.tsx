@@ -43,12 +43,15 @@ export default function HeroSection({ taglineOverride }: HeroSectionProps) {
     <section className="relative flex min-h-screen flex-col items-center justify-center px-4 overflow-hidden">
       {/* Background photo */}
       <div className="absolute inset-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={config.assets.heroImage}
-          alt=""
-          className="absolute inset-0 w-full h-full"
-          style={{ objectFit: "cover", objectPosition: `${config.assets.heroImagePosX}% ${config.assets.heroImagePosY}%` }}
+        <div
+          className="absolute inset-0"
+          role="img"
+          aria-label={config.artist.name}
+          style={{
+            backgroundImage: `url(${config.assets.heroImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: `${config.assets.heroImagePosX}% ${config.assets.heroImagePosY}%`,
+          }}
         />
         <div className="absolute inset-0 bg-background/65" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-background/50" />
