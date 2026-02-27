@@ -39,6 +39,7 @@ type ShowFormData = {
   date: string;
   ticketUrl: string;
   soldOut: boolean;
+  flyerUrl: string;
 };
 
 const emptyForm: ShowFormData = {
@@ -49,6 +50,7 @@ const emptyForm: ShowFormData = {
   date: "",
   ticketUrl: "",
   soldOut: false,
+  flyerUrl: "",
 };
 
 export default function ShowsManager() {
@@ -104,6 +106,27 @@ export default function ShowsManager() {
     fetchShows();
   }, []);
 
+  // --- Upload flyer for add form ---
+  const handleAddFormFlyerUpload = async (file: File) => {
+    setUploadingFlyer("add");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "flyers");
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setAddForm((prev) => ({ ...prev, flyerUrl: data.url }));
+    } catch {
+      // silently fail
+    } finally {
+      setUploadingFlyer(null);
+    }
+  };
+
   // --- Add show ---
   const handleAdd = async () => {
     if (!addForm.name || !addForm.venue || !addForm.city || !addForm.country || !addForm.date) return;
@@ -121,6 +144,7 @@ export default function ShowsManager() {
           ticketUrl: addForm.ticketUrl || undefined,
           soldOut: addForm.soldOut,
           isPast: activeTab === "past",
+          flyerUrl: addForm.flyerUrl || undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -145,6 +169,7 @@ export default function ShowsManager() {
       date: show.date ? toDatetimeLocal(show.date) : "",
       ticketUrl: show.ticketUrl || "",
       soldOut: show.soldOut,
+      flyerUrl: show.flyerUrl || "",
     });
   };
 
@@ -456,6 +481,38 @@ export default function ShowsManager() {
             />
             {t("soldOut")}
           </label>
+          {/* Flyer upload */}
+          <div className="flex items-center gap-3">
+            {addForm.flyerUrl ? (
+              <div className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-border bg-background group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={addForm.flyerUrl} alt="Flyer" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => setAddForm({ ...addForm, flyerUrl: "" })}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <label className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-2 rounded-lg text-xs hover:bg-purple-500/20 transition-colors cursor-pointer">
+                <span className="flex items-center gap-1.5">
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  {uploadingFlyer === "add" ? "..." : "Flyer"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAddFormFlyerUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={handleAdd}

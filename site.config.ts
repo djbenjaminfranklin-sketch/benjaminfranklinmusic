@@ -1,5 +1,8 @@
 import type { Show, PastSet, Release } from "@/shared/types";
 
+const R2_BASE = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "";
+const audio = (path: string) => (R2_BASE ? `${R2_BASE}${path}` : path);
+
 const siteConfig = {
   artist: {
     name: "Benjamin Franklin",
@@ -59,7 +62,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-06-16",
       coverUrl: "/covers/this-sound.jpg",
-      audioUrl: "/audio/the-bomb-remix.mp3",
+      audioUrl: audio("/audio/the-bomb-remix.mp3"),
       featured: true,
     },
     {
@@ -68,7 +71,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-05-15",
       coverUrl: "/covers/aint-no-love.jpg",
-      audioUrl: "/audio/aint-no-love.mp3",
+      audioUrl: audio("/audio/aint-no-love.mp3"),
     },
     {
       id: "release-3",
@@ -76,7 +79,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-06-02",
       coverUrl: "/covers/try-to-fight.jpg",
-      audioUrl: "/audio/try-to-fight.mp3",
+      audioUrl: audio("/audio/try-to-fight.mp3"),
     },
     {
       id: "release-4",
@@ -84,7 +87,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-10-29",
       coverUrl: "/covers/chupa-sin-mano.jpg",
-      audioUrl: "/audio/chupa-sin-mano.mp3",
+      audioUrl: audio("/audio/chupa-sin-mano.mp3"),
     },
     {
       id: "release-5",
@@ -92,7 +95,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2024-09-03",
       coverUrl: "/covers/this-is-my-house.jpg",
-      audioUrl: "/audio/this-is-my-house.mp3",
+      audioUrl: audio("/audio/this-is-my-house.mp3"),
     },
     {
       id: "release-6",
@@ -100,7 +103,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-02-19",
       coverUrl: "/covers/saudade.jpg",
-      audioUrl: "/audio/saudade.mp3",
+      audioUrl: audio("/audio/saudade.mp3"),
     },
     {
       id: "release-7",
@@ -108,7 +111,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2024-06-11",
       coverUrl: "/covers/peace-in-the-world.jpg",
-      audioUrl: "/audio/peace-in-the-world.mp3",
+      audioUrl: audio("/audio/peace-in-the-world.mp3"),
     },
     {
       id: "release-9",
@@ -116,7 +119,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2023-05-22",
       coverUrl: "/covers/god-save-the-world.jpg",
-      audioUrl: "/audio/god-save-the-world.mp3",
+      audioUrl: audio("/audio/god-save-the-world.mp3"),
     },
     {
       id: "release-10",
@@ -124,7 +127,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-01-02",
       coverUrl: "/covers/como-como.jpg",
-      audioUrl: "/audio/como-como.mp3",
+      audioUrl: audio("/audio/como-como.mp3"),
     },
     {
       id: "release-11",
@@ -132,7 +135,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2024-12-15",
       coverUrl: "/covers/pray-for-tomorrow.jpg",
-      audioUrl: "/audio/pray-for-tomorrow.mp3",
+      audioUrl: audio("/audio/pray-for-tomorrow.mp3"),
     },
     {
       id: "release-12",
@@ -140,7 +143,7 @@ const siteConfig = {
       type: "remix",
       releaseDate: "2024-11-21",
       coverUrl: "/covers/respect-for-the-djs.jpg",
-      audioUrl: "/audio/respect-for-the-djs.mp3",
+      audioUrl: audio("/audio/respect-for-the-djs.mp3"),
     },
     {
       id: "release-13",
@@ -148,7 +151,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2024-08-23",
       coverUrl: "/covers/mona-ki-ngi-xica.jpg",
-      audioUrl: "/audio/mona-ki-ngi-xica.mp3",
+      audioUrl: audio("/audio/mona-ki-ngi-xica.mp3"),
     },
     {
       id: "release-14",
@@ -156,7 +159,7 @@ const siteConfig = {
       type: "remix",
       releaseDate: "2024-10-04",
       coverUrl: "/covers/beautiful-people.jpg",
-      audioUrl: "/audio/beautiful-people-remix.wav",
+      audioUrl: audio("/audio/beautiful-people-remix.wav"),
     },
     {
       id: "release-15",
@@ -164,7 +167,7 @@ const siteConfig = {
       type: "remix",
       releaseDate: "2024-08-27",
       coverUrl: "/covers/the-way-remix.jpg",
-      audioUrl: "/audio/the-way-remix.mp3",
+      audioUrl: audio("/audio/the-way-remix.mp3"),
     },
     {
       id: "release-16",
@@ -172,7 +175,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-03-22",
       coverUrl: "/covers/what-goes-around.jpg",
-      audioUrl: "/audio/what-goes-around.mp3",
+      audioUrl: audio("/audio/what-goes-around.mp3"),
     },
     {
       id: "release-17",
@@ -180,7 +183,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-02-19",
       coverUrl: "/covers/give-it-up.jpg",
-      audioUrl: "/audio/give-it-up.mp3",
+      audioUrl: audio("/audio/give-it-up.mp3"),
     },
     {
       id: "release-18",
@@ -188,7 +191,7 @@ const siteConfig = {
       type: "remix",
       releaseDate: "2025-04-17",
       coverUrl: "/covers/sunset-with-you-remix.jpg",
-      audioUrl: "/audio/sunset-with-you-remix.mp3",
+      audioUrl: audio("/audio/sunset-with-you-remix.mp3"),
     },
     {
       id: "release-19",
@@ -196,7 +199,7 @@ const siteConfig = {
       type: "remix",
       releaseDate: "2025-03-19",
       coverUrl: "/covers/peace-in-the-world-remix.jpg",
-      audioUrl: "/audio/peace-in-the-world-remix.mp3",
+      audioUrl: audio("/audio/peace-in-the-world-remix.mp3"),
     },
     {
       id: "release-20",
@@ -204,7 +207,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-07-10",
       coverUrl: "/covers/only-me-and-you.jpg",
-      audioUrl: "/audio/only-me-and-you.mp3",
+      audioUrl: audio("/audio/only-me-and-you.mp3"),
     },
     {
       id: "release-21",
@@ -212,7 +215,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-08-01",
       coverUrl: "/covers/faya.jpg",
-      audioUrl: "/audio/faya.mp3",
+      audioUrl: audio("/audio/faya.mp3"),
     },
     {
       id: "release-22",
@@ -220,7 +223,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-09-15",
       coverUrl: "/covers/running.jpg",
-      audioUrl: "/audio/running.mp3",
+      audioUrl: audio("/audio/running.mp3"),
     },
     {
       id: "release-23",
@@ -228,7 +231,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-10-01",
       coverUrl: "/covers/na-na-na-na.jpeg",
-      audioUrl: "/audio/na-na-na-na.wav",
+      audioUrl: audio("/audio/na-na-na-na.wav"),
     },
     {
       id: "release-24",
@@ -236,7 +239,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-11-01",
       coverUrl: "/covers/hakuna.jpg",
-      audioUrl: "/audio/hakuna.mp3",
+      audioUrl: audio("/audio/hakuna.mp3"),
     },
     {
       id: "release-25",
@@ -244,7 +247,7 @@ const siteConfig = {
       type: "remix",
       releaseDate: "2025-11-15",
       coverUrl: "/covers/build-at-home-remix.jpg",
-      audioUrl: "/audio/build-at-home-remix.mp3",
+      audioUrl: audio("/audio/build-at-home-remix.mp3"),
     },
     {
       id: "release-26",
@@ -252,7 +255,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-12-01",
       coverUrl: "/covers/mattina.jpg",
-      audioUrl: "/audio/mattina.mp3",
+      audioUrl: audio("/audio/mattina.mp3"),
     },
     {
       id: "release-27",
@@ -260,7 +263,7 @@ const siteConfig = {
       type: "single",
       releaseDate: "2025-12-15",
       coverUrl: "/covers/para-bailar.png",
-      audioUrl: "/audio/para-bailar.mp3",
+      audioUrl: audio("/audio/para-bailar.mp3"),
     },
   ] as Release[],
 

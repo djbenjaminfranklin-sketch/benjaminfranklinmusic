@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/features/auth/lib/auth";
 import { getUpcomingShows, getPastShows, createShow } from "@/shared/lib/dynamic-config";
+import { sendPushToAll } from "@/features/push/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,17 @@ export async function POST(request: NextRequest) {
     }
 
     const show = createShow({ name, venue, city, country, date, ticketUrl, soldOut, isPast, tracklist, flyerUrl, sortOrder });
+
+    // Send push notification for new shows
+    if (!isPast) {
+      const showDate = new Date(date).toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      sendPushToAll(name, `${showDate} — ${venue}, ${city}`, flyerUrl || undefined).catch(() => {});
+    }
+
     return NextResponse.json(show, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Failed to create show" }, { status: 500 });
