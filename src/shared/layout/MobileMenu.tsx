@@ -140,17 +140,10 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
                 </div>
                 <button
                   onClick={() => { logout(); onClose(); }}
-                  className="flex items-center gap-2 text-sm text-foreground/40 hover:text-foreground"
+                  className="flex items-center gap-2 text-base font-medium text-foreground/50 hover:text-foreground mt-4 px-5 py-2 rounded-full border border-foreground/15"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-5 w-5" />
                   {tAuth("logout")}
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 mt-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {tAuth("deleteAccount")}
                 </button>
               </>
             ) : (
@@ -163,13 +156,22 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
             )}
           </motion.div>
 
-          {/* Legal + Socials */}
+          {/* Legal + Socials + Delete */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
             className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-3"
           >
+            {user && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1.5 text-[11px] text-red-400/40 hover:text-red-300 mb-3"
+              >
+                <Trash2 className="h-3 w-3" />
+                {tAuth("deleteAccount")}
+              </button>
+            )}
             <div className="flex items-center gap-4">
               <Link
                 href="/terms"

@@ -142,16 +142,32 @@ struct WebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        config.suppressesIncrementalRendering = false
+        config.limitsNavigationsToAppBoundDomains = true
+
+        // Inject viewport at document start (before layout) to avoid re-layout
         let source = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'; document.head.appendChild(meta);"
-        let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         config.userContentController.addUserScript(script)
+
+        let prefs = WKWebpagePreferences()
+        prefs.allowsContentJavaScript = true
+        config.defaultWebpagePreferences = prefs
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
+        webView.scrollView.decelerationRate = .normal
         webView.isOpaque = false
         webView.backgroundColor = .black
+
+        // Allow keyboard to appear without user tap requirement
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
+
         webView.load(URLRequest(url: url))
         return webView
     }
