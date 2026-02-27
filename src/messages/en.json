@@ -27,7 +27,9 @@
   "notifications": {
     "title": "Notifications",
     "empty": "No notifications yet",
-    "emptyDesc": "You'll see announcements and updates here"
+    "emptyDesc": "You'll see announcements and updates here",
+    "clearAll": "Clear all",
+    "justNow": "Just now"
   },
   "hero": {
     "tagline": "House, Percussions & Latin Vibrations",

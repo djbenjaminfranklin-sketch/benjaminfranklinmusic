@@ -27,7 +27,9 @@
   "notifications": {
     "title": "Notificaciones",
     "empty": "Sin notificaciones",
-    "emptyDesc": "Los anuncios y actualizaciones apareceran aqui"
+    "emptyDesc": "Los anuncios y actualizaciones apareceran aqui",
+    "clearAll": "Borrar todo",
+    "justNow": "Ahora mismo"
   },
   "hero": {
     "tagline": "House, Percusiones y Vibraciones Latinas",
