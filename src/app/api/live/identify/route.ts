@@ -83,11 +83,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Log why it failed
+    // No track found — ACRCloud returns code 0 + "Success" even when no match
     console.log("[ACRCloud] No match. Status code:", data.status?.code, "msg:", data.status?.msg);
 
     return NextResponse.json(
-      { error: data.status?.msg || "No track identified", code: data.status?.code },
+      { error: "not_found" },
       { status: 404 }
     );
   } catch (err) {

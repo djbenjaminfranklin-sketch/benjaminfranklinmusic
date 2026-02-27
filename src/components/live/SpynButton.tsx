@@ -115,7 +115,12 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
             resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
             return;
           }
-          // Show server error message
+          if (res.status === 404) {
+            // No track found — retry silently
+            resolve(null);
+            return;
+          }
+          // Real error — show message
           resolve({ _error: data.error || `Erreur ${res.status}` } as unknown as TrackResult);
         } catch (err) {
           resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
