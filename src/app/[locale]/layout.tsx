@@ -9,6 +9,7 @@ import Footer from "@/components/layout/Footer";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SiteConfigProvider } from "@/contexts/SiteConfigContext";
 import AuthGate from "@/components/auth/AuthGate";
+import PullToRefresh from "@/components/PullToRefresh";
 import "../globals.css";
 
 const inter = Inter({
@@ -77,9 +78,11 @@ export default async function LocaleLayout({ children, params }: Props) {
           <AuthProvider>
             <SiteConfigProvider config={config}>
               <AuthGate>
-                <Header />
-                <main className="min-h-screen">{children}</main>
-                <Footer />
+                <PullToRefresh>
+                  <Header />
+                  <main className="min-h-screen">{children}</main>
+                  <Footer />
+                </PullToRefresh>
               </AuthGate>
             </SiteConfigProvider>
           </AuthProvider>
