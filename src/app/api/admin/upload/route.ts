@@ -10,6 +10,46 @@ const IMAGE_MAX = 10 * 1024 * 1024; // 10MB
 const AUDIO_MAX = 50 * 1024 * 1024; // 50MB
 const VALID_CATEGORIES = ["images", "covers", "audio", "chat", "flyers"];
 
+// R2 categories — these get uploaded to Cloudflare R2 instead of local filesystem
+const R2_CATEGORIES = ["audio", "covers", "flyers"];
+
+async function uploadToR2(buffer: Buffer, key: string, contentType: string): Promise<string> {
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+
+  const s3 = new S3Client({
+    region: "auto",
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+  });
+
+  const bucket = process.env.R2_BUCKET_NAME || "benjamin-franklin-audio";
+  const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000, immutable",
+    })
+  );
+
+  return `${publicUrl}/${key}`;
+}
+
+function isR2Configured(): boolean {
+  return !!(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL
+  );
+}
+
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin(request);
   if (!admin) {
@@ -44,13 +84,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Audio too large (max 50MB)" }, { status: 400 });
     }
 
+    const ext = file.name.split(".").pop() || (isImage ? "jpg" : "mp3");
+    const filename = `${crypto.randomUUID()}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Upload to R2 for audio/covers/flyers if configured
+    if (R2_CATEGORIES.includes(category) && isR2Configured()) {
+      const key = `${category}/${filename}`;
+      const url = await uploadToR2(buffer, key, file.type);
+      return NextResponse.json({ url }, { status: 201 });
+    }
+
+    // Fallback: local filesystem
     const uploadsDir = path.join(process.cwd(), `uploads/${category}`);
     await mkdir(uploadsDir, { recursive: true });
 
-    const ext = file.name.split(".").pop() || (isImage ? "jpg" : "mp3");
-    const filename = `${crypto.randomUUID()}.${ext}`;
     const filepath = path.join(uploadsDir, filename);
-    const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
     const url = `/api/uploads/${category}/${filename}`;
