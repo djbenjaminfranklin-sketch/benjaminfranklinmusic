@@ -48,8 +48,7 @@ export default function HeroSection({ taglineOverride }: HeroSectionProps) {
           src={config.assets.heroImage}
           alt=""
           className="absolute inset-0 w-full h-full"
-          style={{ objectFit: "cover", objectPosition: `center ${config.assets.heroImagePos}%` }}
-          data-pos={config.assets.heroImagePos}
+          style={{ objectFit: "cover", objectPosition: `${config.assets.heroImagePosX}% ${config.assets.heroImagePosY}%` }}
         />
         <div className="absolute inset-0 bg-background/65" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-background/50" />
@@ -166,11 +165,6 @@ export default function HeroSection({ taglineOverride }: HeroSectionProps) {
               ),
           )}
         </motion.div>
-      </div>
-
-      {/* DEBUG — position indicator (remove after testing) */}
-      <div className="absolute top-2 left-2 z-50 bg-black/80 text-white text-[10px] px-2 py-1 rounded font-mono">
-        pos: {config.assets.heroImagePos}%
       </div>
 
       {/* Bottom fade */}

@@ -69,8 +69,10 @@ export function getDynamicConfig() {
       avatar: settings["assets.avatar"] || siteConfig.assets.avatar,
       heroImage: settings["assets.heroImage"] || siteConfig.assets.heroImage,
       bioImage: settings["assets.bioImage"] || siteConfig.assets.bioImage,
-      heroImagePos: settings["assets.heroImagePos"] || siteConfig.assets.heroImagePos,
-      bioImagePos: settings["assets.bioImagePos"] || siteConfig.assets.bioImagePos,
+      heroImagePosX: settings["assets.heroImagePosX"] || siteConfig.assets.heroImagePosX,
+      heroImagePosY: settings["assets.heroImagePosY"] || siteConfig.assets.heroImagePosY,
+      bioImagePosX: settings["assets.bioImagePosX"] || siteConfig.assets.bioImagePosX,
+      bioImagePosY: settings["assets.bioImagePosY"] || siteConfig.assets.bioImagePosY,
     },
     theme: {
       accent: settings["theme.accent"] || siteConfig.theme.accent,

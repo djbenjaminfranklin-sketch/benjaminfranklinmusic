@@ -15,8 +15,10 @@ const siteConfig = {
     avatar: "/avatar.jpg",
     heroImage: "/hero.jpg",
     bioImage: "/hero.jpg",
-    heroImagePos: "25",
-    bioImagePos: "15",
+    heroImagePosX: "50",
+    heroImagePosY: "25",
+    bioImagePosX: "50",
+    bioImagePosY: "15",
   },
 
   theme: {

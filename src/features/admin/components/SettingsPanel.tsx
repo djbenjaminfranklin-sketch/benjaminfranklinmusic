@@ -162,10 +162,12 @@ export default function SettingsPanel() {
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [uploadError, setUploadError] = useState<Record<string, string>>({});
 
-  /* Image position state (vertical %) */
+  /* Image position state (X = horizontal, Y = vertical) */
   const [imagePositions, setImagePositions] = useState<Record<string, string>>({
-    heroImage: "25",
-    bioImage: "15",
+    heroImagePosX: "50",
+    heroImagePosY: "25",
+    bioImagePosX: "50",
+    bioImagePosY: "15",
   });
 
   /* ---- Fetch settings on mount ---- */
@@ -177,8 +179,10 @@ export default function SettingsPanel() {
         if (data.assets) {
           setImagePositions((prev) => ({
             ...prev,
-            ...(data.assets.heroImagePos ? { heroImage: data.assets.heroImagePos } : {}),
-            ...(data.assets.bioImagePos ? { bioImage: data.assets.bioImagePos } : {}),
+            ...(data.assets.heroImagePosX ? { heroImagePosX: data.assets.heroImagePosX } : {}),
+            ...(data.assets.heroImagePosY ? { heroImagePosY: data.assets.heroImagePosY } : {}),
+            ...(data.assets.bioImagePosX ? { bioImagePosX: data.assets.bioImagePosX } : {}),
+            ...(data.assets.bioImagePosY ? { bioImagePosY: data.assets.bioImagePosY } : {}),
           }));
         }
       })
@@ -290,13 +294,13 @@ export default function SettingsPanel() {
   /* ---- Save image position (debounced) ---- */
   const posTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
 
-  const handlePositionChange = useCallback((key: "heroImage" | "bioImage", value: string) => {
-    setImagePositions((prev) => ({ ...prev, [key]: value }));
+  const handlePositionChange = useCallback((posKey: string, value: string) => {
+    setImagePositions((prev) => ({ ...prev, [posKey]: value }));
 
     // Debounce the save — wait 500ms after last change
-    if (posTimerRef.current[key]) clearTimeout(posTimerRef.current[key]);
-    posTimerRef.current[key] = setTimeout(async () => {
-      const dbKey = `assets.${key}Pos`;
+    if (posTimerRef.current[posKey]) clearTimeout(posTimerRef.current[posKey]);
+    posTimerRef.current[posKey] = setTimeout(async () => {
+      const dbKey = `assets.${posKey}`;
       await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -402,7 +406,7 @@ export default function SettingsPanel() {
                     className="w-full h-full object-cover"
                     style={
                       (key === "heroImage" || key === "bioImage")
-                        ? { objectPosition: `center ${imagePositions[key]}%` }
+                        ? { objectPosition: `${imagePositions[`${key}PosX`] || "50"}% ${imagePositions[`${key}PosY`] || "50"}%` }
                         : undefined
                     }
                   />
@@ -413,21 +417,37 @@ export default function SettingsPanel() {
                 </div>
               )}
 
-              {/* Position slider for hero/bio images */}
+              {/* Position sliders for hero/bio images */}
               {(key === "heroImage" || key === "bioImage") && settings.assets[key] && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className={labelClass}>Position</label>
-                    <span className="text-xs text-foreground/40 font-mono">{imagePositions[key]}%</span>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className={labelClass}>Horizontal</label>
+                      <span className="text-xs text-foreground/40 font-mono">{imagePositions[`${key}PosX`] || "50"}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={imagePositions[`${key}PosX`] || "50"}
+                      onChange={(e) => handlePositionChange(`${key}PosX`, e.target.value)}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={imagePositions[key] || "50"}
-                    onChange={(e) => handlePositionChange(key, e.target.value)}
-                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
-                  />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className={labelClass}>Vertical</label>
+                      <span className="text-xs text-foreground/40 font-mono">{imagePositions[`${key}PosY`] || "50"}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={imagePositions[`${key}PosY`] || "50"}
+                      onChange={(e) => handlePositionChange(`${key}PosY`, e.target.value)}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
+                    />
+                  </div>
                 </div>
               )}
 
