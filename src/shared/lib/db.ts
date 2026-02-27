@@ -132,10 +132,14 @@ try {
 }
 
 // --- Indexes ---
-db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_shows_is_past ON shows(is_past, sort_order, date)`);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_releases_sort ON releases(sort_order, release_date)`);
+try {
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_shows_is_past ON shows(is_past, sort_order, date)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_releases_sort ON releases(sort_order, release_date)`);
+} catch {
+  // Tables may not exist yet if another worker is still creating them — safe to skip
+}
 
 // --- Types ---
 
