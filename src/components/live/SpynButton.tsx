@@ -22,139 +22,122 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
   const [attempt, setAttempt] = useState(0);
   const cancelledRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  // Encode PCM float32 samples into a WAV file (Blob)
-  const encodeWAV = useCallback((samples: Float32Array, sampleRate: number): Blob => {
-    const numChannels = 1;
-    const bitsPerSample = 16;
-    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-    const blockAlign = numChannels * (bitsPerSample / 8);
-    const dataSize = samples.length * (bitsPerSample / 8);
-    const buffer = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(buffer);
-
-    // WAV header
-    const writeStr = (offset: number, str: string) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
-    writeStr(0, "RIFF");
-    view.setUint32(4, 36 + dataSize, true);
-    writeStr(8, "WAVE");
-    writeStr(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, byteRate, true);
-    view.setUint16(32, blockAlign, true);
-    view.setUint16(34, bitsPerSample, true);
-    writeStr(36, "data");
-    view.setUint32(40, dataSize, true);
-
-    // PCM samples
-    let offset = 44;
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-      offset += 2;
-    }
-    return new Blob([buffer], { type: "audio/wav" });
+  // Convert Blob to base64 string (same approach as SPYNNERS)
+  const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        // FileReader returns "data:audio/webm;base64,<data>" — extract just the base64 part
+        const base64 = dataUrl.split(",")[1] || "";
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }, []);
 
-  // Record audio using Web Audio API (works reliably on iOS WKWebView)
+  // Record 12 seconds of audio and send to ACRCloud as base64
   const recordAndIdentify = useCallback(async (stream: MediaStream): Promise<TrackResult | null> => {
-    return new Promise(async (resolve) => {
-      try {
-        const audioCtx = new AudioContext();
-        // iOS requires explicit resume after user gesture
-        if (audioCtx.state === "suspended") {
-          await audioCtx.resume();
+    return new Promise((resolve) => {
+      // Pick best supported mime type
+      let mimeType = "";
+      for (const mime of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac"]) {
+        if (MediaRecorder.isTypeSupported(mime)) {
+          mimeType = mime;
+          break;
         }
-        const source = audioCtx.createMediaStreamSource(stream);
-        const sampleRate = audioCtx.sampleRate;
-
-        // ScriptProcessor to capture raw PCM (widely supported including WKWebView)
-        const bufferSize = 4096;
-        const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
-        const pcmChunks: Float32Array[] = [];
-        let hasNonZero = false;
-
-        processor.onaudioprocess = (e: AudioProcessingEvent) => {
-          const input = e.inputBuffer.getChannelData(0);
-          pcmChunks.push(new Float32Array(input));
-          // Check if we're getting actual audio (not silence)
-          if (!hasNonZero) {
-            for (let i = 0; i < input.length; i++) {
-              if (Math.abs(input[i]) > 0.001) { hasNonZero = true; break; }
-            }
-          }
-        };
-
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
-        // Record for 10 seconds
-        setTimeout(async () => {
-          processor.disconnect();
-          source.disconnect();
-
-          // Merge all PCM chunks
-          const totalLength = pcmChunks.reduce((acc, c) => acc + c.length, 0);
-          const allSamples = new Float32Array(totalLength);
-          let pos = 0;
-          for (const chunk of pcmChunks) {
-            allSamples.set(chunk, pos);
-            pos += chunk.length;
-          }
-
-          audioCtx.close().catch(() => {});
-
-          if (totalLength < 1000) {
-            resolve({ _error: `Audio vide (${totalLength} samples)` } as unknown as TrackResult);
-            return;
-          }
-
-          if (!hasNonZero) {
-            resolve({ _error: "Micro silencieux" } as unknown as TrackResult);
-            return;
-          }
-
-          const wavBlob = encodeWAV(allSamples, sampleRate);
-
-          const formData = new FormData();
-          formData.append("audio", wavBlob, "recording.wav");
-
-          try {
-            const res = await fetch("/api/live/identify", {
-              method: "POST",
-              body: formData,
-            });
-            const data = await res.json();
-            if (res.ok) {
-              resolve(data);
-              return;
-            }
-            if (res.status === 503) {
-              resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
-              return;
-            }
-            if (res.status === 404) {
-              resolve(null); // No track found, will retry
-              return;
-            }
-            resolve({ _error: `API ${res.status}` } as unknown as TrackResult);
-          } catch (err) {
-            resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
-          }
-        }, 10000);
-      } catch (err) {
-        resolve({ _error: `Audio: ${err}` } as unknown as TrackResult);
       }
+
+      let recorder: MediaRecorder;
+      try {
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+      } catch (err) {
+        resolve({ _error: `Recorder: ${err}` } as unknown as TrackResult);
+        return;
+      }
+      mediaRecorderRef.current = recorder;
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onerror = () => {
+        resolve({ _error: "Erreur enregistrement" } as unknown as TrackResult);
+      };
+
+      recorder.onstop = async () => {
+        if (chunks.length === 0) {
+          resolve({ _error: "Aucune donnée audio" } as unknown as TrackResult);
+          return;
+        }
+
+        const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+
+        if (blob.size < 1000) {
+          resolve({ _error: `Audio trop petit (${blob.size}o)` } as unknown as TrackResult);
+          return;
+        }
+
+        try {
+          // Convert to base64 (same as SPYNNERS)
+          const audioBase64 = await blobToBase64(blob);
+
+          if (!audioBase64 || audioBase64.length < 100) {
+            resolve({ _error: "Base64 vide" } as unknown as TrackResult);
+            return;
+          }
+
+          // Send as JSON with base64 audio
+          const res = await fetch("/api/live/identify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              audio_data: audioBase64,
+              sample_rate: 48000,
+              channels: 1,
+            }),
+          });
+
+          const data = await res.json();
+          if (res.ok) {
+            resolve(data);
+            return;
+          }
+          if (res.status === 503) {
+            resolve({ _error: "ACRCloud non configuré" } as unknown as TrackResult);
+            return;
+          }
+          // Show server error message
+          resolve({ _error: data.error || `Erreur ${res.status}` } as unknown as TrackResult);
+        } catch (err) {
+          resolve({ _error: `Réseau: ${err}` } as unknown as TrackResult);
+        }
+      };
+
+      // Collect data every second, record for 12 seconds (same as SPYNNERS)
+      recorder.start(1000);
+
+      setTimeout(() => {
+        if (recorder.state === "recording") {
+          recorder.stop();
+        }
+      }, 12000);
     });
-  }, [encodeWAV]);
+  }, [blobToBase64]);
 
   const identify = useCallback(async () => {
     // If already listening, cancel
     if (isListening) {
       cancelledRef.current = true;
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       setIsListening(false);
@@ -168,14 +151,16 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
     cancelledRef.current = false;
 
     try {
+      // Same audio constraints as SPYNNERS: no processing for clean audio
       const audioConstraints: MediaStreamConstraints["audio"] = audioDeviceId
-        ? { deviceId: { exact: audioDeviceId } }
-        : true;
+        ? { deviceId: { exact: audioDeviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
 
-      // Loop: record + identify, retry up to 6 times (60 seconds max)
-      const maxAttempts = 6;
+      // Loop: record + identify, retry up to 5 times (60 seconds max)
+      const maxAttempts = 5;
       for (let i = 0; i < maxAttempts; i++) {
         if (cancelledRef.current) break;
         setAttempt(i + 1);
@@ -184,7 +169,7 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
 
         if (cancelledRef.current) break;
 
-        // Check for config error — stop immediately, don't retry
+        // Check for config/fatal error — stop immediately, don't retry
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (track && (track as any)._error) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -314,7 +299,7 @@ export default function SpynButton({ inline = false, audioDeviceId }: SpynButton
                 : "absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
             }
           >
-            <p className="text-xs text-accent font-medium animate-pulse">Écoute{attempt > 1 ? ` (${attempt}/6)` : ""}...</p>
+            <p className="text-xs text-accent font-medium animate-pulse">Écoute{attempt > 1 ? ` (${attempt}/5)` : ""}...</p>
           </motion.div>
         )}
       </AnimatePresence>

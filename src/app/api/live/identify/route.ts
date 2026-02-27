@@ -15,17 +15,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.formData();
-    const audioFile = body.get("audio") as File | null;
+    let audioBuffer: Buffer;
 
-    if (!audioFile) {
-      return NextResponse.json(
-        { error: "Audio file is required" },
-        { status: 400 }
-      );
+    // Support both JSON (base64) and FormData
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const json = await request.json();
+      if (!json.audio_data) {
+        return NextResponse.json({ error: "audio_data is required" }, { status: 400 });
+      }
+      audioBuffer = Buffer.from(json.audio_data, "base64");
+      console.log("[ACRCloud] Received base64 audio, size:", audioBuffer.length);
+    } else {
+      const body = await request.formData();
+      const audioFile = body.get("audio") as File | null;
+      if (!audioFile) {
+        return NextResponse.json({ error: "Audio file is required" }, { status: 400 });
+      }
+      audioBuffer = Buffer.from(await audioFile.arrayBuffer());
     }
 
-    const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
+    if (audioBuffer.length < 1000) {
+      console.error("[ACRCloud] Audio too small:", audioBuffer.length);
+      return NextResponse.json({ error: "Audio too small" }, { status: 400 });
+    }
 
     const httpMethod = "POST";
     const httpUri = "/v1/identify";
@@ -40,7 +53,7 @@ export async function POST(request: NextRequest) {
       .digest("base64");
 
     const formData = new FormData();
-    formData.append("sample", new Blob([audioBuffer]), "audio.wav");
+    formData.append("sample", new Blob([new Uint8Array(audioBuffer)]), "audio.wav");
     formData.append("sample_bytes", audioBuffer.length.toString());
     formData.append("access_key", accessKey);
     formData.append("data_type", dataType);
@@ -48,14 +61,14 @@ export async function POST(request: NextRequest) {
     formData.append("signature", signature);
     formData.append("timestamp", timestamp);
 
+    console.log("[ACRCloud] Sending to", host, "sample_bytes:", audioBuffer.length);
+
     const res = await fetch(`https://${host}/v1/identify`, {
       method: "POST",
       body: formData,
     });
 
     const data = await res.json();
-
-    // Debug: log full ACRCloud response to investigate detection issues
     console.log("[ACRCloud] Response:", JSON.stringify(data, null, 2));
 
     if (data.status?.code === 0 && data.metadata?.music?.length > 0) {
@@ -70,11 +83,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Log why it failed
+    console.log("[ACRCloud] No match. Status code:", data.status?.code, "msg:", data.status?.msg);
+
     return NextResponse.json(
-      { error: "No track identified" },
+      { error: data.status?.msg || "No track identified", code: data.status?.code },
       { status: 404 }
     );
-  } catch {
+  } catch (err) {
+    console.error("[ACRCloud] Error:", err);
     return NextResponse.json(
       { error: "Failed to identify track" },
       { status: 500 }
