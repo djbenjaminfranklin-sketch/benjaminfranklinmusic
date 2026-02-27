@@ -36,7 +36,7 @@ export default function TermsPage() {
         </div>
 
         <p className="text-xs text-foreground/40 mt-12">
-          {t("lastUpdated")}: 2025-01-01
+          {t("lastUpdated")}: 2026-02-27
         </p>
       </div>
     </div>

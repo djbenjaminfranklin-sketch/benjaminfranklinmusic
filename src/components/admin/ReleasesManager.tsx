@@ -533,14 +533,14 @@ export default function ReleasesManager() {
                 )}
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Actions — always visible */}
+              <div className="flex items-center gap-2 pt-2 border-t border-border/50">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     openEditForm(release);
                   }}
-                  className="flex items-center gap-1.5 text-xs text-foreground/50 hover:text-accent transition-colors"
+                  className="flex items-center gap-1.5 text-xs bg-foreground/5 text-foreground/50 border border-border px-3 py-1.5 rounded-lg hover:bg-foreground/10 transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   {t("edit")}
@@ -554,7 +554,7 @@ export default function ReleasesManager() {
                     }
                   }}
                   disabled={deletingId === release.id}
-                  className="flex items-center gap-1.5 text-xs text-foreground/50 hover:text-red-400 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
                 >
                   {deletingId === release.id ? (
                     <div className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Audio too large (max 50MB)" }, { status: 400 });
     }
 
-    const uploadsDir = path.join(process.cwd(), `public/uploads/${category}`);
+    const uploadsDir = path.join(process.cwd(), `uploads/${category}`);
     await mkdir(uploadsDir, { recursive: true });
 
     const ext = file.name.split(".").pop() || (isImage ? "jpg" : "mp3");
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const url = `/uploads/${category}/${filename}`;
+    const url = `/api/uploads/${category}/${filename}`;
     return NextResponse.json({ url }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });

@@ -13,6 +13,7 @@ const socialIcons: Record<string, string> = {
 export default function Footer() {
   const year = new Date().getFullYear();
   const t = useTranslations("footer");
+  const tAuth = useTranslations("auth");
   const config = useSiteConfig();
 
   return (
@@ -45,7 +46,20 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-6 text-center">
+        {/* Legal links + support email */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
+          <Link href="/terms" className="text-xs text-foreground/40 hover:text-accent transition-colors">
+            {tAuth("termsOfService")}
+          </Link>
+          <Link href="/privacy" className="text-xs text-foreground/40 hover:text-accent transition-colors">
+            {tAuth("privacyPolicy")}
+          </Link>
+          <a href="mailto:contact@benjaminfranklinmusic.com" className="text-xs text-foreground/40 hover:text-accent transition-colors">
+            contact@benjaminfranklinmusic.com
+          </a>
+        </div>
+
+        <div className="mt-4 text-center">
           <p className="text-xs text-foreground/30">
             &copy; {year} {config.artist.name}. {t("allRightsReserved")}
           </p>

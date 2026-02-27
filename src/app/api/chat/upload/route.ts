@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads/audio");
+    const uploadsDir = path.join(process.cwd(), "uploads/audio");
     await mkdir(uploadsDir, { recursive: true });
 
     const ext = file.name.split(".").pop() || "mp3";
@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const audioUrl = `/uploads/audio/${filename}`;
+    const audioUrl = `/api/uploads/audio/${filename}`;
     const msg = addChatMessage(author, `🎵 ${title}`, true, audioUrl, title);
 
-    sendPushToAll(config.artist.name, `${config.artist.name} a partage un son`).catch(() => {});
+    sendPushToAll(config.artist.name, `${config.artist.name} shared a track`).catch(() => {});
 
     return NextResponse.json(msg, { status: 201 });
   } catch {

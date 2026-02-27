@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { getReleases, createRelease, getDynamicConfig } from "@/lib/dynamic-config";
 import { sendPushToAll } from "@/lib/push";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);
   if (!admin) {
@@ -30,8 +32,8 @@ export async function POST(request: NextRequest) {
 
     const config = getDynamicConfig();
     sendPushToAll(
-      `${config.artist.name} — nouveau ${type} !`,
-      `${title} est disponible`
+      `${config.artist.name} — New ${type}!`,
+      `${title} is now available`
     ).catch(() => {});
 
     return NextResponse.json(release, { status: 201 });

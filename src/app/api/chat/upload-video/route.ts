@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads/video");
+    const uploadsDir = path.join(process.cwd(), "uploads/video");
     await mkdir(uploadsDir, { recursive: true });
 
     const ext = file.name.split(".").pop() || "mp4";
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const videoUrl = `/uploads/video/${filename}`;
+    const videoUrl = `/api/uploads/video/${filename}`;
     const msg = addChatMessage(
       author,
       `🎬 ${title}`,
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       title,
     );
 
-    sendPushToAll(config.artist.name, `${config.artist.name} a partage une video`).catch(() => {});
+    sendPushToAll(config.artist.name, `${config.artist.name} shared a video`).catch(() => {});
 
     return NextResponse.json(msg, { status: 201 });
   } catch {

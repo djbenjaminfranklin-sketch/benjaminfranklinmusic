@@ -163,27 +163,45 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
             )}
           </motion.div>
 
-          {/* Socials */}
+          {/* Legal + Socials */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="absolute bottom-12 left-0 right-0 flex justify-center gap-6"
+            className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-3"
           >
-            {Object.entries(config.socials).map(
-              ([key, url]) =>
-                url && (
-                  <a
-                    key={key}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-foreground/40 hover:text-accent transition-colors"
-                  >
-                    {socialLabels[key] || key}
-                  </a>
-                ),
-            )}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/terms"
+                onClick={onClose}
+                className="text-xs text-foreground/40 hover:text-accent transition-colors"
+              >
+                {tAuth("termsOfService")}
+              </Link>
+              <Link
+                href="/privacy"
+                onClick={onClose}
+                className="text-xs text-foreground/40 hover:text-accent transition-colors"
+              >
+                {tAuth("privacyPolicy")}
+              </Link>
+            </div>
+            <div className="flex items-center gap-6">
+              {Object.entries(config.socials).map(
+                ([key, url]) =>
+                  url && (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-foreground/40 hover:text-accent transition-colors"
+                    >
+                      {socialLabels[key] || key}
+                    </a>
+                  ),
+              )}
+            </div>
           </motion.div>
         </motion.div>
       )}

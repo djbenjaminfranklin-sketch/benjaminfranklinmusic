@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const config = getDynamicConfig();
     const isDJ = djPassword === config.fanZone.djPassword;
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads/chat");
+    const uploadsDir = path.join(process.cwd(), "uploads/chat");
     await mkdir(uploadsDir, { recursive: true });
 
     const ext = file.name.split(".").pop() || "jpg";
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const imageUrl = `/uploads/chat/${filename}`;
+    const imageUrl = `/api/uploads/chat/${filename}`;
     const msg = addChatMessage(
       author,
       caption || "",
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (isDJ) {
-      sendPushToAll(config.artist.name, `${config.artist.name} a partage une photo`).catch(() => {});
+      sendPushToAll(config.artist.name, `${config.artist.name} shared a photo`).catch(() => {});
     }
 
     return NextResponse.json(msg, { status: 201 });
