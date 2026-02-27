@@ -10,6 +10,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { SiteConfigProvider } from "@/contexts/SiteConfigContext";
 import AuthGate from "@/components/auth/AuthGate";
 import PullToRefresh from "@/components/PullToRefresh";
+import PushAutoSubscribe from "@/components/PushAutoSubscribe";
 import "../globals.css";
 
 const inter = Inter({
@@ -76,6 +77,7 @@ export default async function LocaleLayout({ children, params }: Props) {
       <body className={`${inter.variable} ${raleway.variable} antialiased overflow-x-hidden`}>
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
+            <PushAutoSubscribe />
             <SiteConfigProvider config={config}>
               <AuthGate>
                 <PullToRefresh>
