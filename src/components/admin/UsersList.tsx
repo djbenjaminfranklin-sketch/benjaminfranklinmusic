@@ -78,99 +78,81 @@ export default function UsersList() {
         </button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        {loading ? (
-          <div className="p-8 flex justify-center">
-            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : users.length === 0 ? (
-          <div className="p-8 flex flex-col items-center gap-3">
-            <UsersIcon className="h-10 w-10 text-foreground/15" />
-            <p className="text-sm text-foreground/30">{t("noUsers")}</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
-                    {t("name")}
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
-                    {t("email")}
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
-                    {t("role")}
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
-                    {t("registered")}
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-foreground/40 uppercase tracking-wider">
-                    {t("actions")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-foreground/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-primary">
-                      <span className="flex items-center gap-2">
-                        {user.name}
-                        {user.banned === 1 && (
-                          <span className="inline-flex items-center rounded-full bg-red-500/20 text-red-400 px-2 py-0.5 text-xs font-medium">
-                            {t("banned")}
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground/60">{user.email}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          user.role === "admin"
-                            ? "bg-accent/20 text-accent"
-                            : "bg-foreground/10 text-foreground/50"
-                        )}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground/40">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {user.role !== "admin" && (
-                        <button
-                          onClick={() => toggleBan(user)}
-                          className={cn(
-                            "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                            user.banned === 1
-                              ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-                              : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                          )}
-                        >
-                          {user.banned === 1 ? (
-                            <>
-                              <ShieldCheck className="h-3.5 w-3.5" />
-                              {t("unban")}
-                            </>
-                          ) : (
-                            <>
-                              <Ban className="h-3.5 w-3.5" />
-                              {t("ban")}
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="p-8 flex justify-center">
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : users.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-card p-8 flex flex-col items-center gap-3">
+          <UsersIcon className="h-10 w-10 text-foreground/15" />
+          <p className="text-sm text-foreground/30">{t("noUsers")}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {users.map((user) => (
+            <div
+              key={user.id}
+              className="rounded-xl border border-border bg-card p-4 flex items-center gap-3"
+            >
+              {/* Avatar */}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent font-bold text-sm">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-primary truncate">{user.name}</span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      user.role === "admin"
+                        ? "bg-accent/20 text-accent"
+                        : "bg-foreground/10 text-foreground/50"
+                    )}
+                  >
+                    {user.role}
+                  </span>
+                  {user.banned === 1 && (
+                    <span className="inline-flex items-center rounded-full bg-red-500/20 text-red-400 px-2 py-0.5 text-[10px] font-medium">
+                      {t("banned")}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-foreground/40 truncate">{user.email}</p>
+                <p className="text-xs text-foreground/30 mt-0.5">
+                  {t("registered")}: {new Date(user.created_at).toLocaleDateString()}
+                </p>
+              </div>
+
+              {/* Ban button — always visible */}
+              {user.role !== "admin" && (
+                <button
+                  onClick={() => toggleBan(user)}
+                  className={cn(
+                    "shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                    user.banned === 1
+                      ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                      : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                  )}
+                >
+                  {user.banned === 1 ? (
+                    <>
+                      <ShieldCheck className="h-4 w-4" />
+                      {t("unban")}
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="h-4 w-4" />
+                      {t("ban")}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
