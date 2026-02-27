@@ -402,6 +402,9 @@
     "unban": "Desbanear",
     "banned": "Baneado",
     "confirmBan": "Banear este usuario?",
-    "actions": "Acciones"
+    "actions": "Acciones",
+    "attachment": "Adjunto",
+    "addImage": "Agregar imagen",
+    "disconnectGuest": "Quitar"
   }
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Image from "next/image";
 import {
   Plus,
   Pencil,
@@ -60,6 +59,7 @@ export default function ReleasesManager() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const coverInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -164,6 +164,7 @@ export default function ReleasesManager() {
   const handleSave = async () => {
     if (!form.title || !form.releaseDate || !form.coverUrl) return;
     setSaving(true);
+    setSaveError("");
 
     const body: Record<string, unknown> = {
       title: form.title,
@@ -201,7 +202,7 @@ export default function ReleasesManager() {
       }
       closeForm();
     } catch {
-      // silently fail
+      setSaveError(editingId ? "Erreur lors de la mise à jour" : "Erreur lors de l'ajout");
     } finally {
       setSaving(false);
     }
@@ -312,12 +313,11 @@ export default function ReleasesManager() {
             <div className="flex items-center gap-4">
               {form.coverUrl ? (
                 <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-border">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={form.coverUrl}
                     alt="Cover preview"
-                    fill
-                    className="object-cover"
-                    sizes="64px"
+                    className="w-full h-full object-cover"
                   />
                 </div>
               ) : (
@@ -439,6 +439,10 @@ export default function ReleasesManager() {
             </label>
           </div>
 
+          {saveError && (
+            <p className="text-xs text-red-400 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">{saveError}</p>
+          )}
+
           {/* Actions */}
           <div className="flex items-center gap-3 pt-2">
             <button
@@ -488,12 +492,11 @@ export default function ReleasesManager() {
               {/* Top row: cover + info */}
               <div className="flex items-start gap-3">
                 <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={release.coverUrl}
                     alt={release.title}
-                    fill
-                    className="object-cover"
-                    sizes="48px"
+                    className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="flex-1 min-w-0">

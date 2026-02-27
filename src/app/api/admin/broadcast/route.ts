@@ -19,6 +19,7 @@ const broadcastSchema = z.object({
   title: z.string().min(1, "Title is required"),
   message: z.string().min(1, "Message is required"),
   channels: z.array(z.enum(["email", "push", "chat"])).min(1, "At least one channel required"),
+  imageUrl: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, message, channels } = result.data;
+    const { title, message, channels, imageUrl } = result.data;
     const users = getAllUsers();
     let recipientCount = 0;
 
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
                   <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; color: #ededed; padding: 32px; border-radius: 12px;">
                     <h2 style="color: #c9a84c; margin-bottom: 16px;">${title}</h2>
                     <p style="line-height: 1.6; white-space: pre-wrap;">${message}</p>
+                    ${imageUrl ? `<img src="${request.nextUrl.origin}${imageUrl}" alt="" style="max-width: 100%; border-radius: 8px; margin-top: 16px;" />` : ""}
                     <hr style="border: none; border-top: 1px solid #1e1e22; margin: 24px 0;" />
                     <p style="font-size: 12px; color: #666;">Benjamin Franklin Music</p>
                   </div>
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
     if (channels.includes("chat")) {
       const { getDynamicConfig } = await import("@/lib/dynamic-config");
       const config = getDynamicConfig();
-      addChatMessage(config.artist.name, `${title}: ${message}`, true);
+      addChatMessage(config.artist.name, `${title}: ${message}`, true, undefined, undefined, imageUrl);
       recipientCount = Math.max(recipientCount, 1);
     }
 

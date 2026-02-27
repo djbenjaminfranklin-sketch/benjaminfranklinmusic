@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Send, Mail, Bell, MessageSquare, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Mail, Bell, MessageSquare, Clock, ImagePlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,10 @@ export default function BroadcastPanel() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [history, setHistory] = useState<BroadcastRecord[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const t = useTranslations("admin");
 
   useEffect(() => {
@@ -52,6 +55,26 @@ export default function BroadcastPanel() {
     );
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "images");
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setImageUrl(data.url);
+    } catch {
+      setError("Erreur lors de l'upload de l'image");
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  };
+
   const handleSend = async () => {
     if (!title.trim() || !message.trim() || channels.length === 0) return;
 
@@ -63,7 +86,7 @@ export default function BroadcastPanel() {
       const res = await fetch("/api/admin/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, message, channels }),
+        body: JSON.stringify({ title, message, channels, imageUrl: imageUrl || undefined }),
       });
 
       if (!res.ok) {
@@ -74,6 +97,7 @@ export default function BroadcastPanel() {
       setSent(true);
       setTitle("");
       setMessage("");
+      setImageUrl("");
       fetchHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send broadcast");
@@ -133,12 +157,61 @@ export default function BroadcastPanel() {
           </div>
         </div>
 
+        {/* Image attachment */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/50 mb-2">{t("attachment")}</label>
+          {imageUrl ? (
+            <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-border bg-background group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageUrl} alt="Attachment" className="w-full h-full object-cover" />
+              <button
+                onClick={() => setImageUrl("")}
+                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={uploadingImage}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground/50 hover:text-foreground hover:border-foreground/30 transition-colors",
+                  uploadingImage && "opacity-50 pointer-events-none"
+                )}
+              >
+                {uploadingImage ? (
+                  <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <ImagePlus className="h-4 w-4" />
+                )}
+                {t("addImage")}
+              </button>
+            </>
+          )}
+        </div>
+
         {/* Preview */}
-        {(title || message) && (
+        {(title || message || imageUrl) && (
           <div className="rounded-lg border border-border/50 bg-background p-4">
             <p className="text-xs font-medium text-foreground/30 mb-2">{t("preview")}</p>
             {title && <p className="text-sm font-semibold text-primary">{title}</p>}
             {message && <p className="text-sm text-foreground/60 whitespace-pre-wrap mt-1">{message}</p>}
+            {imageUrl && (
+              <div className="mt-2 rounded-lg overflow-hidden border border-border/50 max-w-[200px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageUrl} alt="" className="w-full h-auto object-cover" />
+              </div>
+            )}
           </div>
         )}
 

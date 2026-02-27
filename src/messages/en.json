@@ -402,6 +402,9 @@
     "unban": "Unban",
     "banned": "Banned",
     "confirmBan": "Ban this user?",
-    "actions": "Actions"
+    "actions": "Actions",
+    "attachment": "Attachment",
+    "addImage": "Add image",
+    "disconnectGuest": "Remove"
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb } from "lucide-react";
+import { Video, VideoOff, Eye, Mic, MicOff, UserPlus, UserMinus, Camera, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useLiveBroadcast } from "@/hooks/useLiveBroadcast";
@@ -56,6 +56,28 @@ function StreamBand({ stream, label, mirror }: { stream: MediaStream; label: str
         </span>
       </div>
     </div>
+  );
+}
+
+function GuestThumb({ stream }: { stream: MediaStream }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+    return () => { video.srcObject = null; };
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      className="w-full h-full object-cover"
+      playsInline
+      muted
+      autoPlay
+    />
   );
 }
 
@@ -515,13 +537,38 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
           </div>
         </div>
 
-        {/* Guest join notification */}
+        {/* Guest join notification with stars */}
         {guestNotification && (
           <div className="absolute top-28 left-1/2 -translate-x-1/2 z-30 rounded-full bg-accent/90 backdrop-blur-sm px-4 py-2 animate-bounce">
-            <span className="text-sm font-bold text-background">{guestNotification}</span>
+            <span className="text-sm font-bold text-background">{"\u2B50"} {guestNotification} {"\u2B50"}</span>
           </div>
         )}
 
+        {/* Guest thumbnails — bottom left, each with disconnect button */}
+        {!isCoHost && coHostEntries.length > 0 && (
+          <div className="absolute bottom-32 left-4 z-30 flex gap-2">
+            {coHostEntries.map(([id], i) => {
+              const guestName = guestNames.get(id) || tLive("angleNumber", { n: i + 2 });
+              const guestStream = allCoHostStreams.get(id);
+              return (
+                <div key={id} className="relative group">
+                  <div className="w-20 h-28 rounded-xl overflow-hidden border-2 border-accent/50 bg-black shadow-lg">
+                    {guestStream && <GuestThumb stream={guestStream} />}
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-1 py-0.5 rounded-b-xl">
+                    <p className="text-[8px] font-bold text-white text-center truncate">{"\u2B50"} {guestName}</p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); disconnectGuest(id); }}
+                    className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-lg touch-manipulation active:scale-90 transition-transform"
+                  >
+                    <UserMinus className="h-3 w-3 text-white" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Chat overlay — pushed up above bottom controls */}
         {chatMessages && onSendChat && (
@@ -620,11 +667,11 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-hidden">
       {/* Video preview — inline when not fullscreen or not broadcasting */}
       {isBroadcasting && localStream ? (
         <div className={cn(
-          "relative rounded-xl overflow-hidden border border-border bg-black h-[70vh] mx-auto flex gap-0.5 cursor-pointer",
+          "relative rounded-xl overflow-hidden border border-border bg-black max-h-[65vh] mx-auto flex gap-0.5 cursor-pointer",
           allStreams.length > 1 ? "flex-col" : "flex-col aspect-[9/16]"
         )} onClick={() => setIsFullscreen(true)}>
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocale } from "next-intl";
 import { PlusCircle } from "lucide-react";
@@ -191,11 +190,11 @@ export default function PostCard({ post, onReaction, onDelete, variant = "admin"
         {/* Avatar */}
         {showDJAvatar ? (
           <div className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden ring-2 ring-amber-500/40">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={config.assets.avatar}
               alt={post.author}
-              fill
-              className="object-cover"
+              className="w-full h-full object-cover"
             />
           </div>
         ) : (
@@ -222,9 +221,10 @@ export default function PostCard({ post, onReaction, onDelete, variant = "admin"
             {onDelete && (
               <button
                 onClick={() => onDelete(post.id)}
-                className="ml-auto text-xs text-white/30 hover:text-red-400 transition-colors"
+                className="ml-auto flex items-center justify-center w-6 h-6 rounded-full text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Supprimer"
               >
-                &times;
+                <span className="text-base leading-none">&times;</span>
               </button>
             )}
           </div>
@@ -239,11 +239,10 @@ export default function PostCard({ post, onReaction, onDelete, variant = "admin"
 
           {post.imageUrl && (
             <div className="mt-3 rounded-lg overflow-hidden border border-white/[0.06] max-w-sm">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={post.imageUrl}
                 alt={post.imageCaption || "Shared image"}
-                width={400}
-                height={300}
                 className="w-full h-auto object-cover"
               />
               {post.imageCaption && (
