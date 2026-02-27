@@ -21,7 +21,13 @@
     "fanZoneDesc": "Chat en directo",
     "live": "En vivo",
     "liveDesc": "Ver en directo",
-    "home": "Inicio"
+    "home": "Inicio",
+    "notifications": "Notificaciones"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "empty": "Sin notificaciones",
+    "emptyDesc": "Los anuncios y actualizaciones apareceran aqui"
   },
   "hero": {
     "tagline": "House, Percusiones y Vibraciones Latinas",

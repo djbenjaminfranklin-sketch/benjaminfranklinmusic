@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Menu, ChevronLeft } from "lucide-react";
+import { Menu, ChevronLeft, Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useSiteConfig } from "@/shared/contexts/SiteConfigContext";
@@ -95,6 +95,12 @@ export default function Header() {
               </span>
               {t("live")}
             </Link>
+            <Link
+              href="/notifications"
+              className="p-2 rounded-lg text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+            >
+              <Bell className="h-4 w-4" />
+            </Link>
             <LanguageSelector />
             <UserMenu />
           </nav>
@@ -102,6 +108,12 @@ export default function Header() {
           {/* Mobile hamburger */}
           <div className="md:hidden flex items-center gap-2">
             <LanguageSelector />
+            <Link
+              href="/notifications"
+              className="p-2 text-foreground/60 hover:text-foreground transition-colors"
+            >
+              <Bell className="h-5 w-5" />
+            </Link>
             <button
               onClick={() => setMobileOpen(true)}
               className="p-2 text-foreground/60 hover:text-foreground transition-colors"
