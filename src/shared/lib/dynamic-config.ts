@@ -2,7 +2,8 @@ import db from "@/shared/lib/db";
 import crypto from "crypto";
 import siteConfig from "../../../site.config";
 
-// Auto-migrate local URLs to R2 on module load
+// Auto-migrate local audio URLs to R2 on module load
+// Covers stay local (served from public/covers/) — only audio needs R2
 try {
   const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   if (r2Base) {
@@ -11,8 +12,16 @@ try {
       let audioUrl = r.audio_url;
       let coverUrl = r.cover_url;
       let changed = false;
+
+      // Migrate audio to R2
       if (audioUrl && audioUrl.startsWith("/audio/")) { audioUrl = `${r2Base}${audioUrl}`; changed = true; }
-      if (coverUrl && coverUrl.startsWith("/covers/")) { coverUrl = `${r2Base}${coverUrl}`; changed = true; }
+
+      // Revert covers back to local if they were mistakenly migrated to R2
+      if (coverUrl && coverUrl.startsWith(r2Base) && coverUrl.includes("/covers/")) {
+        coverUrl = coverUrl.replace(r2Base, "");
+        changed = true;
+      }
+
       if (changed) {
         db.prepare("UPDATE releases SET audio_url = ?, cover_url = ?, updated_at = datetime('now') WHERE id = ?").run(audioUrl, coverUrl, r.id);
       }
@@ -362,7 +371,7 @@ export function deleteRelease(id: string): boolean {
   return result.changes > 0;
 }
 
-// --- Migrate local URLs to R2 ---
+// --- Migrate local audio URLs to R2 ---
 
 export function migrateUrlsToR2() {
   const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
@@ -370,25 +379,13 @@ export function migrateUrlsToR2() {
 
   let migrated = 0;
 
-  // Migrate audio_url and cover_url that start with /audio/ or /covers/
-  const releases = db.prepare("SELECT id, audio_url, cover_url FROM releases").all() as { id: string; audio_url: string | null; cover_url: string | null }[];
+  // Only migrate audio_url — covers are served from public/covers/
+  const releases = db.prepare("SELECT id, audio_url FROM releases").all() as { id: string; audio_url: string | null }[];
 
   for (const r of releases) {
-    let audioUrl = r.audio_url;
-    let coverUrl = r.cover_url;
-    let changed = false;
-
-    if (audioUrl && audioUrl.startsWith("/audio/")) {
-      audioUrl = `${r2Base}${audioUrl}`;
-      changed = true;
-    }
-    if (coverUrl && coverUrl.startsWith("/covers/")) {
-      coverUrl = `${r2Base}${coverUrl}`;
-      changed = true;
-    }
-
-    if (changed) {
-      db.prepare("UPDATE releases SET audio_url = ?, cover_url = ?, updated_at = datetime('now') WHERE id = ?").run(audioUrl, coverUrl, r.id);
+    if (r.audio_url && r.audio_url.startsWith("/audio/")) {
+      const audioUrl = `${r2Base}${r.audio_url}`;
+      db.prepare("UPDATE releases SET audio_url = ?, updated_at = datetime('now') WHERE id = ?").run(audioUrl, r.id);
       migrated++;
     }
   }
