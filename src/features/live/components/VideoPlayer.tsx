@@ -99,10 +99,13 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
     };
   }, [stream]);
 
-  // Mode WHEP : WebRTC playback via Cloudflare
+  // Mode WHEP : WebRTC playback via proxy (avoids CORS issues)
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src || stream || streamType !== "whep") return;
+
+    // Use server-side proxy to avoid CORS with Cloudflare WHEP endpoint
+    const whepUrl = "/api/live/whep";
 
     setIsLoading(true);
     setRetryCount(0);
@@ -116,14 +119,16 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
       attempts++;
       setRetryCount(attempts);
       try {
+        console.log(`[WHEP] Attempt ${attempts} — connecting via proxy...`);
         const pc = await whepConnect(whepUrl, video, abortController.signal);
         whepPcRef.current = pc;
         setIsLoading(false);
         setRetryCount(0);
+        console.log("[WHEP] Connected successfully");
 
         pc.onconnectionstatechange = () => {
+          console.log("[WHEP] Connection state:", pc.connectionState);
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-            // Reconnect on failure
             pc.close();
             whepPcRef.current = null;
             if (!abortController.signal.aborted && attempts < maxAttempts) {
@@ -132,7 +137,8 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
             }
           }
         };
-      } catch {
+      } catch (err) {
+        console.warn("[WHEP] Connection failed:", err);
         if (!abortController.signal.aborted && attempts < maxAttempts) {
           retryTimer = setTimeout(tryConnect, 3000);
         } else if (attempts >= maxAttempts) {
@@ -141,7 +147,6 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
       }
     };
 
-    const whepUrl = src;
     tryConnect();
 
     return () => {

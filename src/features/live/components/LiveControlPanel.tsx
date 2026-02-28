@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MapPin, Eye, Link, Copy, Check, Calendar, Share2, X, ImagePlus } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { MapPin, Eye, Link, Copy, Check, Calendar, Share2, X, ImagePlus, Square } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/features/live/hooks/useLiveStream";
@@ -141,6 +141,24 @@ export default function LiveControlPanel() {
     }
   };
 
+  // Force stop live (works even after page refresh, when CameraBroadcastWhip lost its state)
+  const handleForceStop = useCallback(async () => {
+    setError("");
+    try {
+      const res = await fetch("/api/live/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop-live" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to stop");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
+  }, []);
+
   // Fetch co-host code on mount (available before live starts)
   useEffect(() => {
     fetch("/api/live/admin")
@@ -173,6 +191,22 @@ export default function LiveControlPanel() {
 
       {error && (
         <p className="text-xs text-red-400 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">{error}</p>
+      )}
+
+      {/* Bouton STOP toujours visible quand le live est actif */}
+      {streamStatus.isLive && (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+          <button
+            onClick={handleForceStop}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all",
+              "bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 active:scale-[0.98]"
+            )}
+          >
+            <Square className="h-4 w-4" />
+            {tLive("stopLive")}
+          </button>
+        </div>
       )}
 
       {/* Programmer le live — visible quand PAS en live */}

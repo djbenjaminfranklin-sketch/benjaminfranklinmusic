@@ -171,7 +171,7 @@ export function addLiveChatMessage(
   return msg;
 }
 
-export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: "hls" | "webrtc", location?: { lat: number; lng: number }, venue?: string) {
+export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: "hls" | "webrtc" | "whep", location?: { lat: number; lng: number }, venue?: string) {
   if (isLive) {
     liveStreamStatus = {
       isLive: true,

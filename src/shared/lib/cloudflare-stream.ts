@@ -51,10 +51,27 @@ export async function createLiveInput(): Promise<LiveInput> {
   const json = await res.json();
   const result = json.result;
 
+  console.log("[Cloudflare] Live Input created:", JSON.stringify({
+    uid: result.uid,
+    webRTC: result.webRTC,
+    webRTCPlayback: result.webRTCPlayback,
+    rtmps: result.rtmps ? "present" : "absent",
+  }));
+
+  const whipUrl = result.webRTC?.url;
+  const whepUrl = result.webRTCPlayback?.url;
+
+  if (!whipUrl) {
+    console.error("[Cloudflare] No WHIP URL returned! Full result keys:", Object.keys(result));
+  }
+  if (!whepUrl) {
+    console.error("[Cloudflare] No WHEP URL returned! Full result keys:", Object.keys(result));
+  }
+
   return {
     uid: result.uid,
-    whipUrl: result.webRTC?.url || `${CF_API}/accounts/${accountId}/stream/live_inputs/${result.uid}/webRTC`,
-    whepUrl: result.webRTCPlayback?.url || `https://${process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN || `customer-${accountId}`}.cloudflarestream.com/${result.uid}/webRTC/play`,
+    whipUrl: whipUrl || `${CF_API}/accounts/${accountId}/stream/live_inputs/${result.uid}/webRTC`,
+    whepUrl: whepUrl || `https://${process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN || `customer-${accountId}`}.cloudflarestream.com/${result.uid}/webRTC/play`,
   };
 }
 
