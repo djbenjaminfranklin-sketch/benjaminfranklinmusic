@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { relaySignal, setBroadcaster, setLiveStatus, getBroadcaster, getRandomViewer, sendInvite, sendInviteResponse, addCoHost, removeCoHost, getCoHosts, validateCoHostCode } from "@/shared/lib/sse-hub";
+import { relaySignal, setBroadcaster, setLiveStatus, getBroadcaster, getRandomViewer, sendInvite, sendInviteResponse, addCoHost, removeCoHost, getCoHosts, validateCoHostCode, getLiveState } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
 
@@ -71,16 +71,20 @@ export async function POST(request: NextRequest) {
       if (!isAdmin && !validateCoHostCode(coHostCode || "")) {
         return NextResponse.json({ error: "Invalid co-host code" }, { status: 403 });
       }
-      const broadcaster = getBroadcaster();
-      if (!broadcaster) {
+      const liveState = getLiveState();
+      if (!liveState.status.isLive) {
         return NextResponse.json({ error: "No active broadcast" }, { status: 404 });
       }
       const added = addCoHost(from);
       if (!added) {
         return NextResponse.json({ error: "Max co-hosts reached (3)" }, { status: 400 });
       }
-      // Notify the broadcaster that a co-host joined — broadcaster will initiate connection
-      relaySignal({ type: "co-host-join", from, to: broadcaster, data });
+      // In WebRTC P2P mode, notify the broadcaster so they create a P2P connection
+      const broadcaster = getBroadcaster();
+      if (broadcaster) {
+        relaySignal({ type: "co-host-join", from, to: broadcaster, data });
+      }
+      // In HLS/WHIP mode, co-host connects directly with viewers (no broadcaster relay needed)
       return NextResponse.json({ success: true, coHostIds: getCoHosts() });
     }
 
@@ -105,15 +109,20 @@ export async function POST(request: NextRequest) {
     // Pour les signaux WebRTC (offer, answer, ice-candidate, viewer-join)
     if (type === "viewer-join") {
       const broadcaster = getBroadcaster();
-      if (!broadcaster) {
-        return NextResponse.json({ error: "No active broadcast" }, { status: 404 });
-      }
-      // Also relay to co-hosts so they can send their streams
       const coHosts = getCoHosts();
-      relaySignal({ type: "viewer-join", from, to: broadcaster, data });
+      // In WebRTC P2P mode, relay to broadcaster
+      if (broadcaster) {
+        relaySignal({ type: "viewer-join", from, to: broadcaster, data });
+      }
+      // Always relay to co-hosts so they can send their streams directly to viewers
       coHosts.forEach((coHostId) => {
         relaySignal({ type: "viewer-join", from, to: coHostId, data });
       });
+      // Allow if there's a broadcaster OR co-hosts OR the stream is live (HLS mode)
+      const liveState = getLiveState();
+      if (!broadcaster && coHosts.length === 0 && !liveState.status.isLive) {
+        return NextResponse.json({ error: "No active broadcast" }, { status: 404 });
+      }
       return NextResponse.json({ success: true });
     }
 
