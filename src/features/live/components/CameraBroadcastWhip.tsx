@@ -101,6 +101,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     stopBroadcast,
     switchCamera,
     toggleMute,
+    replaceAudioSource,
   } = useWhipBroadcast();
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -122,6 +123,16 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   const { audioSource, audioSourceName, externalDeviceId, internalDeviceId, setAudioSource } = useAudioDevices();
   const hasExternalDevice = !!externalDeviceId;
   const spynDeviceId = audioSource === "external" || audioSource === "both" ? externalDeviceId : internalDeviceId;
+
+  // Auto-switch broadcast audio when user changes source
+  const prevAudioSourceRef = useRef(audioSource);
+  useEffect(() => {
+    const prev = prevAudioSourceRef.current;
+    prevAudioSourceRef.current = audioSource;
+    if (prev !== audioSource && isBroadcasting) {
+      replaceAudioSource(audioSource, externalDeviceId, internalDeviceId);
+    }
+  }, [audioSource, externalDeviceId, internalDeviceId, isBroadcasting, replaceAudioSource]);
 
   // --- Fullscreen mode ---
   const [isFullscreen, setIsFullscreen] = useState(false);

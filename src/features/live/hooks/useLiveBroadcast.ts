@@ -717,8 +717,15 @@ export function useLiveBroadcast() {
         videoTrack.contentHint = "motion";
       }
 
+      // Mute audio by default for co-hosts
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = false;
+      }
+
       streamRef.current = stream;
       setLocalStream(stream);
+      setIsMuted(true);
 
       setupSSE((clientId) => {
         fetch("/api/live/signal", {

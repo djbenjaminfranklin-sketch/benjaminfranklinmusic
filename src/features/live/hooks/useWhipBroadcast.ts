@@ -15,6 +15,9 @@ export function useWhipBroadcast() {
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mixedAudioCtxRef = useRef<AudioContext | null>(null);
+  const externalStreamRef = useRef<MediaStream | null>(null);
+  const originalMicTrackRef = useRef<MediaStreamTrack | null>(null);
 
   /**
    * Start broadcasting to a WHIP endpoint.
@@ -31,6 +34,9 @@ export function useWhipBroadcast() {
 
       streamRef.current = stream;
       setLocalStream(stream);
+
+      // Save original mic track for restoring when switching back to "internal"
+      originalMicTrackRef.current = stream.getAudioTracks()[0] || null;
 
       // Hint video track for motion content
       const videoTrack = stream.getVideoTracks()[0];
@@ -119,6 +125,14 @@ export function useWhipBroadcast() {
     streamRef.current = null;
     setLocalStream(null);
 
+    // Cleanup mixed audio context
+    if (mixedAudioCtxRef.current) {
+      mixedAudioCtxRef.current.close().catch(() => {});
+      mixedAudioCtxRef.current = null;
+    }
+    externalStreamRef.current?.getTracks().forEach((t) => t.stop());
+    externalStreamRef.current = null;
+
     setIsBroadcasting(false);
     setIsMuted(false);
   }, []);
@@ -187,6 +201,111 @@ export function useWhipBroadcast() {
     }
   }, []);
 
+  /**
+   * Replace the audio source on the WHIP peer connection.
+   * Same logic as useLiveBroadcast but targets the single pcRef.
+   */
+  const replaceAudioSource = useCallback(async (mode: "internal" | "external" | "both", extDevId?: string | null, intDevId?: string | null) => {
+    if (!streamRef.current) return;
+
+    try {
+      // Cleanup previous mixed context
+      if (mixedAudioCtxRef.current) {
+        mixedAudioCtxRef.current.close().catch(() => {});
+        mixedAudioCtxRef.current = null;
+      }
+      externalStreamRef.current?.getTracks().forEach((t) => t.stop());
+      externalStreamRef.current = null;
+
+      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
+      const wasMuted = oldAudioTrack ? !oldAudioTrack.enabled : false;
+
+      if (mode === "internal") {
+        // Restore the original mic track on the WHIP connection
+        const micTrack = originalMicTrackRef.current;
+        if (micTrack && oldAudioTrack !== micTrack) {
+          if (wasMuted) micTrack.enabled = false;
+          else micTrack.enabled = true;
+
+          if (pcRef.current && pcRef.current.connectionState !== "closed") {
+            for (const sender of pcRef.current.getSenders()) {
+              if (sender.track?.kind === "audio") {
+                await sender.replaceTrack(micTrack);
+              }
+            }
+          }
+          if (oldAudioTrack) streamRef.current.removeTrack(oldAudioTrack);
+          if (!streamRef.current.getAudioTracks().includes(micTrack)) {
+            streamRef.current.addTrack(micTrack);
+          }
+        }
+        return;
+      }
+
+      let newAudioTrack: MediaStreamTrack;
+
+      if (mode === "external" && extDevId) {
+        const mixerStream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: extDevId } },
+        });
+        externalStreamRef.current = mixerStream;
+        newAudioTrack = mixerStream.getAudioTracks()[0];
+
+      } else if (mode === "both" && extDevId) {
+        const mixerStream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: extDevId } },
+        });
+        externalStreamRef.current = mixerStream;
+
+        const existingMicTrack = streamRef.current.getAudioTracks()[0];
+
+        const audioCtx = new AudioContext();
+        mixedAudioCtxRef.current = audioCtx;
+        const dest = audioCtx.createMediaStreamDestination();
+
+        // Mixer (music) — full volume
+        const mixerSource = audioCtx.createMediaStreamSource(mixerStream);
+        const mixerGain = audioCtx.createGain();
+        mixerGain.gain.value = 1.0;
+        mixerSource.connect(mixerGain).connect(dest);
+
+        // Mic (voice) — reuse existing track
+        if (existingMicTrack) {
+          const micSource = audioCtx.createMediaStreamSource(new MediaStream([existingMicTrack]));
+          const micGain = audioCtx.createGain();
+          micGain.gain.value = 0.8;
+          micSource.connect(micGain).connect(dest);
+        }
+
+        newAudioTrack = dest.stream.getAudioTracks()[0];
+      } else {
+        return;
+      }
+
+      // Keep mute state
+      if (wasMuted) newAudioTrack.enabled = false;
+
+      // Replace audio track on the WHIP peer connection
+      if (pcRef.current && pcRef.current.connectionState !== "closed") {
+        for (const sender of pcRef.current.getSenders()) {
+          if (sender.track?.kind === "audio") {
+            await sender.replaceTrack(newAudioTrack);
+          }
+        }
+      }
+
+      // Update the audio track in streamRef without creating a new MediaStream
+      if (oldAudioTrack && oldAudioTrack !== newAudioTrack) {
+        streamRef.current.removeTrack(oldAudioTrack);
+      }
+      if (!streamRef.current.getAudioTracks().includes(newAudioTrack)) {
+        streamRef.current.addTrack(newAudioTrack);
+      }
+    } catch (err) {
+      console.error("[WHIP Audio] Failed to switch audio source:", err);
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -216,5 +335,6 @@ export function useWhipBroadcast() {
     stopBroadcast,
     switchCamera,
     toggleMute,
+    replaceAudioSource,
   };
 }
