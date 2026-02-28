@@ -42,6 +42,7 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
 
     setIsLoading(true);
     setRetryCount(0);
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -49,6 +50,8 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
         liveSyncDurationCount: 3,
         liveMaxLatencyDurationCount: 6,
         enableWorker: true,
+        manifestLoadingMaxRetry: 30,
+        manifestLoadingRetryDelay: 2000,
       });
       hlsRef.current = hls;
       hls.loadSource(src);
@@ -65,7 +68,8 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               setRetryCount((c) => c + 1);
-              hls.startLoad();
+              // Cloudflare manifest may not be ready yet — wait 3s before retrying
+              retryTimer = setTimeout(() => hls.startLoad(), 3000);
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               hls.recoverMediaError();
@@ -79,6 +83,7 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
       });
 
       return () => {
+        if (retryTimer) clearTimeout(retryTimer);
         hls.destroy();
         hlsRef.current = null;
         setIsLoading(false);
