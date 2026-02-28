@@ -726,6 +726,7 @@ export function useLiveBroadcast() {
       streamRef.current = stream;
       setLocalStream(stream);
       setIsMuted(true);
+      setFacingMode("environment");
 
       setupSSE((clientId) => {
         fetch("/api/live/signal", {
