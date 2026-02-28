@@ -407,7 +407,8 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
 
       const { whipUrl, hlsUrl } = await createRes.json();
 
-      await startBroadcast(whipUrl);
+      const success = await startBroadcast(whipUrl);
+      if (!success) return;
 
       const geoResult = await detectVenue();
       const goLiveRes = await fetch("/api/live/admin", {

@@ -550,7 +550,7 @@ export function useLiveBroadcast() {
       processingSignals = true;
       while (signalQueue.length > 0) {
         const sig = signalQueue.shift();
-        try { await handleSignalRef.current?.(sig as { type: string; from: string; to?: string; data: unknown }); } catch {}
+        try { await handleSignalRef.current?.(sig as { type: string; from: string; to?: string; data: unknown }); } catch (err) { console.warn("[Signal]", err); }
       }
       processingSignals = false;
     };

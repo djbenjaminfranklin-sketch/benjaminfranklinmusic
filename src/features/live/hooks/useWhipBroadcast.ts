@@ -103,6 +103,7 @@ export function useWhipBroadcast() {
       );
 
       setIsBroadcasting(true);
+      return true;
     } catch (err) {
       // Cleanup on failure
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -111,6 +112,7 @@ export function useWhipBroadcast() {
       pcRef.current?.close();
       pcRef.current = null;
       setError(err instanceof Error ? err.message : "Unable to start broadcast");
+      return false;
     }
   }, []);
 

@@ -521,6 +521,18 @@ export function useLiveStream() {
         } else if (data.status.isLive && data.status.streamType !== "webrtc") {
           // HLS/WHIP mode — mark so co-host P2P offers are treated correctly
           mainBroadcasterRef.current = "__hls__";
+          // If co-hosts are already connected, send viewer-join so they
+          // create P2P connections with us (same as the "co-hosts" SSE handler)
+          const initCoHosts = (data as { coHostIds?: string[] }).coHostIds;
+          if (initCoHosts && initCoHosts.length > 0 && data.clientId) {
+            setTimeout(() => {
+              fetch("/api/live/signal", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type: "viewer-join", from: data.clientId }),
+              });
+            }, 500);
+          }
         }
       });
 
@@ -575,7 +587,7 @@ export function useLiveStream() {
         processingSignals = true;
         while (signalQueue.length > 0) {
           const sig = signalQueue.shift();
-          try { await handleSignalRef.current?.(sig as { type: string; from: string; data: unknown }); } catch {}
+          try { await handleSignalRef.current?.(sig as { type: string; from: string; data: unknown }); } catch (err) { console.warn("[Signal]", err); }
         }
         processingSignals = false;
       };
