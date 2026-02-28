@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Radio, Eye, Wifi, WifiOff, Maximize, Minimize, Camera, Shuffle, MapPin, Calendar } from "lucide-react";
+import { Radio, Eye, Wifi, WifiOff, Maximize, Minimize, MapPin, Calendar } from "lucide-react";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import siteConfig from "../../../../site.config";
@@ -407,21 +407,6 @@ export default function LiveContainer() {
                         {viewerCount}
                       </span>
                     </div>
-                    {/* Auto-switch button */}
-                    {showVideo && hasMultipleAngles && (
-                      <button
-                        onClick={() => setAutoSwitchEnabled((v) => !v)}
-                        className={`flex items-center justify-center gap-1 h-8 rounded-full backdrop-blur-sm border px-2.5 transition-colors ${
-                          autoSwitchEnabled
-                            ? "bg-accent/80 border-accent/50 text-background"
-                            : "bg-black/60 border-white/10 text-white/80 hover:bg-black/80"
-                        }`}
-                        title={autoSwitchEnabled ? t("autoSwitchOn") : t("autoSwitch")}
-                      >
-                        <Shuffle className="h-3 w-3" />
-                        <span className="text-[10px] font-bold">{autoSwitchEnabled ? "ON" : "AUTO"}</span>
-                      </button>
-                    )}
                     {showVideo && (
                       <button
                         onClick={toggleFullscreen}
@@ -449,89 +434,6 @@ export default function LiveContainer() {
                 </div>
               )}
 
-              {/* Multi-angle switcher + layout buttons */}
-              {showVideo && hasMultipleAngles && (
-                <>
-                  {/* Angle selector (bottom-left) */}
-                  <div className="absolute bottom-14 left-4 z-30 flex items-center gap-1.5">
-                    <button
-                      onClick={() => { setAutoSwitchEnabled(false); setViewLayout("single"); setActiveAngle("main"); }}
-                      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
-                        effectiveLayout === "single" && activeAngle === "main"
-                          ? "bg-accent text-background border-accent"
-                          : "bg-black/60 text-white/80 border-white/10 hover:bg-black/80"
-                      }`}
-                    >
-                      <Camera className="h-3 w-3" />
-                      {t("angleMain")}
-                    </button>
-                    {coHostEntries.map(([id], i) => (
-                      <button
-                        key={id}
-                        onClick={() => { setAutoSwitchEnabled(false); setViewLayout("single"); setActiveAngle(id); }}
-                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
-                          effectiveLayout === "single" && activeAngle === id
-                            ? "bg-accent text-background border-accent"
-                            : "bg-black/60 text-white/80 border-white/10 hover:bg-black/80"
-                        }`}
-                      >
-                        <Camera className="h-3 w-3" />
-                        {t("angleNumber", { n: i + 2 })}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Layout mode buttons (bottom-right) */}
-                  <div className="absolute bottom-14 right-4 z-30 flex items-center gap-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 p-1">
-                    {/* Single */}
-                    <button
-                      onClick={() => { setAutoSwitchEnabled(false); setViewLayout("single"); }}
-                      className={`flex items-center justify-center w-7 h-6 rounded-full transition-colors ${
-                        effectiveLayout === "single" ? "bg-white/20 text-white" : "text-white/40 hover:text-white/70"
-                      }`}
-                      title={t("layoutSingle")}
-                    >
-                      <div className="w-3.5 h-2.5 rounded-[2px] border border-current" />
-                    </button>
-                    {/* Dual — 2 bandes */}
-                    {totalCameras >= 2 && (
-                      <button
-                        onClick={() => {
-                          setAutoSwitchEnabled(false);
-                          setViewLayout("dual");
-                          const ids = allStreamEntries.map(e => e.id);
-                          const other = ids.find(id => id !== activeAngle) || ids[0];
-                          setDualPair([activeAngle, other]);
-                        }}
-                        className={`flex items-center justify-center w-7 h-6 rounded-full transition-colors ${
-                          effectiveLayout === "dual" ? "bg-white/20 text-white" : "text-white/40 hover:text-white/70"
-                        }`}
-                        title={t("layoutDual")}
-                      >
-                        <div className="flex flex-col gap-px">
-                          <div className="w-3 h-1 rounded-[1px] border border-current" />
-                          <div className="w-3 h-1 rounded-[1px] border border-current" />
-                        </div>
-                      </button>
-                    )}
-                    {/* Multi — 3-4 bandes */}
-                    {totalCameras >= 3 && (
-                      <button
-                        onClick={() => { setAutoSwitchEnabled(false); setViewLayout("quad"); }}
-                        className={`flex items-center justify-center w-7 h-6 rounded-full transition-colors ${
-                          effectiveLayout === "quad" ? "bg-white/20 text-white" : "text-white/40 hover:text-white/70"
-                        }`}
-                        title={t("layoutQuad")}
-                      >
-                        <div className="flex flex-col gap-px">
-                          <div className="w-3 h-[3px] rounded-[1px] border border-current" />
-                          <div className="w-3 h-[3px] rounded-[1px] border border-current" />
-                          <div className="w-3 h-[3px] rounded-[1px] border border-current" />
-                        </div>
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
 
             {/* Map when DJ location is available */}
