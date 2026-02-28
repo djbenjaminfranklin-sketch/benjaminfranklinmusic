@@ -99,6 +99,10 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
       <video
         ref={videoRef}
         className="w-full h-full object-cover"
+        controls
+        controlsList="nodownload noplaybackrate"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
         playsInline
         autoPlay
         muted={!stream}
