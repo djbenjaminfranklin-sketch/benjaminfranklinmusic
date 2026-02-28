@@ -99,7 +99,7 @@ export default function LiveContainer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalCameras, hasMultipleAngles, autoSwitchEnabled]);
 
-  const isLiveHLS = streamStatus.isLive && streamStatus.streamType === "hls" && streamStatus.streamUrl;
+  const isLiveHLS = streamStatus.isLive && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep") && streamStatus.streamUrl;
   const isLiveWebRTC = streamStatus.isLive && streamStatus.streamType === "webrtc";
   const showVideo = isLiveHLS || (isLiveWebRTC && remoteStream);
 
@@ -240,9 +240,9 @@ export default function LiveContainer() {
             >
               {showVideo ? (
                 <>
-                  {/* HLS: always single view */}
+                  {/* HLS/WHEP: always single view */}
                   {isLiveHLS && (
-                    <VideoPlayer src={streamStatus.streamUrl!} />
+                    <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
                   )}
                   {/* WebRTC: single angle */}
                   {isLiveWebRTC && effectiveLayout === "single" && currentStream && (

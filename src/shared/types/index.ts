@@ -27,7 +27,7 @@ export interface LiveChatMessage {
 export interface LiveStreamStatus {
   isLive: boolean;
   streamUrl: string | null;
-  streamType: "hls" | "webrtc" | null;
+  streamType: "hls" | "webrtc" | "whep" | null;
   currentTrack: { artist: string; title: string } | null;
   startedAt: string | null;
   location?: { lat: number; lng: number };

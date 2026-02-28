@@ -1,6 +1,7 @@
 /**
  * Cloudflare Stream API utilities.
- * Uses WHIP for ingest and HLS for delivery.
+ * Uses WHIP for ingest and WHEP for delivery (WebRTC both ways).
+ * Note: Cloudflare WHIP does NOT support HLS playback — WHEP is required.
  */
 
 const CF_API = "https://api.cloudflare.com/client/v4";
@@ -15,12 +16,12 @@ export function isCloudflareConfigured(): boolean {
 interface LiveInput {
   uid: string;
   whipUrl: string;
-  hlsUrl: string;
+  whepUrl: string;
 }
 
 /**
  * Create a Cloudflare Stream Live Input.
- * Returns the uid, WHIP ingest URL, and HLS playback URL.
+ * Returns the uid, WHIP ingest URL, and WHEP playback URL.
  */
 export async function createLiveInput(): Promise<LiveInput> {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -53,9 +54,7 @@ export async function createLiveInput(): Promise<LiveInput> {
   return {
     uid: result.uid,
     whipUrl: result.webRTC?.url || `${CF_API}/accounts/${accountId}/stream/live_inputs/${result.uid}/webRTC`,
-    hlsUrl: result.webRTCPlayback?.url
-      ? result.webRTCPlayback.url.replace("/webRTC/play", "/manifest/video.m3u8")
-      : `https://${process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN || `customer-${accountId}`}.cloudflarestream.com/${result.uid}/manifest/video.m3u8`,
+    whepUrl: result.webRTCPlayback?.url || `https://${process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN || `customer-${accountId}`}.cloudflarestream.com/${result.uid}/webRTC/play`,
   };
 }
 

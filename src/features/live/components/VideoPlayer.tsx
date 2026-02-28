@@ -6,24 +6,88 @@ import Hls from "hls.js";
 interface VideoPlayerProps {
   src?: string;
   stream?: MediaStream | null;
+  streamType?: "hls" | "whep";
 }
 
-export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
+/**
+ * Perform a WHEP handshake to receive a Cloudflare Stream via WebRTC.
+ */
+async function whepConnect(
+  whepUrl: string,
+  video: HTMLVideoElement,
+  signal: AbortSignal,
+): Promise<RTCPeerConnection> {
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
+    bundlePolicy: "max-bundle",
+  });
+
+  // Receive-only transceivers
+  pc.addTransceiver("video", { direction: "recvonly" });
+  pc.addTransceiver("audio", { direction: "recvonly" });
+
+  pc.ontrack = (event) => {
+    if (video.srcObject !== event.streams[0]) {
+      video.srcObject = event.streams[0];
+      video.play().catch(() => {});
+    }
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  // Wait for ICE gathering (or timeout)
+  await new Promise<void>((resolve) => {
+    if (pc.iceGatheringState === "complete") return resolve();
+    const timeout = setTimeout(resolve, 3000);
+    pc.addEventListener("icegatheringstatechange", () => {
+      if (pc.iceGatheringState === "complete") {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+  });
+
+  if (signal.aborted) {
+    pc.close();
+    throw new DOMException("Aborted", "AbortError");
+  }
+
+  const res = await fetch(whepUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/sdp" },
+    body: pc.localDescription!.sdp,
+    signal,
+  });
+
+  if (!res.ok) {
+    pc.close();
+    throw new Error(`WHEP handshake failed (${res.status})`);
+  }
+
+  const answerSdp = await res.text();
+  await pc.setRemoteDescription(
+    new RTCSessionDescription({ type: "answer", sdp: answerSdp }),
+  );
+
+  return pc;
+}
+
+export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const whepPcRef = useRef<RTCPeerConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Mode WebRTC : stream MediaStream directement
+  // Mode WebRTC direct : stream MediaStream directement
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !stream) return;
 
-    // Cleanup HLS si actif
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
+    // Cleanup HLS/WHEP si actif
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    if (whepPcRef.current) { whepPcRef.current.close(); whepPcRef.current = null; }
 
     setIsLoading(false);
     setRetryCount(0);
@@ -35,10 +99,68 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
     };
   }, [stream]);
 
-  // Mode HLS
+  // Mode WHEP : WebRTC playback via Cloudflare
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !src || stream) return;
+    if (!video || !src || stream || streamType !== "whep") return;
+
+    setIsLoading(true);
+    setRetryCount(0);
+    const abortController = new AbortController();
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    const tryConnect = async () => {
+      if (abortController.signal.aborted) return;
+      attempts++;
+      setRetryCount(attempts);
+      try {
+        const pc = await whepConnect(whepUrl, video, abortController.signal);
+        whepPcRef.current = pc;
+        setIsLoading(false);
+        setRetryCount(0);
+
+        pc.onconnectionstatechange = () => {
+          if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            // Reconnect on failure
+            pc.close();
+            whepPcRef.current = null;
+            if (!abortController.signal.aborted && attempts < maxAttempts) {
+              setIsLoading(true);
+              retryTimer = setTimeout(tryConnect, 3000);
+            }
+          }
+        };
+      } catch {
+        if (!abortController.signal.aborted && attempts < maxAttempts) {
+          retryTimer = setTimeout(tryConnect, 3000);
+        } else if (attempts >= maxAttempts) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    const whepUrl = src;
+    tryConnect();
+
+    return () => {
+      abortController.abort();
+      if (retryTimer) clearTimeout(retryTimer);
+      if (whepPcRef.current) {
+        whepPcRef.current.close();
+        whepPcRef.current = null;
+      }
+      video.srcObject = null;
+      setIsLoading(false);
+      setRetryCount(0);
+    };
+  }, [src, stream, streamType]);
+
+  // Mode HLS (fallback pour les streams non-WHEP)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !src || stream || streamType === "whep") return;
 
     setIsLoading(true);
     setRetryCount(0);
@@ -68,7 +190,6 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               setRetryCount((c) => c + 1);
-              // Cloudflare manifest may not be ready yet — wait 3s before retrying
               retryTimer = setTimeout(() => hls.startLoad(), 3000);
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -90,7 +211,7 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
         setRetryCount(0);
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari HLS natif — retry si le manifest n'est pas encore prêt
+      // Safari HLS natif
       let safariRetries = 0;
       const maxSafariRetries = 30;
 
@@ -127,7 +248,7 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
         setRetryCount(0);
       };
     }
-  }, [src, stream]);
+  }, [src, stream, streamType]);
 
   return (
     <div className="relative w-full h-full">
@@ -140,7 +261,7 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
         onContextMenu={(e) => e.preventDefault()}
         playsInline
         autoPlay
-        muted={!stream}
+        muted={!stream && streamType !== "whep"}
       />
       {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         setCloudflareStreamUid(input.uid);
         return NextResponse.json({
           whipUrl: input.whipUrl,
-          hlsUrl: input.hlsUrl,
+          whepUrl: input.whepUrl,
         });
       }
 
