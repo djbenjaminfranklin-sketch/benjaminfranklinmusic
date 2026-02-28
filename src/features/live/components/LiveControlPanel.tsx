@@ -363,7 +363,7 @@ export default function LiveControlPanel() {
       )}
 
       {/* Caméra — Cloudflare WHIP ou WebRTC P2P selon la config */}
-      {!streamStatus.isLive || streamStatus.streamType === "webrtc" || (useCloudflareStream && streamStatus.streamType === "hls") ? (
+      {!streamStatus.isLive || streamStatus.streamType === "webrtc" || (useCloudflareStream && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep")) ? (
         <div className="rounded-2xl border border-border bg-card p-5">
           {useCloudflareStream ? (
             <CameraBroadcastWhip venue={streamStatus.venue} viewerCount={viewerCount} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} onInviteViewer={inviteRandomViewer} inviting={inviting} onDisconnectGuest={disconnectInvitedGuest} />
