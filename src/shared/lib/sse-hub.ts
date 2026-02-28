@@ -291,8 +291,8 @@ export function getRandomViewer(excludeId?: string): string | null {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-export function sendInvite(viewerId: string, inviteId: string) {
-  emitter.emit("live:invite", { inviteId, viewerId });
+export function sendInvite(viewerId: string, inviteId: string, broadcasterId?: string) {
+  emitter.emit("live:invite", { inviteId, viewerId, broadcasterId });
 }
 
 export function sendInviteResponse(inviteId: string, viewerId: string, accepted: boolean) {

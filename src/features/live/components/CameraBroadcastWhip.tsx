@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Video, VideoOff, Eye, Mic, MicOff, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb } from "lucide-react";
+import { Video, VideoOff, Eye, Mic, MicOff, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { useWhipBroadcast } from "@/features/live/hooks/useWhipBroadcast";
@@ -18,6 +18,9 @@ interface CameraBroadcastWhipProps {
   chatMessages?: LiveChatMessage[];
   onSendChat?: (author: string, content: string, djPassword?: string) => Promise<void>;
   currentTrack?: { artist: string; title: string } | null;
+  onInviteViewer?: () => Promise<void>;
+  inviting?: boolean;
+  onDisconnectGuest?: (guestId: string) => void;
 }
 
 function StreamBand({ stream, label, mirror }: { stream: MediaStream; label: string; mirror?: boolean }) {
@@ -90,7 +93,7 @@ function formatTime(seconds: number) {
  * Same UI as CameraBroadcast (fullscreen, recording, chat, audio, SPYN)
  * but streams via WHIP to Cloudflare CDN instead of WebRTC P2P.
  */
-export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack }: CameraBroadcastWhipProps) {
+export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest }: CameraBroadcastWhipProps) {
   const {
     isBroadcasting,
     localStream,
@@ -632,6 +635,17 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           >
             <SwitchCamera className="h-6 w-6 text-white" />
           </button>
+
+          {/* Invite viewer */}
+          {onInviteViewer && (
+            <button
+              onClick={onInviteViewer}
+              disabled={inviting}
+              className="w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 touch-manipulation"
+            >
+              <UserPlus className="h-6 w-6 text-accent" />
+            </button>
+          )}
 
           {/* Audio source toggle */}
           {hasExternalDevice && (

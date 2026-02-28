@@ -80,6 +80,7 @@ interface LiveState {
 
 export interface PendingInvite {
   inviteId: string;
+  broadcasterId?: string;
 }
 
 export function useLiveStream() {
@@ -108,6 +109,7 @@ export function useLiveStream() {
   const guestPcRef = useRef<RTCPeerConnection | null>(null);
   const guestStreamRef = useRef<MediaStream | null>(null);
   const mainBroadcasterRef = useRef<string | null>(null);
+  const inviteBroadcasterRef = useRef<string | null>(null);
   // Ref to always dispatch to the latest handleSignal from the SSE listener
   const handleSignalRef = useRef<((signal: { type: string; from: string; data: unknown }) => Promise<void>) | undefined>(undefined);
   // Buffer ICE candidates that arrive before setRemoteDescription
@@ -299,6 +301,13 @@ export function useLiveStream() {
           body: JSON.stringify({ type: "answer", from: clientIdRef.current, to: from, data: answer }),
         });
       }
+    } else if (type === "answer") {
+      // Answer for our outgoing guest peer (HLS invite mode — viewer sent offer to admin)
+      if (guestPcRef.current && guestPcRef.current.signalingState === "have-local-offer") {
+        await guestPcRef.current.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
+        const pendingGuest = pendingCandidatesRef.current.get("guest:" + from);
+        if (pendingGuest) { for (const c of pendingGuest) { try { await guestPcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch {} } pendingCandidatesRef.current.delete("guest:" + from); }
+      }
     } else if (type === "guest-disconnect") {
       // Broadcaster disconnected us as a guest — stop sharing camera
       guestStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -320,8 +329,8 @@ export function useLiveStream() {
           pendingCandidatesRef.current.set("main:" + from, pending);
         }
       }
-      // Check guest peer (also from broadcaster)
-      if (guestPcRef.current && from === mainBroadcasterRef.current) {
+      // Check guest peer (from broadcaster in P2P mode, or from admin in HLS invite mode)
+      if (guestPcRef.current && (from === mainBroadcasterRef.current || from === inviteBroadcasterRef.current)) {
         if (guestPcRef.current.remoteDescription) {
           try { await guestPcRef.current.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit)); } catch {}
         } else {
@@ -367,18 +376,54 @@ export function useLiveStream() {
       setGuestStream(stream);
       guestStreamRef.current = stream;
 
-      if (streamStatus.streamType !== "webrtc") return;
+      if (streamStatus.streamType === "webrtc") {
+        // P2P mode: signal the broadcaster, they'll create a peer for us
+        await fetch("/api/live/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "guest-ready", from: clientIdRef.current, data: { inviteId, name } }),
+        });
+      } else if (inviteBroadcasterRef.current) {
+        // HLS/WHIP mode: we create the P2P connection and send offer to admin
+        const adminId = inviteBroadcasterRef.current;
 
-      // Signal the broadcaster that we're ready with our stream
-      // The broadcaster will create a new peer connection for this guest
-      await fetch("/api/live/signal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "guest-ready", from: clientIdRef.current, data: { inviteId, name } }),
-      });
+        if (guestPcRef.current) guestPcRef.current.close();
 
-      // We'll receive an offer from the broadcaster for the guest connection
-      // This is handled in handleSignal
+        const pc = new RTCPeerConnection(await getIceServers());
+        guestPcRef.current = pc;
+
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && clientIdRef.current) {
+            fetch("/api/live/signal", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "ice-candidate", from: clientIdRef.current, to: adminId, data: event.candidate }),
+            });
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+            guestPcRef.current = null;
+            guestStreamRef.current?.getTracks().forEach((t) => t.stop());
+            setGuestStream(null);
+            guestStreamRef.current = null;
+          }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await fetch("/api/live/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "offer", from: clientIdRef.current, to: adminId, data: offer }),
+        });
+      }
     } catch {
       setGuestStream(null);
       guestStreamRef.current = null;
@@ -403,6 +448,51 @@ export function useLiveStream() {
     if (guestPcRef.current) {
       guestPcRef.current.close();
       guestPcRef.current = null;
+    }
+  }, []);
+
+  // Invite a random viewer (admin only — uses this client's SSE clientId)
+  const [inviting, setInviting] = useState(false);
+
+  const inviteRandomViewer = useCallback(async () => {
+    if (!clientIdRef.current) return;
+    setInviting(true);
+    try {
+      const res = await fetch("/api/live/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "invite-viewer", from: clientIdRef.current }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("[Invite]", data.error || "No viewer available");
+      }
+    } catch {
+      console.error("[Invite] Failed to invite viewer");
+    } finally {
+      setInviting(false);
+    }
+  }, []);
+
+  // Disconnect an invited guest (close their co-host P2P connection)
+  const disconnectInvitedGuest = useCallback((guestId: string) => {
+    const pc = coHostPcsRef.current.get(guestId);
+    if (pc) {
+      pc.close();
+      coHostPcsRef.current.delete(guestId);
+    }
+    setCoHostStreams((prev) => {
+      const next = new Map(prev);
+      next.delete(guestId);
+      return next;
+    });
+    // Signal the guest to stop sharing camera
+    if (clientIdRef.current) {
+      fetch("/api/live/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "guest-disconnect", from: clientIdRef.current, to: guestId }),
+      });
     }
   }, []);
 
@@ -511,8 +601,9 @@ export function useLiveStream() {
       });
 
       es.addEventListener("invite", (e) => {
-        const data = JSON.parse(e.data) as { inviteId: string; viewerId: string };
-        setPendingInvite({ inviteId: data.inviteId });
+        const data = JSON.parse(e.data) as { inviteId: string; viewerId: string; broadcasterId?: string };
+        inviteBroadcasterRef.current = data.broadcasterId || null;
+        setPendingInvite({ inviteId: data.inviteId, broadcasterId: data.broadcasterId });
       });
 
       es.onerror = () => {
@@ -577,5 +668,6 @@ export function useLiveStream() {
     scheduledLive,
     pendingInvite, guestStream, acceptInvite, declineInvite, stopGuest,
     coHostStreams, activeAngle, setActiveAngle,
+    inviteRandomViewer, inviting, disconnectInvitedGuest,
   };
 }

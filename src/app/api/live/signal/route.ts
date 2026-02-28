@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "No viewers available" }, { status: 404 });
       }
       const inviteId = crypto.randomUUID();
-      sendInvite(viewerId, inviteId);
+      sendInvite(viewerId, inviteId, from);
       return NextResponse.json({ success: true, inviteId, viewerId });
     }
 
