@@ -79,6 +79,7 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
   const whepPcRef = useRef<RTCPeerConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [whepError, setWhepError] = useState<string | null>(null);
 
   // Mode WebRTC direct : stream MediaStream directement
   useEffect(() => {
@@ -109,10 +110,11 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
 
     setIsLoading(true);
     setRetryCount(0);
+    setWhepError(null);
     const abortController = new AbortController();
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 60;
 
     const tryConnect = async () => {
       if (abortController.signal.aborted) return;
@@ -124,6 +126,7 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         whepPcRef.current = pc;
         setIsLoading(false);
         setRetryCount(0);
+        setWhepError(null);
         console.log("[WHEP] Connected successfully");
 
         pc.onconnectionstatechange = () => {
@@ -133,14 +136,27 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
             whepPcRef.current = null;
             if (!abortController.signal.aborted && attempts < maxAttempts) {
               setIsLoading(true);
-              retryTimer = setTimeout(tryConnect, 3000);
+              retryTimer = setTimeout(tryConnect, 5000);
             }
           }
         };
       } catch (err) {
-        console.warn("[WHEP] Connection failed:", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.warn("[WHEP] Connection failed:", errMsg);
+
+        // 409 = no publisher connected yet, 404 = stream not found
+        if (errMsg.includes("409")) {
+          setWhepError("waiting");
+        } else if (errMsg.includes("404")) {
+          setWhepError("not-found");
+        } else {
+          setWhepError(errMsg);
+        }
+
         if (!abortController.signal.aborted && attempts < maxAttempts) {
-          retryTimer = setTimeout(tryConnect, 3000);
+          // Wait longer for 409 (publisher not ready) — 5s instead of 3s
+          const delay = errMsg.includes("409") ? 5000 : 3000;
+          retryTimer = setTimeout(tryConnect, delay);
         } else if (attempts >= maxAttempts) {
           setIsLoading(false);
         }
@@ -271,9 +287,19 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
       {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
           <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-sm text-white/80">Chargement du stream...</p>
+          <p className="text-sm text-white/80">
+            {whepError === "waiting"
+              ? "En attente du DJ..."
+              : whepError === "not-found"
+                ? "Stream non disponible"
+                : "Chargement du stream..."}
+          </p>
           {retryCount > 0 && (
-            <p className="text-xs text-white/50 mt-1">Tentative {retryCount}...</p>
+            <p className="text-xs text-white/50 mt-1">
+              {whepError === "waiting"
+                ? `Connexion en cours... (${retryCount})`
+                : `Tentative ${retryCount}...`}
+            </p>
           )}
         </div>
       )}
