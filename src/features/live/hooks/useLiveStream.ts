@@ -428,6 +428,9 @@ export function useLiveStream() {
         // Si un live WebRTC est en cours, rejoindre
         if (data.status.isLive && data.status.streamType === "webrtc") {
           setTimeout(() => joinWebRTC(), 500);
+        } else if (data.status.isLive && data.status.streamType !== "webrtc") {
+          // HLS/WHIP mode — mark so co-host P2P offers are treated correctly
+          mainBroadcasterRef.current = "__hls__";
         }
       });
 
@@ -456,6 +459,10 @@ export function useLiveStream() {
           if (status.streamType === "webrtc") {
             // Nouveau live WebRTC, rejoindre
             setTimeout(() => joinWebRTC(), 500);
+          } else {
+            // HLS/WHIP mode — mark broadcaster as HLS so co-host P2P offers
+            // are correctly treated as co-host streams (not main broadcaster)
+            mainBroadcasterRef.current = "__hls__";
           }
         }
       });
