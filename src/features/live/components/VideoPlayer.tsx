@@ -90,12 +90,42 @@ export default function VideoPlayer({ src, stream }: VideoPlayerProps) {
         setRetryCount(0);
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari HLS natif
-      video.src = src;
-      video.addEventListener("loadedmetadata", () => {
+      // Safari HLS natif — retry si le manifest n'est pas encore prêt
+      let safariRetries = 0;
+      const maxSafariRetries = 30;
+
+      const tryLoad = () => {
+        video.src = src;
+        video.load();
+      };
+
+      const onMeta = () => {
         setIsLoading(false);
+        setRetryCount(0);
         video.play().catch(() => {});
-      });
+      };
+
+      const onError = () => {
+        if (safariRetries < maxSafariRetries) {
+          safariRetries++;
+          setRetryCount(safariRetries);
+          retryTimer = setTimeout(tryLoad, 3000);
+        } else {
+          setIsLoading(false);
+        }
+      };
+
+      video.addEventListener("loadedmetadata", onMeta);
+      video.addEventListener("error", onError);
+      tryLoad();
+
+      return () => {
+        if (retryTimer) clearTimeout(retryTimer);
+        video.removeEventListener("loadedmetadata", onMeta);
+        video.removeEventListener("error", onError);
+        setIsLoading(false);
+        setRetryCount(0);
+      };
     }
   }, [src, stream]);
 
