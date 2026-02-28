@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Radio, Eye, Wifi, WifiOff, Maximize, Minimize, Camera, Circle, Square, Shuffle, MapPin, Calendar } from "lucide-react";
+import { Radio, Eye, Wifi, WifiOff, Maximize, Minimize, Camera, Shuffle, MapPin, Calendar } from "lucide-react";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import siteConfig from "../../../../site.config";
@@ -74,13 +74,10 @@ export default function LiveContainer() {
   };
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
   const [viewLayout, setViewLayout] = useState<"single" | "dual" | "quad">("single");
   const [dualPair, setDualPair] = useState<[string, string]>(["main", ""]);
   const fullscreenRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
 
   // Downgrade layout if not enough cameras available
   const effectiveLayout =
@@ -142,53 +139,6 @@ export default function LiveContainer() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [isFullscreen]);
-
-  // --- Recording ---
-  const startRecording = useCallback(() => {
-    const stream = currentStream || remoteStream;
-    if (!stream) return;
-    recordedChunksRef.current = [];
-
-    // Pick a supported mime type (Safari doesn't support webm/vp9)
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-      ? "video/webm;codecs=vp9,opus"
-      : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : MediaRecorder.isTypeSupported("video/mp4")
-          ? "video/mp4"
-          : "";
-    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-
-    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    mr.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunksRef.current.push(e.data);
-    };
-    mr.onstop = () => {
-      const blob = new Blob(recordedChunksRef.current, { type: mimeType || "video/webm" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `live-${new Date().toISOString().slice(0, 19)}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-    mr.start(1000);
-    mediaRecorderRef.current = mr;
-    setIsRecording(true);
-  }, [currentStream, remoteStream]);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    mediaRecorderRef.current = null;
-    setIsRecording(false);
-  }, []);
-
-  // Stop recording when live stops
-  useEffect(() => {
-    if (!streamStatus.isLive && isRecording) stopRecording();
-  }, [streamStatus.isLive, isRecording, stopRecording]);
 
   // --- Auto-switch cinématique (angles + layouts) ---
   // Use a ref to access the latest coHostEntries from the timer callback
@@ -457,27 +407,6 @@ export default function LiveContainer() {
                         {viewerCount}
                       </span>
                     </div>
-                    {/* Record button */}
-                    {showVideo && (
-                      <button
-                        onClick={isRecording ? stopRecording : startRecording}
-                        className={`flex items-center justify-center gap-1 h-8 rounded-full backdrop-blur-sm border transition-colors ${
-                          isRecording
-                            ? "bg-red-500/80 border-red-500/50 px-3"
-                            : "bg-black/60 border-white/10 hover:bg-black/80 w-8"
-                        }`}
-                        title={isRecording ? t("stopRecording") : t("startRecording")}
-                      >
-                        {isRecording ? (
-                          <>
-                            <Square className="h-3 w-3 text-white fill-white" />
-                            <span className="text-[10px] font-bold text-white">{t("recording")}</span>
-                          </>
-                        ) : (
-                          <Circle className="h-3.5 w-3.5 text-red-400 fill-red-400" />
-                        )}
-                      </button>
-                    )}
                     {/* Auto-switch button */}
                     {showVideo && hasMultipleAngles && (
                       <button
