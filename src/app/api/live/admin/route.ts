@@ -7,10 +7,13 @@ import {
   ensureCoHostCode,
   emitScheduledLive,
   addChatMessage,
+  setCloudflareStreamUid,
+  getCloudflareStreamUid,
 } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
 import { getScheduledLive, setScheduledLive, getDynamicConfig } from "@/shared/lib/dynamic-config";
+import { isCloudflareConfigured, createLiveInput, deleteLiveInput } from "@/shared/lib/cloudflare-stream";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser(request);
@@ -42,6 +45,21 @@ export async function POST(request: NextRequest) {
     }
 
     switch (action) {
+      case "create-stream": {
+        if (!isCloudflareConfigured()) {
+          return NextResponse.json(
+            { error: "Cloudflare Stream not configured" },
+            { status: 400 },
+          );
+        }
+        const input = await createLiveInput();
+        setCloudflareStreamUid(input.uid);
+        return NextResponse.json({
+          whipUrl: input.whipUrl,
+          hlsUrl: input.hlsUrl,
+        });
+      }
+
       case "go-live":
         if (!streamUrl) {
           return NextResponse.json(
@@ -69,9 +87,15 @@ export async function POST(request: NextRequest) {
         }
         break;
 
-      case "stop-live":
+      case "stop-live": {
+        // Delete Cloudflare Live Input if one was created
+        const cfUid = getCloudflareStreamUid();
+        if (cfUid) {
+          deleteLiveInput(cfUid).catch(() => {});
+        }
         setLiveStatus(false);
         break;
+      }
 
       case "update-track":
         if (!artist || !title) {

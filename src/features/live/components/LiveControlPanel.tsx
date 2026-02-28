@@ -7,6 +7,9 @@ import { cn } from "@/shared/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/features/live/hooks/useLiveStream";
 import { usePlacesSearch } from "@/shared/hooks/usePlacesSearch";
 import CameraBroadcast from "./CameraBroadcast";
+import CameraBroadcastWhip from "./CameraBroadcastWhip";
+
+const useCloudflareStream = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_ENABLED === "true";
 
 export default function LiveControlPanel() {
   const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage } = useLiveStream();
@@ -359,10 +362,14 @@ export default function LiveControlPanel() {
         </div>
       )}
 
-      {/* Caméra (WebRTC) */}
-      {!streamStatus.isLive || streamStatus.streamType === "webrtc" ? (
+      {/* Caméra — Cloudflare WHIP ou WebRTC P2P selon la config */}
+      {!streamStatus.isLive || streamStatus.streamType === "webrtc" || (useCloudflareStream && streamStatus.streamType === "hls") ? (
         <div className="rounded-2xl border border-border bg-card p-5">
-          <CameraBroadcast isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} venue={streamStatus.venue} />
+          {useCloudflareStream ? (
+            <CameraBroadcastWhip venue={streamStatus.venue} viewerCount={viewerCount} />
+          ) : (
+            <CameraBroadcast isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} venue={streamStatus.venue} />
+          )}
         </div>
       ) : null}
 

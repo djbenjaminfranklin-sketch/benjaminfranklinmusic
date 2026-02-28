@@ -20,6 +20,17 @@ let liveStreamStatus: LiveStreamStatus = {
 const chatClients = new Map<string, boolean>();
 const liveClients = new Map<string, boolean>();
 
+// Cloudflare Stream Live Input uid (set when using WHIP mode)
+let cloudflareStreamUid: string | null = null;
+
+export function setCloudflareStreamUid(uid: string | null) {
+  cloudflareStreamUid = uid;
+}
+
+export function getCloudflareStreamUid(): string | null {
+  return cloudflareStreamUid;
+}
+
 // WebRTC broadcasters (main + up to 3 co-hosts)
 let broadcasterId: string | null = null;
 const coHostIds = new Set<string>();
@@ -187,6 +198,7 @@ export function setLiveStatus(isLive: boolean, streamUrl?: string, streamType?: 
     broadcasterId = null;
     coHostIds.clear();
     coHostCode = null;
+    cloudflareStreamUid = null;
   }
   emitter.emit("live:status", liveStreamStatus);
 }
