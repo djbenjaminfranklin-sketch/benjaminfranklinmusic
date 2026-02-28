@@ -145,6 +145,13 @@ export function useWhipBroadcast() {
     const newFacing = facingMode === "user" ? "environment" : "user";
 
     try {
+      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
+      const wasMuted = oldAudioTrack ? !oldAudioTrack.enabled : false;
+
+      // Android cannot open two cameras simultaneously — release old video first
+      const oldVideoTrack = streamRef.current.getVideoTracks()[0];
+      if (oldVideoTrack) oldVideoTrack.stop();
+
       let newStream: MediaStream;
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
@@ -161,10 +168,8 @@ export function useWhipBroadcast() {
       const newVideoTrack = newStream.getVideoTracks()[0];
       const newAudioTrack = newStream.getAudioTracks()[0];
 
-      // Keep mute state
-      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
-      if (oldAudioTrack && newAudioTrack) {
-        newAudioTrack.enabled = oldAudioTrack.enabled;
+      if (newAudioTrack) {
+        newAudioTrack.enabled = !wasMuted;
       }
 
       // Replace tracks in the peer connection
@@ -177,8 +182,8 @@ export function useWhipBroadcast() {
         }
       }
 
-      // Stop old tracks
-      streamRef.current.getTracks().forEach((t) => t.stop());
+      // Stop remaining old tracks (audio)
+      if (oldAudioTrack) oldAudioTrack.stop();
 
       streamRef.current = newStream;
       setLocalStream(newStream);

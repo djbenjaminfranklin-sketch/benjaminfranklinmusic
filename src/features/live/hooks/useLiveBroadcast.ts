@@ -469,29 +469,34 @@ export function useLiveBroadcast() {
     const newFacing = facingMode === "user" ? "environment" : "user";
 
     try {
+      // Save old audio state before stopping anything
+      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
+      const wasMuted = oldAudioTrack ? !oldAudioTrack.enabled : false;
+
+      // Android cannot open two cameras simultaneously — stop the old video
+      // track FIRST to release the hardware before requesting the new camera.
+      const oldVideoTrack = streamRef.current.getVideoTracks()[0];
+      if (oldVideoTrack) oldVideoTrack.stop();
+
       let newStream: MediaStream;
       try {
-        // Try exact facingMode first (required on many Android devices)
         newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { exact: newFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: true,
         });
       } catch {
-        // Fallback without exact constraint
         newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: newFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: true,
         });
       }
 
-      // Replace video track in all peer connections
       const newVideoTrack = newStream.getVideoTracks()[0];
       const newAudioTrack = newStream.getAudioTracks()[0];
 
-      // Keep old audio mute state
-      const oldAudioTrack = streamRef.current.getAudioTracks()[0];
-      if (oldAudioTrack && newAudioTrack) {
-        newAudioTrack.enabled = oldAudioTrack.enabled;
+      // Keep mute state
+      if (newAudioTrack) {
+        newAudioTrack.enabled = !wasMuted;
       }
 
       // Replace tracks in all peer connections (skip failed peers)
@@ -513,8 +518,8 @@ export function useLiveBroadcast() {
         }
       }
 
-      // Stop old tracks
-      streamRef.current.getTracks().forEach((t) => t.stop());
+      // Stop remaining old tracks (audio)
+      if (oldAudioTrack) oldAudioTrack.stop();
 
       streamRef.current = newStream;
       setLocalStream(newStream);
