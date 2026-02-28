@@ -21,9 +21,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [formLoading, setFormLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // Allow legal pages without auth
-  const isLegalPage = pathname.includes("/privacy") || pathname.includes("/terms");
-  if (isLegalPage) return <>{children}</>;
+  // Allow legal pages and co-host page without auth
+  const isPublicPage = pathname.includes("/privacy") || pathname.includes("/terms") || pathname.includes("/live/cohost");
+  if (isPublicPage) return <>{children}</>;
 
   if (loading) {
     return (
