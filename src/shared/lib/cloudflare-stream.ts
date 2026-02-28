@@ -54,7 +54,7 @@ export async function createLiveInput(): Promise<LiveInput> {
     uid: result.uid,
     whipUrl: result.webRTC?.url || `${CF_API}/accounts/${accountId}/stream/live_inputs/${result.uid}/webRTC`,
     hlsUrl: result.webRTCPlayback?.url
-      ? result.webRTCPlayback.url.replace("/webRTC/play", "/hls/manifest/video.m3u8")
+      ? result.webRTCPlayback.url.replace("/webRTC/play", "/manifest/video.m3u8")
       : `https://${process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN || `customer-${accountId}`}.cloudflarestream.com/${result.uid}/manifest/video.m3u8`,
   };
 }
