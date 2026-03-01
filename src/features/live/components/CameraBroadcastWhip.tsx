@@ -219,6 +219,23 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   // Merge external co-host streams
   const coHostEntries = externalCoHostStreams ? Array.from(externalCoHostStreams.entries()) : [];
 
+  // Guest join notification
+  const [guestNotification, setGuestNotification] = useState<string | null>(null);
+  const prevCoHostCountRef = useRef(0);
+
+  useEffect(() => {
+    const currentCount = coHostEntries.length;
+    if (currentCount > prevCoHostCountRef.current) {
+      const newestId = coHostEntries[coHostEntries.length - 1]?.[0];
+      if (newestId) {
+        const name = coHostNames?.get(newestId) || newestId.slice(0, 8);
+        setGuestNotification(tLive("guestJoined", { name }));
+        setTimeout(() => setGuestNotification(null), 4000);
+      }
+    }
+    prevCoHostCountRef.current = currentCount;
+  }, [coHostEntries, coHostNames, tLive]);
+
   // Which stream is shown as main view (null = local camera, guestId = that guest's camera)
   const [focusedGuestId, setFocusedGuestId] = useState<string | null>(null);
 
@@ -593,6 +610,13 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 )}
               />
             ))}
+          </div>
+        )}
+
+        {/* Guest join notification */}
+        {guestNotification && (
+          <div className="absolute top-[max(5rem,calc(env(safe-area-inset-top)+3.5rem))] left-1/2 -translate-x-1/2 z-50 rounded-full bg-accent/90 backdrop-blur-sm px-5 py-2.5 animate-bounce shadow-lg">
+            <span className="text-sm font-bold text-background whitespace-nowrap">{"\u2B50"} {guestNotification} {"\u2B50"}</span>
           </div>
         )}
 
