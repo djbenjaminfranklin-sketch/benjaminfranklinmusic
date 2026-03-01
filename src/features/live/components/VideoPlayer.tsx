@@ -52,12 +52,22 @@ async function whepConnect(
   pc.addTransceiver("audio", { direction: "recvonly" });
 
   pc.ontrack = (event) => {
-    if (video.srcObject !== event.streams[0]) {
-      video.srcObject = event.streams[0];
-      // Start muted so autoplay works, user can tap to unmute
-      video.muted = true;
-      video.play().catch(() => {});
+    console.log("[WHEP] Track received:", event.track.kind, "readyState:", event.track.readyState);
+    // Some browsers may not associate tracks with streams — handle both cases
+    const incomingStream = event.streams?.[0];
+    if (incomingStream) {
+      if (video.srcObject !== incomingStream) {
+        video.srcObject = incomingStream;
+      }
+    } else {
+      // Fallback: manually build a MediaStream from individual tracks
+      if (!video.srcObject) {
+        video.srcObject = new MediaStream();
+      }
+      (video.srcObject as MediaStream).addTrack(event.track);
     }
+    video.muted = true;
+    video.play().catch((e) => console.warn("[WHEP] play() failed:", e));
   };
 
   const offer = await pc.createOffer();
@@ -168,13 +178,29 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         setIsMutedOverlay(true);
         console.log("[WHEP] Connected successfully");
 
+        // Check if video actually renders within 8s, otherwise reconnect
+        const videoCheck = setTimeout(() => {
+          if (video.videoWidth === 0 && video.videoHeight === 0 && !abortController.signal.aborted) {
+            console.warn("[WHEP] No video frames after 8s — reconnecting...");
+            pc.close();
+            whepPcRef.current = null;
+            if (attempts < maxAttempts) {
+              setIsLoading(true);
+              setIsMutedOverlay(false);
+              retryTimer = setTimeout(tryConnect, 2000);
+            }
+          }
+        }, 8000);
+
         pc.onconnectionstatechange = () => {
           console.log("[WHEP] Connection state:", pc.connectionState);
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            clearTimeout(videoCheck);
             pc.close();
             whepPcRef.current = null;
             if (!abortController.signal.aborted && attempts < maxAttempts) {
               setIsLoading(true);
+              setIsMutedOverlay(false);
               retryTimer = setTimeout(tryConnect, 5000);
             }
           }
