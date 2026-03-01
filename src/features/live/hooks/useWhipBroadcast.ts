@@ -102,7 +102,25 @@ export function useWhipBroadcast() {
         new RTCSessionDescription({ type: "answer", sdp: answerSdp })
       );
 
+      // Monitor WHIP connection state
+      pc.onconnectionstatechange = () => {
+        console.log("[WHIP] Connection state:", pc.connectionState);
+        if (pc.connectionState === "failed") {
+          setError("Connexion WHIP perdue — redémarrez le live");
+          setIsBroadcasting(false);
+        } else if (pc.connectionState === "disconnected") {
+          setError("Connexion WHIP instable...");
+        } else if (pc.connectionState === "connected") {
+          setError(null);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log("[WHIP] ICE state:", pc.iceConnectionState);
+      };
+
       setIsBroadcasting(true);
+      console.log("[WHIP] Broadcast started — handshake OK, waiting for connection...");
       return true;
     } catch (err) {
       // Cleanup on failure
