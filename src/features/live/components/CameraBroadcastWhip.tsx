@@ -388,40 +388,10 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     }
   }, [isBroadcasting, isRecording, stopRecording]);
 
-  // Auto-stop live ONLY when the page is being closed/killed (not when switching apps)
-  // pagehide with persisted=false means the page is being destroyed (app killed, tab closed)
-  // beforeunload fires when the page is about to unload
-  useEffect(() => {
-    if (!isBroadcasting) return;
-
-    const handlePageHide = (e: PageTransitionEvent) => {
-      // persisted=true means the page might come back (bfcache) — don't stop
-      if (e.persisted) return;
-      console.log("[WHIP] Page destroyed — stopping live");
-      stopBroadcast();
-      // Use sendBeacon for reliable delivery during page unload
-      navigator.sendBeacon?.(
-        "/api/live/admin",
-        new Blob([JSON.stringify({ action: "stop-live" })], { type: "application/json" }),
-      );
-    };
-
-    const handleBeforeUnload = () => {
-      console.log("[WHIP] Page unloading — stopping live");
-      stopBroadcast();
-      navigator.sendBeacon?.(
-        "/api/live/admin",
-        new Blob([JSON.stringify({ action: "stop-live" })], { type: "application/json" }),
-      );
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [isBroadcasting, stopBroadcast]);
+  // No client-side auto-stop — on mobile, there's no reliable way to distinguish
+  // "switching to WhatsApp" from "killing the app" in JavaScript.
+  // When the app is force-killed, the WHIP connection drops naturally and
+  // Cloudflare stops receiving media. The admin can stop the live manually.
 
   // --- Go Live (Cloudflare WHIP flow) ---
   const handleGoLive = useCallback(async () => {
@@ -493,22 +463,9 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   if (isBroadcasting && localStream && isFullscreen) {
     return (
       <div className="fixed inset-0 bg-black z-50 overflow-hidden touch-none">
-        {/* Multicam: all cameras stacked / Director: single auto-switching camera */}
-        {broadcastMode === "multicam" ? (
-          <div className="flex flex-col w-full h-full gap-0.5">
-            {allStreams.map((s) => (
-              <StreamBand key={s.id} stream={s.stream} label={s.label} mirror={s.mirror} />
-            ))}
-          </div>
-        ) : (
-          currentDirectorStream && (
-            <StreamBand
-              key={currentDirectorStream.id}
-              stream={currentDirectorStream.stream}
-              label={currentDirectorStream.label}
-              mirror={currentDirectorStream.mirror}
-            />
-          )
+        {/* Main view: always show only local stream (WHIP sends only this to Cloudflare) */}
+        {localStream && (
+          <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
         )}
 
         {/* Camera indicator dots (director mode only) */}
@@ -744,14 +701,35 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     <div className="space-y-4 overflow-hidden">
       {/* Video preview */}
       {isBroadcasting && localStream ? (
-        <div className={cn(
-          "relative rounded-xl overflow-hidden border border-border bg-black max-h-[65vh] mx-auto flex gap-0.5 cursor-pointer",
-          allStreams.length > 1 ? "flex-col" : "flex-col aspect-[9/16]"
-        )} onClick={() => setIsFullscreen(true)}>
+        <div className="relative rounded-xl overflow-hidden border border-border bg-black max-h-[65vh] mx-auto flex flex-col aspect-[9/16] cursor-pointer"
+          onClick={() => setIsFullscreen(true)}>
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
-          {coHostEntries.map(([id], i) => (
-            <StreamBand key={id} stream={externalCoHostStreams!.get(id)!} label={tLive("angleNumber", { n: i + 2 })} />
-          ))}
+          {/* Co-host thumbnails (inline view) */}
+          {coHostEntries.length > 0 && (
+            <div className="absolute bottom-14 left-2 z-10 flex gap-1.5">
+              {coHostEntries.map(([id], i) => {
+                const guestStream = externalCoHostStreams!.get(id);
+                return (
+                  <div key={id} className="relative group">
+                    <div className="w-16 h-22 rounded-lg overflow-hidden border-2 border-accent/50 bg-black shadow-lg">
+                      {guestStream && <GuestThumb stream={guestStream} />}
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 rounded-b-lg">
+                      <p className="text-[7px] font-bold text-white text-center truncate">{tLive("angleNumber", { n: i + 2 })}</p>
+                    </div>
+                    {onDisconnectGuest && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDisconnectGuest(id); }}
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-black flex items-center justify-center z-10 active:scale-90 touch-manipulation"
+                      >
+                        <span className="text-white text-[10px] font-bold leading-none">&times;</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); isRecording ? stopRecording() : startRecording(); }}
