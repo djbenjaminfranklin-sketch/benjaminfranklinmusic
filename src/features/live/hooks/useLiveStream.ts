@@ -226,11 +226,25 @@ export function useLiveStream() {
           }
         };
 
+        let mainDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
         pc.onconnectionstatechange = () => {
-          if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+          if (pc.connectionState === "failed") {
+            if (mainDisconnectTimer) clearTimeout(mainDisconnectTimer);
             if (pcRef.current === pc) {
               pcRef.current = null;
               setRemoteStream(null);
+            }
+          } else if (pc.connectionState === "disconnected") {
+            mainDisconnectTimer = setTimeout(() => {
+              if (pc.connectionState !== "connected" && pcRef.current === pc) {
+                pcRef.current = null;
+                setRemoteStream(null);
+              }
+            }, 10000);
+          } else if (pc.connectionState === "connected") {
+            if (mainDisconnectTimer) {
+              clearTimeout(mainDisconnectTimer);
+              mainDisconnectTimer = null;
             }
           }
         };
@@ -280,19 +294,37 @@ export function useLiveStream() {
           }
         };
 
+        let coHostDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
+        const removeCoHostPeer = () => {
+          coHostPcsRef.current.delete(from);
+          setCoHostStreams((prev) => {
+            const next = new Map(prev);
+            next.delete(from);
+            return next;
+          });
+          setCoHostNames((prev) => {
+            const next = new Map(prev);
+            next.delete(from);
+            return next;
+          });
+        };
         pc.onconnectionstatechange = () => {
-          if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-            coHostPcsRef.current.delete(from);
-            setCoHostStreams((prev) => {
-              const next = new Map(prev);
-              next.delete(from);
-              return next;
-            });
-            setCoHostNames((prev) => {
-              const next = new Map(prev);
-              next.delete(from);
-              return next;
-            });
+          if (pc.connectionState === "failed") {
+            if (coHostDisconnectTimer) clearTimeout(coHostDisconnectTimer);
+            removeCoHostPeer();
+          } else if (pc.connectionState === "disconnected") {
+            // Grace period — "disconnected" is often temporary
+            coHostDisconnectTimer = setTimeout(() => {
+              if (pc.connectionState !== "connected") {
+                removeCoHostPeer();
+              }
+            }, 10000);
+          } else if (pc.connectionState === "connected") {
+            // Recovered — cancel pending removal
+            if (coHostDisconnectTimer) {
+              clearTimeout(coHostDisconnectTimer);
+              coHostDisconnectTimer = null;
+            }
           }
         };
 
