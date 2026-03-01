@@ -388,24 +388,42 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     }
   }, [isBroadcasting, isRecording, stopRecording]);
 
-  // Auto-stop live when phone is locked or app goes to background
+  // Auto-stop live after 60s in background (allows brief app switches like WhatsApp)
+  const bgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!isBroadcasting) return;
 
-    const handleHidden = () => {
+    const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
-        console.log("[WHIP] App went to background — stopping live");
-        stopBroadcast();
-        fetch("/api/live/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "stop-live" }),
-        }).catch(() => {});
+        console.log("[WHIP] App went to background — will auto-stop in 60s");
+        bgTimerRef.current = setTimeout(() => {
+          console.log("[WHIP] Background timeout — stopping live");
+          stopBroadcast();
+          fetch("/api/live/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "stop-live" }),
+          }).catch(() => {});
+        }, 60_000);
+      } else if (document.visibilityState === "visible") {
+        // User came back — cancel auto-stop
+        if (bgTimerRef.current) {
+          clearTimeout(bgTimerRef.current);
+          bgTimerRef.current = null;
+          console.log("[WHIP] App returned — cancelled auto-stop");
+        }
       }
     };
 
-    document.addEventListener("visibilitychange", handleHidden);
-    return () => document.removeEventListener("visibilitychange", handleHidden);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (bgTimerRef.current) {
+        clearTimeout(bgTimerRef.current);
+        bgTimerRef.current = null;
+      }
+    };
   }, [isBroadcasting, stopBroadcast]);
 
   // --- Go Live (Cloudflare WHIP flow) ---

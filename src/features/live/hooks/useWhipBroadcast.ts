@@ -483,8 +483,37 @@ export function useWhipBroadcast() {
     }
   }, [ensureLiveTracks]);
 
-  // No foreground reconnect — broadcast stops when app goes to background
-  // (handled in CameraBroadcastWhip component)
+  // Auto-reconnect when app returns to foreground (e.g. after checking WhatsApp)
+  useEffect(() => {
+    if (!isBroadcasting) return;
+
+    const handleVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        console.log("[WHIP] App returned to foreground");
+
+        // Re-acquire Wake Lock (released when app went to background)
+        if (!wakeLockRef.current || wakeLockRef.current.released) {
+          wakeLockRef.current = await acquireWakeLock();
+        }
+
+        // Check connection state and reconnect if needed
+        const pc = pcRef.current;
+        if (!pc || pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+          reconnectWhip();
+        } else {
+          // Connection might look OK but tracks could be dead
+          const videoTrack = streamRef.current?.getVideoTracks()[0];
+          if (videoTrack?.readyState === "ended") {
+            console.warn("[WHIP] Video track dead — reconnecting...");
+            reconnectWhip();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [isBroadcasting, reconnectWhip]);
 
   // Cleanup on unmount
   useEffect(() => {
