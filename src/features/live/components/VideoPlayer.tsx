@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import Hls from "hls.js";
 
 const DEFAULT_ICE: RTCConfiguration = {
@@ -54,6 +54,8 @@ async function whepConnect(
   pc.ontrack = (event) => {
     if (video.srcObject !== event.streams[0]) {
       video.srcObject = event.streams[0];
+      // Start muted so autoplay works, user can tap to unmute
+      video.muted = true;
       video.play().catch(() => {});
     }
   };
@@ -105,6 +107,16 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [whepError, setWhepError] = useState<string | null>(null);
+  const [isMutedOverlay, setIsMutedOverlay] = useState(false);
+
+  const handleUnmute = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
+    setIsMutedOverlay(false);
+  }, []);
 
   // Mode WebRTC direct : stream MediaStream directement
   useEffect(() => {
@@ -153,6 +165,7 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         setIsLoading(false);
         setRetryCount(0);
         setWhepError(null);
+        setIsMutedOverlay(true);
         console.log("[WHEP] Connected successfully");
 
         pc.onconnectionstatechange = () => {
@@ -308,8 +321,19 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         onContextMenu={(e) => e.preventDefault()}
         playsInline
         autoPlay
-        muted={!stream && streamType !== "whep"}
+        muted
       />
+      {isMutedOverlay && (
+        <button
+          onClick={handleUnmute}
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 transition-opacity"
+        >
+          <div className="flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm px-5 py-3 border border-white/30">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            <span className="text-sm font-semibold text-white">Appuyer pour le son</span>
+          </div>
+        </button>
+      )}
       {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
           <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mb-3" />
