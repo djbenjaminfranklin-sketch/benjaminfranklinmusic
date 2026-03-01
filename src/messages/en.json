@@ -122,7 +122,7 @@
     "connected": "Connected",
     "reconnecting": "Reconnecting...",
     "online": "{count} online",
-    "noMessages": "No messages yet.",
+    "noMessages": "No message yet.",
     "seenBy": "Seen by {count}"
   },
   "live": {
@@ -133,7 +133,7 @@
     "noLiveMessage": "Come back soon or enable notifications to be notified of the next live!",
     "liveChat": "Live chat",
     "connected": "{count} connected",
-    "noMessages": "No messages yet.",
+    "noMessages": "No message yet.",
     "djBadge": "DJ",
     "djPanel": "DJ Panel",
     "djPassword": "DJ password",
