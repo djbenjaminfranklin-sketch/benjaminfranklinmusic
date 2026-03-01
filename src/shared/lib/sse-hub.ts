@@ -145,10 +145,17 @@ export function disconnectLive(clientId: string) {
 }
 
 export function getLiveState() {
+  // Auto-convert any WHEP stream to HLS for viewer compatibility
+  let status = liveStreamStatus;
+  if (status.isLive && status.streamType === "whep" && status.streamUrl) {
+    const hlsUrl = status.streamUrl.replace(/\/webRTC\/play$/, "/manifest/video.m3u8");
+    status = { ...status, streamUrl: hlsUrl, streamType: "hls" };
+  }
+
   return {
     messages: liveChatMessages,
     viewerCount: liveClients.size,
-    status: liveStreamStatus,
+    status,
     coHostIds: Array.from(coHostIds),
   };
 }
