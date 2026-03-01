@@ -23,11 +23,23 @@ const EXTERNAL_KEYWORDS = [
   "soundcraft", "irig", "djm", "ddj", "cdj", "xone", "traktor",
 ];
 
+// Labels that indicate a built-in device (not an external mixer)
+const BUILTIN_KEYWORDS = [
+  "built-in", "internal", "iphone", "ipad",
+  "front camera", "back camera", "rear camera",
+];
+
 function isExternalDevice(device: MediaDeviceInfo): boolean {
   const label = device.label.toLowerCase();
-  if (label.includes("built-in") || label.includes("internal")) return false;
-  return EXTERNAL_KEYWORDS.some((kw) => label.includes(kw)) ||
-    (device.deviceId !== "default" && device.deviceId !== "communications" && !label.includes("built-in"));
+  // Filter out built-in devices
+  if (BUILTIN_KEYWORDS.some((kw) => label.includes(kw))) return false;
+  // Filter out default/generic entries
+  if (!label || label === "default" || label === "communications") return false;
+  // Match known external keywords
+  if (EXTERNAL_KEYWORDS.some((kw) => label.includes(kw))) return true;
+  // On iOS, the built-in mic label is "iPhone Microphone" (filtered above).
+  // Any remaining non-default device with a real label is likely external.
+  return device.deviceId !== "default" && device.deviceId !== "communications";
 }
 
 function getDeviceDisplayName(label: string): string {
@@ -73,16 +85,24 @@ export function useAudioDevices(): AudioDeviceState {
       }
       const audioInputs = devices.filter((d) => d.kind === "audioinput");
 
+      // Log all audio inputs for debugging (especially on iOS)
+      console.log("[AudioDevices] Detected inputs:", audioInputs.map((d) => ({
+        label: d.label, id: d.deviceId.slice(0, 8), group: d.groupId.slice(0, 8),
+      })));
+
       if (!mountedRef.current) return;
       setAvailableDevices(audioInputs);
 
       // Find external device (mixer/interface)
       const external = audioInputs.find(isExternalDevice);
       if (external) {
+        console.log("[AudioDevices] External device found:", external.label, "id:", external.deviceId.slice(0, 8));
         setExternalDeviceId(external.deviceId);
         // Auto-switch to USB+Micro when external detected
         setAudioSource("both");
         setAudioSourceName(getDeviceDisplayName(external.label) + " + Micro");
+      } else {
+        console.log("[AudioDevices] No external device detected");
       }
 
       // Find internal mic
@@ -115,7 +135,10 @@ export function useAudioDevices(): AudioDeviceState {
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices) return;
 
-    const handleChange = () => detectDevices();
+    const handleChange = () => {
+      console.log("[AudioDevices] Device change detected — re-scanning...");
+      detectDevices();
+    };
     navigator.mediaDevices.addEventListener("devicechange", handleChange);
     return () => navigator.mediaDevices.removeEventListener("devicechange", handleChange);
   }, [detectDevices]);
