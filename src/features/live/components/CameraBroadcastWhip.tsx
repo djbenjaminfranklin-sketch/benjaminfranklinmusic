@@ -535,23 +535,45 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
         ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
           /* Multicam: grid of all cameras */
           <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
-            {allStreams.slice(0, 4).map((s) => (
-              <div key={s.id} className="relative overflow-hidden">
-                <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
-                <div className="absolute bottom-2 left-2 z-10">
-                  <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">{s.label}</span>
+            {allStreams.slice(0, 4).map((s) => {
+              const coHostId = coHostEntries.find(([, stream]) => stream === s.stream)?.[0];
+              return (
+                <div key={s.id} className="relative overflow-hidden">
+                  <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
+                  <div className="absolute bottom-2 left-2 z-10">
+                    <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">{s.label}</span>
+                  </div>
+                  {coHostId && onDisconnectGuest && (
+                    <button
+                      onClick={() => onDisconnectGuest(coHostId)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 backdrop-blur-sm border-2 border-black/30 flex items-center justify-center z-10 active:scale-90 transition-transform touch-manipulation"
+                    >
+                      <span className="text-white text-sm font-bold leading-none">&times;</span>
+                    </button>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : broadcastMode === "director" && allStreams.length > 1 ? (
           /* Director: all streams are always mounted, only the active one is visible */
           <div className="absolute inset-0">
-            {allStreams.map((s, i) => (
-              <div key={s.id} className="absolute inset-0 transition-opacity duration-500" style={{ opacity: i === safeIndex ? 1 : 0, zIndex: i === safeIndex ? 1 : 0 }}>
-                <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
-              </div>
-            ))}
+            {allStreams.map((s, i) => {
+              const coHostId = coHostEntries.find(([, stream]) => stream === s.stream)?.[0];
+              return (
+                <div key={s.id} className="absolute inset-0 transition-opacity duration-500" style={{ opacity: i === safeIndex ? 1 : 0, zIndex: i === safeIndex ? 1 : 0 }}>
+                  <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
+                  {coHostId && onDisconnectGuest && i === safeIndex && (
+                    <button
+                      onClick={() => onDisconnectGuest(coHostId)}
+                      className="absolute top-[max(4rem,calc(env(safe-area-inset-top)+3rem))] right-4 w-10 h-10 rounded-full bg-red-500/80 backdrop-blur-sm border-2 border-black/30 flex items-center justify-center z-50 active:scale-90 transition-transform touch-manipulation"
+                    >
+                      <span className="text-white text-lg font-bold leading-none">&times;</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : localStream ? (
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
@@ -679,11 +701,11 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           </div>
         </div>
 
-        {/* Thumbnails: tap to swap with main view */}
-        {(coHostEntries.length > 0 || focusedGuestId) && (
+        {/* Thumbnails: only shown when a fan/viewer is focused (not in multicam/director grid) */}
+        {focusedGuestId && (
           <div className="absolute bottom-32 left-4 z-30 flex gap-2">
-            {/* If a guest is focused, show local camera as first thumbnail */}
-            {focusedGuestId && localStream && (
+            {/* Show local camera as first thumbnail to allow going back */}
+            {localStream && (
               <button
                 onClick={() => setFocusedGuestId(null)}
                 className="relative"
@@ -696,7 +718,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 </div>
               </button>
             )}
-            {/* Guest thumbnails (skip the one that's currently focused) */}
+            {/* Other guest thumbnails (skip the focused one) */}
             {coHostEntries.map(([id], i) => {
               if (id === focusedGuestId) return null;
               const guestStream = externalCoHostStreams!.get(id);
@@ -710,14 +732,6 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                       <p className="text-[8px] font-bold text-white text-center truncate">{"\u2B50"} {tLive("angleNumber", { n: i + 2 })}</p>
                     </div>
                   </button>
-                  {onDisconnectGuest && (
-                    <button
-                      onClick={() => onDisconnectGuest(id)}
-                      className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 border-2 border-black flex items-center justify-center z-10 active:scale-90 transition-transform touch-manipulation"
-                    >
-                      <span className="text-white text-xs font-bold leading-none">&times;</span>
-                    </button>
-                  )}
                 </div>
               );
             })}
