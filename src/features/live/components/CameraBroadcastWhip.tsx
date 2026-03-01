@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Video, VideoOff, Eye, Mic, MicOff, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb, UserPlus } from "lucide-react";
+import { Video, VideoOff, Eye, Mic, MicOff, SwitchCamera, Minimize2, LayoutGrid, Shuffle, MapPin, Music, Usb, UserPlus, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { useWhipBroadcast } from "@/features/live/hooks/useWhipBroadcast";
@@ -221,6 +221,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
 
   // Guest join notification
   const [guestNotification, setGuestNotification] = useState<string | null>(null);
+  const [inviteSent, setInviteSent] = useState(false);
   const prevCoHostCountRef = useRef(0);
 
   useEffect(() => {
@@ -800,11 +801,25 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           {/* Invite viewer */}
           {onInviteViewer && (
             <button
-              onClick={onInviteViewer}
-              disabled={inviting}
-              className="w-14 h-14 rounded-full bg-accent/20 backdrop-blur-sm border border-accent/30 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 touch-manipulation"
+              onClick={async () => {
+                await onInviteViewer();
+                setInviteSent(true);
+                setTimeout(() => setInviteSent(false), 2000);
+              }}
+              disabled={inviting || inviteSent}
+              className={`w-14 h-14 rounded-full backdrop-blur-sm border flex items-center justify-center active:scale-95 transition-all disabled:opacity-50 touch-manipulation ${
+                inviteSent
+                  ? "bg-green-500/30 border-green-400/50 scale-110"
+                  : "bg-accent/20 border-accent/30"
+              }`}
             >
-              <UserPlus className="h-6 w-6 text-accent" />
+              {inviteSent ? (
+                <Check className="h-6 w-6 text-green-400" />
+              ) : inviting ? (
+                <div className="w-5 h-5 border-2 border-accent/40 border-t-accent rounded-full animate-spin" />
+              ) : (
+                <UserPlus className="h-6 w-6 text-accent" />
+              )}
             </button>
           )}
 
