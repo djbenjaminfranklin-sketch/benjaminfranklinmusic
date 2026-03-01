@@ -493,9 +493,25 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   if (isBroadcasting && localStream && isFullscreen) {
     return (
       <div className="fixed inset-0 bg-black z-50 overflow-hidden touch-none">
-        {/* Main view: local stream or focused guest (swap is local-only, WHIP still sends admin camera) */}
+        {/* Main view: depends on broadcastMode */}
         {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
+          /* User tapped a guest thumbnail — override any mode */
           <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+        ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
+          /* Multicam: grid of all cameras */
+          <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: `repeat(${Math.min(allStreams.length, 2)}, 1fr)`, gridTemplateRows: allStreams.length > 2 ? "1fr 1fr" : "1fr" }}>
+            {allStreams.slice(0, 4).map((s) => (
+              <div key={s.id} className="relative overflow-hidden">
+                <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
+                <div className="absolute bottom-2 left-2 z-10">
+                  <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">{s.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : broadcastMode === "director" && currentDirectorStream ? (
+          /* Director: auto-switching between cameras */
+          <StreamBand stream={currentDirectorStream.stream} label={currentDirectorStream.label} mirror={currentDirectorStream.mirror} />
         ) : localStream ? (
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
         ) : null}
@@ -753,9 +769,22 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
       {isBroadcasting && localStream ? (
         <div className="relative rounded-xl overflow-hidden border border-border bg-black max-h-[65vh] mx-auto flex flex-col aspect-[9/16] cursor-pointer"
           onClick={() => setIsFullscreen(true)}>
-          {/* Main view: focused guest or local camera */}
+          {/* Main view: depends on broadcastMode */}
           {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
             <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+          ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
+            <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: `repeat(${Math.min(allStreams.length, 2)}, 1fr)`, gridTemplateRows: allStreams.length > 2 ? "1fr 1fr" : "1fr" }}>
+              {allStreams.slice(0, 4).map((s) => (
+                <div key={s.id} className="relative overflow-hidden">
+                  <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
+                  <div className="absolute bottom-2 left-2 z-10">
+                    <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">{s.label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : broadcastMode === "director" && currentDirectorStream ? (
+            <StreamBand stream={currentDirectorStream.stream} label={currentDirectorStream.label} mirror={currentDirectorStream.mirror} />
           ) : (
             <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
           )}
