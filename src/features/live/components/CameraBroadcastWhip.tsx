@@ -190,6 +190,16 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   // Merge external co-host streams
   const coHostEntries = externalCoHostStreams ? Array.from(externalCoHostStreams.entries()) : [];
 
+  // Which stream is shown as main view (null = local camera, guestId = that guest's camera)
+  const [focusedGuestId, setFocusedGuestId] = useState<string | null>(null);
+
+  // Reset focus if the focused guest disconnects
+  useEffect(() => {
+    if (focusedGuestId && !externalCoHostStreams?.has(focusedGuestId)) {
+      setFocusedGuestId(null);
+    }
+  }, [focusedGuestId, externalCoHostStreams]);
+
   // Build list of all available streams
   const allStreams = [
     ...(localStream ? [{ id: "local", stream: localStream, label: tLive("angleMain"), mirror: facingMode === "user" }] : []),
@@ -463,10 +473,12 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   if (isBroadcasting && localStream && isFullscreen) {
     return (
       <div className="fixed inset-0 bg-black z-50 overflow-hidden touch-none">
-        {/* Main view: always show only local stream (WHIP sends only this to Cloudflare) */}
-        {localStream && (
+        {/* Main view: local stream or focused guest (swap is local-only, WHIP still sends admin camera) */}
+        {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
+          <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+        ) : localStream ? (
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
-        )}
+        ) : null}
 
         {/* Camera indicator dots (director mode only) */}
         {broadcastMode === "director" && allStreams.length > 1 && (
@@ -571,19 +583,37 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           </div>
         </div>
 
-        {/* Guest thumbnails */}
-        {coHostEntries.length > 0 && (
+        {/* Thumbnails: tap to swap with main view */}
+        {(coHostEntries.length > 0 || focusedGuestId) && (
           <div className="absolute bottom-32 left-4 z-30 flex gap-2">
+            {/* If a guest is focused, show local camera as first thumbnail */}
+            {focusedGuestId && localStream && (
+              <button
+                onClick={() => setFocusedGuestId(null)}
+                className="relative"
+              >
+                <div className="w-20 h-28 rounded-xl overflow-hidden border-2 border-white/50 bg-black shadow-lg">
+                  <GuestThumb stream={localStream} />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-1 py-0.5 rounded-b-xl">
+                  <p className="text-[8px] font-bold text-white text-center truncate">{tLive("angleMain")}</p>
+                </div>
+              </button>
+            )}
+            {/* Guest thumbnails (skip the one that's currently focused) */}
             {coHostEntries.map(([id], i) => {
+              if (id === focusedGuestId) return null;
               const guestStream = externalCoHostStreams!.get(id);
               return (
-                <div key={id} className="relative group">
-                  <div className="w-20 h-28 rounded-xl overflow-hidden border-2 border-accent/50 bg-black shadow-lg">
-                    {guestStream && <GuestThumb stream={guestStream} />}
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-1 py-0.5 rounded-b-xl">
-                    <p className="text-[8px] font-bold text-white text-center truncate">{"\u2B50"} {tLive("angleNumber", { n: i + 2 })}</p>
-                  </div>
+                <div key={id} className="relative">
+                  <button onClick={() => setFocusedGuestId(id)}>
+                    <div className="w-20 h-28 rounded-xl overflow-hidden border-2 border-accent/50 bg-black shadow-lg">
+                      {guestStream && <GuestThumb stream={guestStream} />}
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-1 py-0.5 rounded-b-xl">
+                      <p className="text-[8px] font-bold text-white text-center truncate">{"\u2B50"} {tLive("angleNumber", { n: i + 2 })}</p>
+                    </div>
+                  </button>
                   {onDisconnectGuest && (
                     <button
                       onClick={() => onDisconnectGuest(id)}
@@ -703,20 +733,40 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
       {isBroadcasting && localStream ? (
         <div className="relative rounded-xl overflow-hidden border border-border bg-black max-h-[65vh] mx-auto flex flex-col aspect-[9/16] cursor-pointer"
           onClick={() => setIsFullscreen(true)}>
-          <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
-          {/* Co-host thumbnails (inline view) */}
-          {coHostEntries.length > 0 && (
+          {/* Main view: focused guest or local camera */}
+          {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
+            <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+          ) : (
+            <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
+          )}
+          {/* Thumbnails (inline view) — tap to swap */}
+          {(coHostEntries.length > 0 || focusedGuestId) && (
             <div className="absolute bottom-14 left-2 z-10 flex gap-1.5">
+              {/* If a guest is focused, show local as thumbnail */}
+              {focusedGuestId && localStream && (
+                <button onClick={(e) => { e.stopPropagation(); setFocusedGuestId(null); }} className="relative">
+                  <div className="w-16 h-22 rounded-lg overflow-hidden border-2 border-white/50 bg-black shadow-lg">
+                    <GuestThumb stream={localStream} />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 rounded-b-lg">
+                    <p className="text-[7px] font-bold text-white text-center truncate">{tLive("angleMain")}</p>
+                  </div>
+                </button>
+              )}
+              {/* Guest thumbnails (skip focused one) */}
               {coHostEntries.map(([id], i) => {
+                if (id === focusedGuestId) return null;
                 const guestStream = externalCoHostStreams!.get(id);
                 return (
-                  <div key={id} className="relative group">
-                    <div className="w-16 h-22 rounded-lg overflow-hidden border-2 border-accent/50 bg-black shadow-lg">
-                      {guestStream && <GuestThumb stream={guestStream} />}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 rounded-b-lg">
-                      <p className="text-[7px] font-bold text-white text-center truncate">{tLive("angleNumber", { n: i + 2 })}</p>
-                    </div>
+                  <div key={id} className="relative">
+                    <button onClick={(e) => { e.stopPropagation(); setFocusedGuestId(id); }}>
+                      <div className="w-16 h-22 rounded-lg overflow-hidden border-2 border-accent/50 bg-black shadow-lg">
+                        {guestStream && <GuestThumb stream={guestStream} />}
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 rounded-b-lg">
+                        <p className="text-[7px] font-bold text-white text-center truncate">{tLive("angleNumber", { n: i + 2 })}</p>
+                      </div>
+                    </button>
                     {onDisconnectGuest && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onDisconnectGuest(id); }}
