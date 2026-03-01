@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLiveState, getCloudflareStreamUid, getCloudflareWhepUrl } from "@/shared/lib/sse-hub";
+import { getLiveState, getCloudflareStreamUid, getCloudflareWhepUrl, setCloudflareWhepUrl } from "@/shared/lib/sse-hub";
 import { getLiveInputStatus } from "@/shared/lib/cloudflare-stream";
 
 /**
@@ -30,7 +30,22 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   const state = getLiveState();
-  const whepUrl = getCloudflareWhepUrl();
+  let whepUrl = getCloudflareWhepUrl();
+
+  // Fallback: discover WHEP URL from Cloudflare API if not stored
+  if (!whepUrl) {
+    const cfUid = getCloudflareStreamUid();
+    if (cfUid) {
+      try {
+        const status = await getLiveInputStatus(cfUid);
+        if (status?.webRTCPlayback?.url) {
+          whepUrl = status.webRTCPlayback.url;
+          setCloudflareWhepUrl(whepUrl);
+          console.log("[WHEP Proxy] Discovered WHEP URL from Cloudflare API:", whepUrl);
+        }
+      } catch {}
+    }
+  }
 
   if (!state.status.isLive || !whepUrl) {
     console.error("[WHEP Proxy] No active stream. isLive:", state.status.isLive, "whepUrl:", whepUrl);

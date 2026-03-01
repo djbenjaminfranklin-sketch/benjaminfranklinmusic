@@ -33,7 +33,7 @@ async function getViewerIceServers(): Promise<RTCConfiguration> {
 interface VideoPlayerProps {
   src?: string;
   stream?: MediaStream | null;
-  streamType?: "hls" | "whep";
+  streamType?: string;
 }
 
 /**
@@ -147,10 +147,10 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
     };
   }, [stream]);
 
-  // Mode WHEP : WebRTC playback via proxy (avoids CORS issues)
+  // Mode WHEP : WebRTC playback via proxy — always try for Cloudflare streams
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !src || stream || streamType !== "whep") return;
+    if (!video || !src || stream || streamType === "webrtc") return;
 
     // Use server-side proxy to avoid CORS with Cloudflare WHEP endpoint
     const whepUrl = "/api/live/whep";
@@ -243,10 +243,11 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
     };
   }, [src, stream, streamType]);
 
-  // Mode HLS (fallback pour les streams non-WHEP)
+  // Mode HLS (fallback — only for non-Cloudflare HLS streams without WHEP proxy)
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !src || stream || streamType === "whep") return;
+    // Skip HLS if WHEP is handling the connection (for all Cloudflare streams)
+    if (!video || !src || stream || streamType !== "hls-only") return;
 
     setIsLoading(true);
     setRetryCount(0);
