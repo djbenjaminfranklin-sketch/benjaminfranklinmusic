@@ -74,7 +74,6 @@ export default function LiveContainer() {
   };
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [viewerMuted, setViewerMuted] = useState(true);
   const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
   const [viewLayout, setViewLayout] = useState<"single" | "dual" | "quad">("single");
   const [dualPair, setDualPair] = useState<[string, string]>(["main", ""]);
@@ -236,7 +235,7 @@ export default function LiveContainer() {
                 isFullscreen
                   ? "fixed inset-0 z-50 bg-black"
                   : isLiveWebRTC || isLiveWhep
-                    ? "relative rounded-2xl overflow-hidden border border-border bg-card h-[85vh] aspect-[9/16] mx-auto max-w-full"
+                    ? "relative rounded-2xl overflow-hidden border border-border bg-card h-[calc(100dvh-120px)] max-h-[85vh] aspect-[9/16] mx-auto max-w-full"
                     : "relative aspect-video w-full rounded-2xl overflow-hidden border border-border bg-card"
               }
             >
@@ -295,24 +294,6 @@ export default function LiveContainer() {
 
                   {/* Spyn detection button — captures live stream audio directly */}
                   <SpynButton audioStream={remoteStream} />
-
-                  {/* Mute/unmute toggle — below LIVE badge, above chat overlay (z-30) */}
-                  <button
-                    onClick={() => {
-                      const video = fullscreenRef.current?.querySelector("video");
-                      if (video) {
-                        video.muted = !video.muted;
-                        setViewerMuted(video.muted);
-                      }
-                    }}
-                    className="absolute top-14 left-4 z-30 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform pointer-events-auto"
-                  >
-                    {viewerMuted ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                    )}
-                  </button>
 
                   {/* Chat overlay style Instagram Live */}
                   <LiveChatOverlay
@@ -456,8 +437,8 @@ export default function LiveContainer() {
 
             </div>
 
-            {/* Map when DJ location is available */}
-            {streamStatus.isLive && streamStatus.location && (
+            {/* Map when DJ location is available — hidden in portrait mode (WHEP/WebRTC) where venue badge is shown */}
+            {streamStatus.isLive && streamStatus.location && !isLiveWebRTC && !isLiveWhep && (
               <LiveMap lat={streamStatus.location.lat} lng={streamStatus.location.lng} />
             )}
 

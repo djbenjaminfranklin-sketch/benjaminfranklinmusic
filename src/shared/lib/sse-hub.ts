@@ -18,7 +18,7 @@ let liveStreamStatus: LiveStreamStatus = {
 };
 
 const chatClients = new Map<string, boolean>();
-const liveClients = new Map<string, boolean>();
+const liveClients = new Map<string, number>(); // clientId -> last seen timestamp
 
 // Cloudflare Stream Live Input uid (set when using WHIP mode)
 let cloudflareStreamUid: string | null = null;
@@ -44,7 +44,31 @@ let coHostCode: string | null = null;
 setInterval(() => {
   emitter.emit("chat:heartbeat");
   emitter.emit("live:heartbeat");
+
+  // Clean up stale live clients (no heartbeat ack for >60s)
+  const now = Date.now();
+  let staleRemoved = false;
+  for (const [clientId, lastSeen] of liveClients) {
+    if (now - lastSeen > 60_000) {
+      liveClients.delete(clientId);
+      staleRemoved = true;
+      if (coHostIds.has(clientId)) {
+        coHostIds.delete(clientId);
+        emitter.emit("live:co-hosts", { coHostIds: Array.from(coHostIds) });
+      }
+    }
+  }
+  if (staleRemoved) {
+    emitter.emit("live:presence", { viewerCount: getViewerCount() });
+  }
 }, 30_000);
+
+// Touch a client's lastSeen (called from SSE heartbeat ack)
+export function touchLiveClient(clientId: string) {
+  if (liveClients.has(clientId)) {
+    liveClients.set(clientId, Date.now());
+  }
+}
 
 // --- Chat API ---
 
@@ -114,9 +138,18 @@ export function addChatReaction(postId: string, reaction: string): ChatMessage |
 
 // --- Live API ---
 
+function getViewerCount(): number {
+  let count = liveClients.size;
+  // Don't count the broadcaster as a viewer
+  if (broadcasterId && liveClients.has(broadcasterId)) {
+    count--;
+  }
+  return Math.max(0, count);
+}
+
 export function connectLive(clientId: string) {
-  liveClients.set(clientId, true);
-  emitter.emit("live:presence", { viewerCount: liveClients.size });
+  liveClients.set(clientId, Date.now());
+  emitter.emit("live:presence", { viewerCount: getViewerCount() });
 }
 
 let broadcasterDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -142,13 +175,13 @@ export function disconnectLive(clientId: string) {
     coHostIds.delete(clientId);
     emitter.emit("live:co-hosts", { coHostIds: Array.from(coHostIds) });
   }
-  emitter.emit("live:presence", { viewerCount: liveClients.size });
+  emitter.emit("live:presence", { viewerCount: getViewerCount() });
 }
 
 export function getLiveState() {
   return {
     messages: liveChatMessages,
-    viewerCount: liveClients.size,
+    viewerCount: getViewerCount(),
     status: liveStreamStatus,
     coHostIds: Array.from(coHostIds),
   };
@@ -257,6 +290,8 @@ export function setBroadcaster(clientId: string) {
     clearTimeout(broadcasterDisconnectTimer);
     broadcasterDisconnectTimer = null;
   }
+  // Broadcaster is now identified — re-emit presence so viewers see correct count
+  emitter.emit("live:presence", { viewerCount: getViewerCount() });
 }
 
 export function getBroadcaster() {

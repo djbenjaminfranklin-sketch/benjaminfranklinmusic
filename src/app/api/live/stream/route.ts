@@ -4,6 +4,7 @@ import {
   disconnectLive,
   getLiveState,
   onLive,
+  touchLiveClient,
   type SignalMessage,
 } from "@/shared/lib/sse-hub";
 import { getScheduledLive } from "@/shared/lib/dynamic-config";
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
           send("scheduled", data);
         }),
         onLive("heartbeat", () => {
+          touchLiveClient(clientId);
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
         }),
       ];

@@ -251,7 +251,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
 
         if (track) {
           setResult(track);
-          setTimeout(() => setResult(null), 10000);
+          setTimeout(() => setResult(null), 30000);
           break;
         }
 
@@ -332,6 +332,12 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
                 : "absolute bottom-36 right-3 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl"
             }
           >
+            <button
+              onClick={() => setResult(null)}
+              className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <span className="text-[10px] text-white/60">✕</span>
+            </button>
             <p className="text-xs font-bold text-accent mb-0.5">SPYN</p>
             <p className="text-sm font-bold text-white truncate">{result.title}</p>
             <p className="text-xs text-white/60 truncate">{result.artist}</p>
