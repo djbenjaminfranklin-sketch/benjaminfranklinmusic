@@ -393,7 +393,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
       const file = new File([blob], filename, { type: mimeType || "video/mp4" });
 
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        navigator.share({ files: [file], title: filename }).catch(() => {});
+        navigator.share({ files: [file] }).catch(() => {});
       }
     };
     mr.start(1000);
@@ -756,8 +756,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           )}
 
           {/* Audio source toggle */}
-          {hasExternalDevice && (
-            <button
+          <button
               onClick={() => {
                 const next = audioSource === "both" ? "external" : audioSource === "external" ? "internal" : "both";
                 setAudioSource(next);
@@ -786,7 +785,6 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 </>
               )}
             </button>
-          )}
 
           {/* Native mic toggle (iOS app with USB connected) */}
           {nativeAudio?.isUSB && (
