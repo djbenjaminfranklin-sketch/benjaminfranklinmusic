@@ -251,9 +251,14 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     }
   }, [focusedGuestId, externalCoHostStreams]);
 
-  // Build list of broadcast camera streams (local only — invited fans are shown as thumbnails, not in the grid)
+  // Split co-host streams: co-hosts (no name) go in grid, fans (have name) stay as thumbnails
+  const coHostGridEntries = coHostEntries.filter(([id]) => !coHostNames?.has(id));
+  const fanThumbnailEntries = coHostEntries.filter(([id]) => coHostNames?.has(id));
+
+  // Build list of broadcast camera streams: local + co-hosts in grid
   const allStreams = [
     ...(localStream ? [{ id: "local", stream: localStream, label: tLive("angleMain"), mirror: facingMode === "user" }] : []),
+    ...coHostGridEntries.map(([id, stream], i) => ({ id, stream, label: tLive("angleNumber", { n: i + 2 }), mirror: false })),
   ];
   const [activeStreamIndex, setActiveStreamIndex] = useState(0);
 
@@ -547,22 +552,22 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
       <div className="fixed inset-0 bg-black z-50 overflow-hidden touch-none">
         {/* Main view: depends on broadcastMode */}
         {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
-          /* User tapped a guest thumbnail — override any mode */
-          <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={coHostNames?.get(focusedGuestId!) || tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+          /* User tapped a fan thumbnail — override any mode */
+          <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={coHostNames?.get(focusedGuestId!) || tLive("angleNumber", { n: fanThumbnailEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
         ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
-          /* Multicam: grid of all cameras */
+          /* Multicam: grid of all cameras (local + co-hosts) */
           <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
             {allStreams.slice(0, 4).map((s) => {
-              const coHostId = coHostEntries.find(([, stream]) => stream === s.stream)?.[0];
+              const isCoHost = s.id !== "local";
               return (
                 <div key={s.id} className="relative overflow-hidden">
                   <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
                   <div className="absolute bottom-2 left-2 z-10">
                     <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">{s.label}</span>
                   </div>
-                  {coHostId && onDisconnectGuest && (
+                  {isCoHost && onDisconnectGuest && (
                     <button
-                      onClick={() => onDisconnectGuest(coHostId)}
+                      onClick={() => onDisconnectGuest(s.id)}
                       className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 backdrop-blur-sm border-2 border-black/30 flex items-center justify-center z-10 active:scale-90 transition-transform touch-manipulation"
                     >
                       <span className="text-white text-sm font-bold leading-none">&times;</span>
@@ -576,13 +581,13 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           /* Director: all streams are always mounted, only the active one is visible */
           <div className="absolute inset-0">
             {allStreams.map((s, i) => {
-              const coHostId = coHostEntries.find(([, stream]) => stream === s.stream)?.[0];
+              const isCoHost = s.id !== "local";
               return (
                 <div key={s.id} className="absolute inset-0 transition-opacity duration-500" style={{ opacity: i === safeIndex ? 1 : 0, zIndex: i === safeIndex ? 1 : 0 }}>
                   <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
-                  {coHostId && onDisconnectGuest && i === safeIndex && (
+                  {isCoHost && onDisconnectGuest && i === safeIndex && (
                     <button
-                      onClick={() => onDisconnectGuest(coHostId)}
+                      onClick={() => onDisconnectGuest(s.id)}
                       className="absolute top-[max(4rem,calc(env(safe-area-inset-top)+3rem))] right-4 w-10 h-10 rounded-full bg-red-500/80 backdrop-blur-sm border-2 border-black/30 flex items-center justify-center z-50 active:scale-90 transition-transform touch-manipulation"
                     >
                       <span className="text-white text-lg font-bold leading-none">&times;</span>
@@ -725,10 +730,10 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           </div>
         </div>
 
-        {/* Thumbnails: shown when co-hosts exist but NOT in multicam/director grid (where they're already visible) */}
-        {coHostEntries.length > 0 && !(broadcastMode === "multicam" && allStreams.length > 1) && (
+        {/* Fan thumbnails: only invited fans (co-hosts are in the grid) */}
+        {fanThumbnailEntries.length > 0 && (
           <div className="absolute bottom-32 left-4 z-30 flex gap-2">
-            {/* Show local camera thumbnail when a guest is focused */}
+            {/* Show local camera thumbnail when a fan is focused */}
             {focusedGuestId && localStream && (
               <button
                 onClick={() => setFocusedGuestId(null)}
@@ -742,8 +747,8 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 </div>
               </button>
             )}
-            {/* Guest thumbnails (skip the focused one) */}
-            {coHostEntries.map(([id], i) => {
+            {/* Fan thumbnails (skip the focused one) */}
+            {fanThumbnailEntries.map(([id], i) => {
               if (id === focusedGuestId) return null;
               const guestStream = externalCoHostStreams!.get(id);
               const guestName = coHostNames?.get(id) || tLive("angleNumber", { n: i + 2 });
@@ -876,7 +881,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           onClick={() => setIsFullscreen(true)}>
           {/* Main view: depends on broadcastMode */}
           {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
-            <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={coHostNames?.get(focusedGuestId!) || tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+            <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={coHostNames?.get(focusedGuestId!) || tLive("angleNumber", { n: fanThumbnailEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
           ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
             <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
               {allStreams.slice(0, 4).map((s) => (
@@ -899,10 +904,10 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           ) : (
             <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
           )}
-          {/* Thumbnails (inline view) — tap to swap */}
-          {(coHostEntries.length > 0 || focusedGuestId) && (
+          {/* Fan thumbnails (inline view) — only invited fans, co-hosts are in the grid */}
+          {(fanThumbnailEntries.length > 0 || focusedGuestId) && (
             <div className="absolute bottom-14 left-2 z-10 flex gap-1.5">
-              {/* If a guest is focused, show local as thumbnail */}
+              {/* If a fan is focused, show local as thumbnail */}
               {focusedGuestId && localStream && (
                 <button onClick={(e) => { e.stopPropagation(); setFocusedGuestId(null); }} className="relative">
                   <div className="w-16 h-22 rounded-lg overflow-hidden border-2 border-white/50 bg-black shadow-lg">
@@ -913,8 +918,8 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                   </div>
                 </button>
               )}
-              {/* Guest thumbnails (skip focused one) */}
-              {coHostEntries.map(([id], i) => {
+              {/* Fan thumbnails (skip focused one) */}
+              {fanThumbnailEntries.map(([id], i) => {
                 if (id === focusedGuestId) return null;
                 const guestStream = externalCoHostStreams!.get(id);
                 return (
