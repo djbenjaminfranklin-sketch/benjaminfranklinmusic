@@ -18,6 +18,8 @@ export function useWhipBroadcast() {
   const mixedAudioCtxRef = useRef<AudioContext | null>(null);
   const externalStreamRef = useRef<MediaStream | null>(null);
   const originalMicTrackRef = useRef<MediaStreamTrack | null>(null);
+  const whipUrlRef = useRef<string | null>(null);
+  const reconnectingRef = useRef(false);
 
   /**
    * Start broadcasting to a WHIP endpoint.
@@ -86,6 +88,9 @@ export function useWhipBroadcast() {
         });
       });
 
+      // Save WHIP URL for auto-reconnect
+      whipUrlRef.current = whipUrl;
+
       // Send the offer to the WHIP endpoint
       const res = await fetch(whipUrl, {
         method: "POST",
@@ -102,16 +107,16 @@ export function useWhipBroadcast() {
         new RTCSessionDescription({ type: "answer", sdp: answerSdp })
       );
 
-      // Monitor WHIP connection state
+      // Monitor WHIP connection state + auto-reconnect
       pc.onconnectionstatechange = () => {
         console.log("[WHIP] Connection state:", pc.connectionState);
-        if (pc.connectionState === "failed") {
-          setError("Connexion WHIP perdue — redémarrez le live");
-          setIsBroadcasting(false);
-        } else if (pc.connectionState === "disconnected") {
-          setError("Connexion WHIP instable...");
-        } else if (pc.connectionState === "connected") {
+        if (pc.connectionState === "connected") {
           setError(null);
+          reconnectingRef.current = false;
+        } else if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+          console.warn("[WHIP] Connection lost, will auto-reconnect...");
+          setError("Reconnexion en cours...");
+          reconnectWhip();
         }
       };
 
@@ -330,6 +335,98 @@ export function useWhipBroadcast() {
       console.error("[WHIP Audio] Failed to switch audio source:", err);
     }
   }, []);
+
+  /**
+   * Auto-reconnect WHIP when the connection drops (e.g. iOS background).
+   * Reuses the existing MediaStream — just re-creates the PeerConnection.
+   */
+  const reconnectWhip = useCallback(async () => {
+    const whipUrl = whipUrlRef.current;
+    const stream = streamRef.current;
+    if (!whipUrl || !stream || reconnectingRef.current) return;
+
+    reconnectingRef.current = true;
+    console.log("[WHIP] Auto-reconnecting...");
+
+    // Close old PC
+    pcRef.current?.close();
+    pcRef.current = null;
+
+    try {
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
+        bundlePolicy: "max-bundle",
+      });
+      pcRef.current = pc;
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      await new Promise<void>((resolve) => {
+        if (pc.iceGatheringState === "complete") return resolve();
+        const timeout = setTimeout(resolve, 3000);
+        pc.addEventListener("icegatheringstatechange", () => {
+          if (pc.iceGatheringState === "complete") {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      });
+
+      const res = await fetch(whipUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/sdp" },
+        body: pc.localDescription!.sdp,
+      });
+
+      if (!res.ok) throw new Error(`WHIP reconnect failed (${res.status})`);
+
+      const answerSdp = await res.text();
+      await pc.setRemoteDescription(
+        new RTCSessionDescription({ type: "answer", sdp: answerSdp })
+      );
+
+      pc.onconnectionstatechange = () => {
+        console.log("[WHIP] Reconnect state:", pc.connectionState);
+        if (pc.connectionState === "connected") {
+          setError(null);
+          reconnectingRef.current = false;
+        } else if (pc.connectionState === "failed") {
+          // Retry after delay
+          setTimeout(reconnectWhip, 3000);
+        }
+      };
+
+      console.log("[WHIP] Reconnect handshake OK");
+    } catch (err) {
+      console.error("[WHIP] Reconnect failed:", err);
+      reconnectingRef.current = false;
+      // Retry after delay
+      setTimeout(reconnectWhip, 3000);
+    }
+  }, []);
+
+  // Auto-reconnect when app returns to foreground (iOS/Android)
+  useEffect(() => {
+    if (!isBroadcasting) return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && pcRef.current) {
+        const state = pcRef.current.connectionState;
+        console.log("[WHIP] App returned to foreground, connection state:", state);
+        if (state === "disconnected" || state === "failed" || state === "closed") {
+          reconnectWhip();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [isBroadcasting, reconnectWhip]);
 
   // Cleanup on unmount
   useEffect(() => {
