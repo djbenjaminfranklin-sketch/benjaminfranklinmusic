@@ -22,6 +22,7 @@ interface CameraBroadcastWhipProps {
   inviting?: boolean;
   onDisconnectGuest?: (guestId: string) => void;
   isServerLive?: boolean;
+  sseClientId?: string | null;
 }
 
 function StreamBand({ stream, label, mirror }: { stream: MediaStream; label: string; mirror?: boolean }) {
@@ -94,7 +95,7 @@ function formatTime(seconds: number) {
  * Same UI as CameraBroadcast (fullscreen, recording, chat, audio, SPYN)
  * but streams via WHIP to Cloudflare CDN instead of WebRTC P2P.
  */
-export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest, isServerLive }: CameraBroadcastWhipProps) {
+export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest, isServerLive, sseClientId }: CameraBroadcastWhipProps) {
   const {
     isBroadcasting,
     localStream,
@@ -456,6 +457,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           venue: geoResult.venue || venue,
           lat: geoResult.lat,
           lng: geoResult.lng,
+          broadcasterId: sseClientId,
         }),
       });
 
@@ -468,7 +470,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     } finally {
       setStarting(false);
     }
-  }, [startBroadcast, stopBroadcast, detectVenue, venue]);
+  }, [startBroadcast, stopBroadcast, detectVenue, venue, sseClientId]);
 
   // --- Stop Live ---
   const handleStopLive = useCallback(async () => {
@@ -484,6 +486,32 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
       // Best effort
     }
   }, [stopBroadcast]);
+
+  // Send stop-live beacon when the page unloads (app killed, tab closed, navigation)
+  useEffect(() => {
+    if (!isBroadcasting) return;
+
+    const sendStopBeacon = () => {
+      navigator.sendBeacon(
+        "/api/live/admin",
+        new Blob(
+          [JSON.stringify({ action: "stop-live" })],
+          { type: "application/json" }
+        )
+      );
+    };
+
+    // beforeunload: fires on tab close, navigation, page reload
+    window.addEventListener("beforeunload", sendStopBeacon);
+
+    // pagehide: more reliable on iOS Safari when app is killed
+    window.addEventListener("pagehide", sendStopBeacon);
+
+    return () => {
+      window.removeEventListener("beforeunload", sendStopBeacon);
+      window.removeEventListener("pagehide", sendStopBeacon);
+    };
+  }, [isBroadcasting]);
 
   const displayError = whipError || error;
 

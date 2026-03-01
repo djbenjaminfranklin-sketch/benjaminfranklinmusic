@@ -10,6 +10,7 @@ import {
   setCloudflareStreamUid,
   getCloudflareStreamUid,
   setCloudflareWhepUrl,
+  setBroadcaster,
 } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, djPassword, streamUrl, streamType, artist, title, venue, lat, lng, date, city, flyerUrl } = body;
+    const { action, djPassword, streamUrl, streamType, artist, title, venue, lat, lng, date, city, flyerUrl, broadcasterId: clientBroadcasterId } = body;
 
     // Auth: accepte soit le cookie admin soit le mot de passe legacy
     const user = await getAuthUser(request);
@@ -75,6 +76,10 @@ export async function POST(request: NextRequest) {
             ? { lat, lng }
             : undefined;
           setLiveStatus(true, streamUrl, streamType || "hls", location, venue);
+          // Register the broadcaster's SSE client so disconnect is detected
+          if (clientBroadcasterId) {
+            setBroadcaster(clientBroadcasterId);
+          }
           // Auto-clear scheduled live when going live
           setScheduledLive(null);
           emitScheduledLive(null);

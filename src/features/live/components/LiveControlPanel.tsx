@@ -12,7 +12,7 @@ import CameraBroadcastWhip from "./CameraBroadcastWhip";
 const useCloudflareStream = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_ENABLED === "true";
 
 export default function LiveControlPanel() {
-  const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage, inviteRandomViewer, inviting, disconnectInvitedGuest } = useLiveStream();
+  const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage, inviteRandomViewer, inviting, disconnectInvitedGuest, sseClientId } = useLiveStream();
   const { results: scheduleVenueResults, isSearching: isScheduleSearching, search: searchScheduleVenues } = usePlacesSearch();
   const [error, setError] = useState("");
   const [coHostCode, setCoHostCode] = useState<string | null>(null);
@@ -400,7 +400,7 @@ export default function LiveControlPanel() {
       {!streamStatus.isLive || streamStatus.streamType === "webrtc" || (useCloudflareStream && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep")) ? (
         <div className="rounded-2xl border border-border bg-card p-5">
           {useCloudflareStream ? (
-            <CameraBroadcastWhip venue={streamStatus.venue} viewerCount={viewerCount} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} onInviteViewer={inviteRandomViewer} inviting={inviting} onDisconnectGuest={disconnectInvitedGuest} isServerLive={streamStatus.isLive && streamStatus.streamType === "whep"} />
+            <CameraBroadcastWhip venue={streamStatus.venue} viewerCount={viewerCount} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} onInviteViewer={inviteRandomViewer} inviting={inviting} onDisconnectGuest={disconnectInvitedGuest} isServerLive={streamStatus.isLive && streamStatus.streamType === "whep"} sseClientId={sseClientId} />
           ) : (
             <CameraBroadcast isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} venue={streamStatus.venue} />
           )}

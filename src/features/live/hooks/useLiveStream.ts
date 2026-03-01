@@ -681,5 +681,6 @@ export function useLiveStream() {
     pendingInvite, guestStream, acceptInvite, declineInvite, stopGuest,
     coHostStreams, activeAngle, setActiveAngle,
     inviteRandomViewer, inviting, disconnectInvitedGuest,
+    sseClientId: clientIdRef.current,
   };
 }
