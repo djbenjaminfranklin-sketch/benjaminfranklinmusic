@@ -21,6 +21,7 @@ interface CameraBroadcastWhipProps {
   onInviteViewer?: () => Promise<void>;
   inviting?: boolean;
   onDisconnectGuest?: (guestId: string) => void;
+  isServerLive?: boolean;
 }
 
 function StreamBand({ stream, label, mirror }: { stream: MediaStream; label: string; mirror?: boolean }) {
@@ -93,7 +94,7 @@ function formatTime(seconds: number) {
  * Same UI as CameraBroadcast (fullscreen, recording, chat, audio, SPYN)
  * but streams via WHIP to Cloudflare CDN instead of WebRTC P2P.
  */
-export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest }: CameraBroadcastWhipProps) {
+export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest, isServerLive }: CameraBroadcastWhipProps) {
   const {
     isBroadcasting,
     localStream,
@@ -126,6 +127,25 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   const { audioSource, audioSourceName, externalDeviceId, internalDeviceId, setAudioSource } = useAudioDevices();
   const hasExternalDevice = !!externalDeviceId;
   const spynDeviceId = audioSource === "external" || audioSource === "both" ? externalDeviceId : internalDeviceId;
+
+  // Auto-resume broadcast after iOS kills and reloads the tab
+  const resumeAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (isBroadcasting || !isServerLive || resumeAttemptedRef.current) return;
+    resumeAttemptedRef.current = true;
+    try {
+      const saved = sessionStorage.getItem("whip_session");
+      if (!saved) return;
+      const { whipUrl, ts } = JSON.parse(saved);
+      // Only resume if the session is less than 2 hours old
+      if (Date.now() - ts > 2 * 60 * 60 * 1000) {
+        sessionStorage.removeItem("whip_session");
+        return;
+      }
+      console.log("[WHIP] Auto-resuming broadcast after tab reload...");
+      startBroadcast(whipUrl);
+    } catch {}
+  }, [isServerLive, isBroadcasting, startBroadcast]);
 
   // Auto-switch broadcast audio when user changes source
   const prevAudioSourceRef = useRef(audioSource);

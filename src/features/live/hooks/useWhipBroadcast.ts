@@ -153,6 +153,8 @@ export function useWhipBroadcast() {
       console.log("[WHIP] ICE gathering state:", pc.iceGatheringState, "— candidates in SDP:", (pc.localDescription?.sdp?.match(/a=candidate/g) || []).length);
 
       whipUrlRef.current = whipUrl;
+      // Persist WHIP URL so we can auto-resume after iOS kills the tab
+      try { sessionStorage.setItem("whip_session", JSON.stringify({ whipUrl, ts: Date.now() })); } catch {}
 
       const res = await fetch(whipUrl, {
         method: "POST",
@@ -247,6 +249,8 @@ export function useWhipBroadcast() {
 
     setIsBroadcasting(false);
     setIsMuted(false);
+    // Clear persisted session so we don't auto-resume
+    try { sessionStorage.removeItem("whip_session"); } catch {}
   }, []);
 
   /**

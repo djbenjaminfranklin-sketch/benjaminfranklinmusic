@@ -400,7 +400,7 @@ export default function LiveControlPanel() {
       {!streamStatus.isLive || streamStatus.streamType === "webrtc" || (useCloudflareStream && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep")) ? (
         <div className="rounded-2xl border border-border bg-card p-5">
           {useCloudflareStream ? (
-            <CameraBroadcastWhip venue={streamStatus.venue} viewerCount={viewerCount} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} onInviteViewer={inviteRandomViewer} inviting={inviting} onDisconnectGuest={disconnectInvitedGuest} />
+            <CameraBroadcastWhip venue={streamStatus.venue} viewerCount={viewerCount} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} onInviteViewer={inviteRandomViewer} inviting={inviting} onDisconnectGuest={disconnectInvitedGuest} isServerLive={streamStatus.isLive && streamStatus.streamType === "whep"} />
           ) : (
             <CameraBroadcast isLiveAlready={streamStatus.isLive} externalCoHostStreams={viewerCoHostStreams} chatMessages={chatMessages} onSendChat={sendChatMessage} currentTrack={streamStatus.currentTrack} venue={streamStatus.venue} />
           )}
