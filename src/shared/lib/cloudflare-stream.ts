@@ -1,7 +1,6 @@
 /**
  * Cloudflare Stream API utilities.
- * Uses WHIP for ingest and WHEP for delivery (WebRTC both ways).
- * Note: Cloudflare WHIP does NOT support HLS playback — WHEP is required.
+ * Uses WHIP for ingest, HLS for viewer playback.
  */
 
 const CF_API = "https://api.cloudflare.com/client/v4";
@@ -16,12 +15,12 @@ export function isCloudflareConfigured(): boolean {
 interface LiveInput {
   uid: string;
   whipUrl: string;
-  whepUrl: string;
+  hlsUrl: string;
 }
 
 /**
  * Create a Cloudflare Stream Live Input.
- * Returns the uid, WHIP ingest URL, and WHEP playback URL.
+ * Returns the uid, WHIP ingest URL, and HLS playback URL.
  */
 export async function createLiveInput(): Promise<LiveInput> {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -39,7 +38,7 @@ export async function createLiveInput(): Promise<LiveInput> {
     },
     body: JSON.stringify({
       meta: { name: `live-${Date.now()}` },
-      recording: { mode: "off" },
+      recording: { mode: "automatic" },
     }),
   });
 
@@ -55,23 +54,34 @@ export async function createLiveInput(): Promise<LiveInput> {
     uid: result.uid,
     webRTC: result.webRTC,
     webRTCPlayback: result.webRTCPlayback,
-    rtmps: result.rtmps ? "present" : "absent",
+    keys: Object.keys(result),
   }));
 
   const whipUrl = result.webRTC?.url;
-  const whepUrl = result.webRTCPlayback?.url;
-
   if (!whipUrl) {
-    console.error("[Cloudflare] No WHIP URL returned! Full result keys:", Object.keys(result));
+    console.error("[Cloudflare] No WHIP URL! Keys:", Object.keys(result));
   }
-  if (!whepUrl) {
-    console.error("[Cloudflare] No WHEP URL returned! Full result keys:", Object.keys(result));
+
+  // HLS playback URL — extract customer subdomain from WHEP URL if available,
+  // otherwise use videodelivery.net which works without a subdomain.
+  let hlsUrl: string;
+  const whepUrl = result.webRTCPlayback?.url as string | undefined;
+  if (whepUrl) {
+    // Extract base from: https://customer-xxx.cloudflarestream.com/{uid}/webRTC/play
+    const base = whepUrl.replace(/\/webRTC\/play$/, "");
+    hlsUrl = `${base}/manifest/video.m3u8`;
+  } else {
+    // Fallback: videodelivery.net works for any Cloudflare Stream video
+    hlsUrl = `https://videodelivery.net/${result.uid}/manifest/video.m3u8`;
   }
+
+  console.log("[Cloudflare] WHIP URL:", whipUrl);
+  console.log("[Cloudflare] HLS URL:", hlsUrl);
 
   return {
     uid: result.uid,
     whipUrl: whipUrl || `${CF_API}/accounts/${accountId}/stream/live_inputs/${result.uid}/webRTC`,
-    whepUrl: whepUrl || `https://${process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN || `customer-${accountId}`}.cloudflarestream.com/${result.uid}/webRTC/play`,
+    hlsUrl,
   };
 }
 

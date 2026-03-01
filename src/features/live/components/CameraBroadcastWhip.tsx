@@ -405,7 +405,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
         throw new Error(data.error || "Failed to create stream");
       }
 
-      const { whipUrl, whepUrl } = await createRes.json();
+      const { whipUrl, hlsUrl } = await createRes.json();
 
       const success = await startBroadcast(whipUrl);
       if (!success) return;
@@ -416,8 +416,8 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "go-live",
-          streamUrl: whepUrl,
-          streamType: "whep",
+          streamUrl: hlsUrl,
+          streamType: "hls",
           venue: geoResult.venue || venue,
           lat: geoResult.lat,
           lng: geoResult.lng,
