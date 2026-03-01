@@ -9,9 +9,7 @@ import { usePlacesSearch } from "@/shared/hooks/usePlacesSearch";
 import CameraBroadcast from "./CameraBroadcast";
 import CameraBroadcastWhip from "./CameraBroadcastWhip";
 
-// Cloudflare WHIP/WHEP disabled — connection drops after ~90s on mobile browsers.
-// Using P2P WebRTC instead (reliable with TURN servers for small audiences).
-const useCloudflareStream = false;
+const useCloudflareStream = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_ENABLED === "true";
 
 export default function LiveControlPanel() {
   const { streamStatus, viewerCount, scheduledLive: liveScheduledLive, coHostStreams: viewerCoHostStreams, chatMessages, sendChatMessage, inviteRandomViewer, inviting, disconnectInvitedGuest } = useLiveStream();

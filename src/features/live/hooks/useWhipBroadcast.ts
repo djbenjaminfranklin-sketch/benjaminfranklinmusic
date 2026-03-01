@@ -21,7 +21,6 @@ async function getIceServers(): Promise<RTCConfiguration> {
     const res = await fetch("/api/live/turn");
     if (res.ok) {
       const servers = await res.json();
-      // Add Cloudflare STUN to the list from Metered
       const hasCloudflareStun = servers.some((s: { urls: string | string[] }) => {
         const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
         return urls.some((u: string) => u.includes("cloudflare"));
@@ -38,6 +37,20 @@ async function getIceServers(): Promise<RTCConfiguration> {
     }
   } catch {}
   return DEFAULT_ICE;
+}
+
+// Screen Wake Lock — keeps screen on during broadcast (prevents iOS from suspending WebRTC)
+async function acquireWakeLock(): Promise<WakeLockSentinel | null> {
+  try {
+    if ("wakeLock" in navigator) {
+      const lock = await navigator.wakeLock.request("screen");
+      console.log("[WHIP] Wake Lock acquired — screen will stay on");
+      return lock;
+    }
+  } catch (e) {
+    console.warn("[WHIP] Wake Lock failed:", e);
+  }
+  return null;
 }
 
 /**
@@ -58,10 +71,42 @@ export function useWhipBroadcast() {
   const originalMicTrackRef = useRef<MediaStreamTrack | null>(null);
   const whipUrlRef = useRef<string | null>(null);
   const reconnectingRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const facingModeRef = useRef<"user" | "environment">("user");
+
+  // Keep facingModeRef in sync
+  facingModeRef.current = facingMode;
+
+  /**
+   * Re-acquire camera+mic if tracks are dead (e.g. after iOS background).
+   */
+  const ensureLiveTracks = useCallback(async (): Promise<MediaStream> => {
+    const stream = streamRef.current;
+    const videoTrack = stream?.getVideoTracks()[0];
+    const audioTrack = stream?.getAudioTracks()[0];
+
+    // If tracks are alive, reuse them
+    if (stream && videoTrack?.readyState === "live" && audioTrack?.readyState === "live") {
+      return stream;
+    }
+
+    console.log("[WHIP] Tracks dead — re-acquiring camera...");
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facingModeRef.current, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true,
+    });
+
+    // Stop old dead tracks
+    stream?.getTracks().forEach((t) => { if (t.readyState === "ended") t.stop(); });
+
+    streamRef.current = newStream;
+    setLocalStream(newStream);
+    originalMicTrackRef.current = newStream.getAudioTracks()[0] || null;
+    return newStream;
+  }, []);
 
   /**
    * Start broadcasting to a WHIP endpoint.
-   * Performs the WHIP handshake: send SDP offer via POST, receive SDP answer.
    */
   const startBroadcast = useCallback(async (whipUrl: string) => {
     setError(null);
@@ -75,10 +120,8 @@ export function useWhipBroadcast() {
       streamRef.current = stream;
       setLocalStream(stream);
 
-      // Save original mic track for restoring when switching back to "internal"
       originalMicTrackRef.current = stream.getAudioTracks()[0] || null;
 
-      // Hint video track for motion content
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack && "contentHint" in videoTrack) {
         videoTrack.contentHint = "motion";
@@ -88,7 +131,6 @@ export function useWhipBroadcast() {
       const pc = new RTCPeerConnection(iceConfig);
       pcRef.current = pc;
 
-      // Add tracks to the peer connection
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
@@ -108,11 +150,9 @@ export function useWhipBroadcast() {
         }
       });
 
-      // Create offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Wait for ICE gathering to complete (or timeout)
       await new Promise<void>((resolve) => {
         if (pc.iceGatheringState === "complete") return resolve();
         const timeout = setTimeout(resolve, 3000);
@@ -124,10 +164,8 @@ export function useWhipBroadcast() {
         });
       });
 
-      // Save WHIP URL for auto-reconnect
       whipUrlRef.current = whipUrl;
 
-      // Send the offer to the WHIP endpoint
       const res = await fetch(whipUrl, {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
@@ -160,11 +198,13 @@ export function useWhipBroadcast() {
         console.log("[WHIP] ICE state:", pc.iceConnectionState);
       };
 
+      // Acquire Wake Lock to keep screen on (prevents iOS from killing WebRTC)
+      wakeLockRef.current = await acquireWakeLock();
+
       setIsBroadcasting(true);
       console.log("[WHIP] Broadcast started — handshake OK, waiting for connection...");
       return true;
     } catch (err) {
-      // Cleanup on failure
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       setLocalStream(null);
@@ -186,13 +226,18 @@ export function useWhipBroadcast() {
     streamRef.current = null;
     setLocalStream(null);
 
-    // Cleanup mixed audio context
     if (mixedAudioCtxRef.current) {
       mixedAudioCtxRef.current.close().catch(() => {});
       mixedAudioCtxRef.current = null;
     }
     externalStreamRef.current?.getTracks().forEach((t) => t.stop());
     externalStreamRef.current = null;
+
+    // Release Wake Lock
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
 
     setIsBroadcasting(false);
     setIsMuted(false);
@@ -209,7 +254,6 @@ export function useWhipBroadcast() {
       const oldAudioTrack = streamRef.current.getAudioTracks()[0];
       const wasMuted = oldAudioTrack ? !oldAudioTrack.enabled : false;
 
-      // Android cannot open two cameras simultaneously — release old video first
       const oldVideoTrack = streamRef.current.getVideoTracks()[0];
       if (oldVideoTrack) oldVideoTrack.stop();
 
@@ -233,7 +277,6 @@ export function useWhipBroadcast() {
         newAudioTrack.enabled = !wasMuted;
       }
 
-      // Replace tracks in the peer connection
       for (const sender of pcRef.current.getSenders()) {
         if (sender.track?.kind === "video" && newVideoTrack) {
           await sender.replaceTrack(newVideoTrack);
@@ -243,7 +286,6 @@ export function useWhipBroadcast() {
         }
       }
 
-      // Stop remaining old tracks (audio)
       if (oldAudioTrack) oldAudioTrack.stop();
 
       streamRef.current = newStream;
@@ -269,13 +311,11 @@ export function useWhipBroadcast() {
 
   /**
    * Replace the audio source on the WHIP peer connection.
-   * Same logic as useLiveBroadcast but targets the single pcRef.
    */
   const replaceAudioSource = useCallback(async (mode: "internal" | "external" | "both", extDevId?: string | null, intDevId?: string | null) => {
     if (!streamRef.current) return;
 
     try {
-      // Cleanup previous mixed context
       if (mixedAudioCtxRef.current) {
         mixedAudioCtxRef.current.close().catch(() => {});
         mixedAudioCtxRef.current = null;
@@ -287,7 +327,6 @@ export function useWhipBroadcast() {
       const wasMuted = oldAudioTrack ? !oldAudioTrack.enabled : false;
 
       if (mode === "internal") {
-        // Restore the original mic track on the WHIP connection
         const micTrack = originalMicTrackRef.current;
         if (micTrack && oldAudioTrack !== micTrack) {
           if (wasMuted) micTrack.enabled = false;
@@ -329,13 +368,11 @@ export function useWhipBroadcast() {
         mixedAudioCtxRef.current = audioCtx;
         const dest = audioCtx.createMediaStreamDestination();
 
-        // Mixer (music) — full volume
         const mixerSource = audioCtx.createMediaStreamSource(mixerStream);
         const mixerGain = audioCtx.createGain();
         mixerGain.gain.value = 1.0;
         mixerSource.connect(mixerGain).connect(dest);
 
-        // Mic (voice) — reuse existing track
         if (existingMicTrack) {
           const micSource = audioCtx.createMediaStreamSource(new MediaStream([existingMicTrack]));
           const micGain = audioCtx.createGain();
@@ -348,10 +385,8 @@ export function useWhipBroadcast() {
         return;
       }
 
-      // Keep mute state
       if (wasMuted) newAudioTrack.enabled = false;
 
-      // Replace audio track on the WHIP peer connection
       if (pcRef.current && pcRef.current.connectionState !== "closed") {
         for (const sender of pcRef.current.getSenders()) {
           if (sender.track?.kind === "audio") {
@@ -360,7 +395,6 @@ export function useWhipBroadcast() {
         }
       }
 
-      // Update the audio track in streamRef without creating a new MediaStream
       if (oldAudioTrack && oldAudioTrack !== newAudioTrack) {
         streamRef.current.removeTrack(oldAudioTrack);
       }
@@ -373,22 +407,23 @@ export function useWhipBroadcast() {
   }, []);
 
   /**
-   * Auto-reconnect WHIP when the connection drops (e.g. iOS background).
-   * Reuses the existing MediaStream — just re-creates the PeerConnection.
+   * Auto-reconnect WHIP when the connection drops.
+   * Re-acquires camera if tracks are dead (iOS background kills them).
    */
   const reconnectWhip = useCallback(async () => {
     const whipUrl = whipUrlRef.current;
-    const stream = streamRef.current;
-    if (!whipUrl || !stream || reconnectingRef.current) return;
+    if (!whipUrl || reconnectingRef.current) return;
 
     reconnectingRef.current = true;
     console.log("[WHIP] Auto-reconnecting...");
 
-    // Close old PC
     pcRef.current?.close();
     pcRef.current = null;
 
     try {
+      // Re-acquire media if tracks died (iOS background)
+      const stream = await ensureLiveTracks();
+
       const iceConfig = await getIceServers();
       const pc = new RTCPeerConnection(iceConfig);
       pcRef.current = pc;
@@ -430,30 +465,48 @@ export function useWhipBroadcast() {
           setError(null);
           reconnectingRef.current = false;
         } else if (pc.connectionState === "failed") {
-          // Retry after delay
+          reconnectingRef.current = false;
           setTimeout(reconnectWhip, 3000);
         }
       };
+
+      // Re-acquire Wake Lock (iOS releases it on background)
+      if (!wakeLockRef.current || wakeLockRef.current.released) {
+        wakeLockRef.current = await acquireWakeLock();
+      }
 
       console.log("[WHIP] Reconnect handshake OK");
     } catch (err) {
       console.error("[WHIP] Reconnect failed:", err);
       reconnectingRef.current = false;
-      // Retry after delay
       setTimeout(reconnectWhip, 3000);
     }
-  }, []);
+  }, [ensureLiveTracks]);
 
   // Auto-reconnect when app returns to foreground (iOS/Android)
   useEffect(() => {
     if (!isBroadcasting) return;
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible" && pcRef.current) {
-        const state = pcRef.current.connectionState;
-        console.log("[WHIP] App returned to foreground, connection state:", state);
-        if (state === "disconnected" || state === "failed" || state === "closed") {
+    const handleVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        console.log("[WHIP] App returned to foreground");
+
+        // Re-acquire Wake Lock (released when app went to background)
+        if (!wakeLockRef.current || wakeLockRef.current.released) {
+          wakeLockRef.current = await acquireWakeLock();
+        }
+
+        // Check connection state and reconnect if needed
+        const pc = pcRef.current;
+        if (!pc || pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
           reconnectWhip();
+        } else {
+          // Connection might look OK but tracks could be dead
+          const videoTrack = streamRef.current?.getVideoTracks()[0];
+          if (videoTrack?.readyState === "ended") {
+            console.warn("[WHIP] Video track dead despite connection OK — reconnecting...");
+            reconnectWhip();
+          }
         }
       }
     };
@@ -467,6 +520,9 @@ export function useWhipBroadcast() {
     return () => {
       pcRef.current?.close();
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+      }
     };
   }, []);
 
