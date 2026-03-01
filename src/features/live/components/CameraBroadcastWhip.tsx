@@ -703,7 +703,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
         </div>
 
         {/* Thumbnails: shown when co-hosts exist but NOT in multicam/director grid (where they're already visible) */}
-        {coHostEntries.length > 0 && !(broadcastMode === "multicam" && allStreams.length > 1) && !(broadcastMode === "director" && allStreams.length > 1) && (
+        {coHostEntries.length > 0 && !(broadcastMode === "multicam" && allStreams.length > 1) && (
           <div className="absolute bottom-32 left-4 z-30 flex gap-2">
             {/* Show local camera thumbnail when a guest is focused */}
             {focusedGuestId && localStream && (
