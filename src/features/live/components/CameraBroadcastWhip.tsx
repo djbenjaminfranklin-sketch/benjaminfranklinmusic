@@ -544,9 +544,15 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
               </div>
             ))}
           </div>
-        ) : broadcastMode === "director" && currentDirectorStream ? (
-          /* Director: auto-switching between cameras */
-          <StreamBand stream={currentDirectorStream.stream} label={currentDirectorStream.label} mirror={currentDirectorStream.mirror} />
+        ) : broadcastMode === "director" && allStreams.length > 1 ? (
+          /* Director: all streams are always mounted, only the active one is visible */
+          <div className="absolute inset-0">
+            {allStreams.map((s, i) => (
+              <div key={s.id} className="absolute inset-0 transition-opacity duration-500" style={{ opacity: i === safeIndex ? 1 : 0, zIndex: i === safeIndex ? 1 : 0 }}>
+                <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
+              </div>
+            ))}
+          </div>
         ) : localStream ? (
           <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
         ) : null}
@@ -843,8 +849,14 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 </div>
               ))}
             </div>
-          ) : broadcastMode === "director" && currentDirectorStream ? (
-            <StreamBand stream={currentDirectorStream.stream} label={currentDirectorStream.label} mirror={currentDirectorStream.mirror} />
+          ) : broadcastMode === "director" && allStreams.length > 1 ? (
+            <div className="absolute inset-0">
+              {allStreams.map((s, i) => (
+                <div key={s.id} className="absolute inset-0 transition-opacity duration-500" style={{ opacity: i === safeIndex ? 1 : 0, zIndex: i === safeIndex ? 1 : 0 }}>
+                  <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
+                </div>
+              ))}
+            </div>
           ) : (
             <StreamBand stream={localStream} label={tLive("angleMain")} mirror={facingMode === "user"} />
           )}
