@@ -51,21 +51,17 @@ async function whepConnect(
   pc.addTransceiver("video", { direction: "recvonly" });
   pc.addTransceiver("audio", { direction: "recvonly" });
 
-  // Debounce play() — ontrack fires once per track (video + audio)
+  // Create our own MediaStream — using event.streams[0] from Cloudflare
+  // causes 0x0 resolution rendering in Firefox despite frames being decoded.
+  const targetStream = new MediaStream();
+  video.srcObject = targetStream;
+
   let playTimer: ReturnType<typeof setTimeout> | null = null;
 
   pc.ontrack = (event) => {
     console.log("[WHEP] Track received:", event.track.kind, "readyState:", event.track.readyState);
-    const incomingStream = event.streams?.[0];
-    if (incomingStream) {
-      if (video.srcObject !== incomingStream) {
-        video.srcObject = incomingStream;
-      }
-    } else {
-      if (!video.srcObject) {
-        video.srcObject = new MediaStream();
-      }
-      (video.srcObject as MediaStream).addTrack(event.track);
+    if (!targetStream.getTrackById(event.track.id)) {
+      targetStream.addTrack(event.track);
     }
     video.muted = true;
 
@@ -195,7 +191,7 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         setIsMutedOverlay(true);
         console.log("[WHEP] Connected successfully");
 
-        // Monitor WebRTC stats to check if video bytes are actually flowing
+        // Monitor WebRTC stats + video element state
         let lastBytesReceived = 0;
         const statsInterval = setInterval(async () => {
           if (pc.connectionState !== "connected") return;
@@ -204,10 +200,15 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
             stats.forEach((report) => {
               if (report.type === "inbound-rtp" && report.kind === "video") {
                 const delta = report.bytesReceived - lastBytesReceived;
-                console.log(`[WHEP] Video RTP: ${report.bytesReceived} bytes total, +${delta} since last check, ${report.framesDecoded || 0} frames decoded, ${report.framesReceived || 0} frames received`);
+                console.log(`[WHEP] Video RTP: ${report.bytesReceived} bytes (+${delta}), ${report.framesDecoded || 0} decoded, ${report.framesReceived || 0} received, ${report.frameWidth || "?"}x${report.frameHeight || "?"}`);
                 lastBytesReceived = report.bytesReceived;
               }
             });
+            // Log video element state
+            const ms = video.srcObject as MediaStream | null;
+            const vTrack = ms?.getVideoTracks()[0];
+            const settings = vTrack?.getSettings();
+            console.log(`[WHEP] Video element: ${video.videoWidth}x${video.videoHeight}, paused=${video.paused}, readyState=${video.readyState}, track=${vTrack?.readyState}, trackSize=${settings?.width || "?"}x${settings?.height || "?"}`);
           } catch {}
         }, 3000);
 
@@ -386,9 +387,7 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
     <div className="relative w-full h-full">
       <video
         ref={videoRef}
-        className="w-full h-full object-cover"
-        controls
-        controlsList="nodownload noplaybackrate nofullscreen"
+        className="w-full h-full object-contain bg-black"
         disablePictureInPicture
         onContextMenu={(e) => e.preventDefault()}
         playsInline

@@ -101,6 +101,7 @@ export default function LiveContainer() {
 
   const isLiveHLS = streamStatus.isLive && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep") && streamStatus.streamUrl;
   const isLiveWebRTC = streamStatus.isLive && streamStatus.streamType === "webrtc";
+  const isLiveWhep = streamStatus.isLive && streamStatus.streamType === "whep";
   const showVideo = isLiveHLS || (isLiveWebRTC && remoteStream);
 
   const toggleFullscreen = useCallback(async () => {
@@ -219,13 +220,13 @@ export default function LiveContainer() {
         </motion.div>
 
         {/* Main layout: video + chat */}
-        <div className={isLiveWebRTC ? "flex flex-col gap-6" : "flex flex-col lg:flex-row gap-6"}>
+        <div className={isLiveWebRTC || isLiveWhep ? "flex flex-col gap-6" : "flex flex-col lg:flex-row gap-6"}>
           {/* Video area */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className={isLiveWebRTC ? "w-full flex justify-center" : "lg:w-2/3"}
+            className={isLiveWebRTC || isLiveWhep ? "w-full flex justify-center" : "lg:w-2/3"}
           >
             {/* Zone vidéo — peut devenir plein écran */}
             <div
@@ -233,7 +234,7 @@ export default function LiveContainer() {
               className={
                 isFullscreen
                   ? "fixed inset-0 z-50 bg-black"
-                  : isLiveWebRTC
+                  : isLiveWebRTC || isLiveWhep
                     ? "relative rounded-2xl overflow-hidden border border-border bg-card h-[85vh] aspect-[9/16] mx-auto max-w-full"
                     : "relative aspect-video w-full rounded-2xl overflow-hidden border border-border bg-card"
               }
