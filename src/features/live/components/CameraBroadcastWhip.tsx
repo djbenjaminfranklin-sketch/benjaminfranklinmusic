@@ -246,15 +246,9 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     }
   }, [focusedGuestId, externalCoHostStreams]);
 
-  // Build list of all available streams
+  // Build list of broadcast camera streams (local only — invited fans are shown as thumbnails, not in the grid)
   const allStreams = [
     ...(localStream ? [{ id: "local", stream: localStream, label: tLive("angleMain"), mirror: facingMode === "user" }] : []),
-    ...coHostEntries.map(([id], i) => ({
-      id,
-      stream: externalCoHostStreams!.get(id)!,
-      label: coHostNames?.get(id) || tLive("angleNumber", { n: i + 2 }),
-      mirror: false,
-    })),
   ];
   const [activeStreamIndex, setActiveStreamIndex] = useState(0);
 
