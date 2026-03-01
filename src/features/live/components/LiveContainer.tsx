@@ -185,39 +185,41 @@ export default function LiveContainer() {
   }, [autoSwitchEnabled, hasMultipleAngles, setActiveAngle]);
 
   return (
-    <div className="min-h-screen bg-background pt-40 sm:pt-24 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <Radio className="h-6 w-6 text-accent" />
-            <h1 className="text-4xl sm:text-5xl font-bold text-primary">
-              {t("title")}
-            </h1>
-            {streamStatus.isLive && (
-              <motion.span
-                animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 border border-red-500/30 px-3 py-1 text-xs font-bold text-red-400 uppercase tracking-wider"
-              >
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                {t("liveNow")}
-              </motion.span>
-            )}
-            <div className="ml-auto flex items-center gap-1.5">
-              {isConnected ? (
-                <Wifi className="h-3.5 w-3.5 text-green-500" />
-              ) : (
-                <WifiOff className="h-3.5 w-3.5 text-orange-400" />
+    <div className={`min-h-screen bg-background pb-16 ${isLiveWebRTC || isLiveWhep ? "pt-20 sm:pt-24" : "pt-40 sm:pt-24"}`}>
+      <div className={`mx-auto ${isLiveWebRTC || isLiveWhep ? "px-0 sm:px-6 max-w-7xl" : "px-4 sm:px-6 max-w-7xl"}`}>
+        {/* Header — hidden in portrait live mode */}
+        {!isLiveWebRTC && !isLiveWhep && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <Radio className="h-6 w-6 text-accent" />
+              <h1 className="text-4xl sm:text-5xl font-bold text-primary">
+                {t("title")}
+              </h1>
+              {streamStatus.isLive && (
+                <motion.span
+                  animate={{ opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 border border-red-500/30 px-3 py-1 text-xs font-bold text-red-400 uppercase tracking-wider"
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  {t("liveNow")}
+                </motion.span>
               )}
+              <div className="ml-auto flex items-center gap-1.5">
+                {isConnected ? (
+                  <Wifi className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <WifiOff className="h-3.5 w-3.5 text-orange-400" />
+                )}
+              </div>
             </div>
-          </div>
-          <p className="text-foreground/50">{t("subtitle")}</p>
-        </motion.div>
+            <p className="text-foreground/50">{t("subtitle")}</p>
+          </motion.div>
+        )}
 
         {/* Main layout: video + chat */}
         <div className={isLiveWebRTC || isLiveWhep ? "flex flex-col gap-6" : "flex flex-col lg:flex-row gap-6"}>
@@ -448,25 +450,27 @@ export default function LiveContainer() {
             </div>
           </motion.div>
 
-          {/* Chat sidebar (1/3) — masqué en plein écran */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:w-1/3"
-          >
-            <div className="rounded-2xl border border-border bg-card h-[500px] lg:h-[calc(56.25vw*2/3+1.5rem)] lg:max-h-[600px] flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                <h3 className="text-sm font-bold text-foreground">{t("liveChat")}</h3>
-                <span className="text-xs text-foreground/40">
-                  {t("connected", { count: viewerCount })}
-                </span>
+          {/* Chat sidebar (1/3) — hidden in portrait mode (WHEP/WebRTC) where overlay chat is used */}
+          {!isLiveWebRTC && !isLiveWhep && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="lg:w-1/3"
+            >
+              <div className="rounded-2xl border border-border bg-card h-[500px] lg:h-[calc(56.25vw*2/3+1.5rem)] lg:max-h-[600px] flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <h3 className="text-sm font-bold text-foreground">{t("liveChat")}</h3>
+                  <span className="text-xs text-foreground/40">
+                    {t("connected", { count: viewerCount })}
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <LiveChat messages={chatMessages} onSend={sendChatMessage} />
+                </div>
               </div>
-              <div className="flex-1 min-h-0">
-                <LiveChat messages={chatMessages} onSend={sendChatMessage} />
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
         </div>
       </div>
 
