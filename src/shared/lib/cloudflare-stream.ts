@@ -86,6 +86,25 @@ export async function createLiveInput(): Promise<LiveInput> {
 }
 
 /**
+ * Check a Cloudflare Stream Live Input status.
+ */
+export async function getLiveInputStatus(uid: string) {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const token = process.env.CLOUDFLARE_STREAM_API_TOKEN;
+
+  if (!accountId || !token) return null;
+
+  const res = await fetch(`${CF_API}/accounts/${accountId}/stream/live_inputs/${uid}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) return { error: res.status };
+
+  const json = await res.json();
+  return json.result;
+}
+
+/**
  * Delete a Cloudflare Stream Live Input.
  */
 export async function deleteLiveInput(uid: string): Promise<void> {

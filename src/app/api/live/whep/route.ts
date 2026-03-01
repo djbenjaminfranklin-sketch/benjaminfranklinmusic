@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLiveState } from "@/shared/lib/sse-hub";
+import { getLiveState, getCloudflareStreamUid } from "@/shared/lib/sse-hub";
+import { getLiveInputStatus } from "@/shared/lib/cloudflare-stream";
 
 /**
- * GET — diagnostic endpoint to check WHEP proxy state.
+ * GET — diagnostic endpoint to check stream state + Cloudflare status.
  */
 export async function GET() {
   const state = getLiveState();
+  const cfUid = getCloudflareStreamUid();
+  let cloudflare = null;
+
+  if (cfUid) {
+    cloudflare = await getLiveInputStatus(cfUid);
+  }
+
   return NextResponse.json({
     isLive: state.status.isLive,
     streamUrl: state.status.streamUrl,
     streamType: state.status.streamType,
+    cloudflareUid: cfUid,
+    cloudflare,
   });
 }
 
