@@ -3,6 +3,33 @@
 import { useRef, useEffect, useState } from "react";
 import Hls from "hls.js";
 
+const DEFAULT_ICE: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.cloudflare.com:3478" },
+    { urls: "stun:stun.l.google.com:19302" },
+  ],
+  bundlePolicy: "max-bundle",
+};
+
+let cachedViewerIce: RTCConfiguration | null = null;
+let viewerIceCacheTime = 0;
+async function getViewerIceServers(): Promise<RTCConfiguration> {
+  if (cachedViewerIce && Date.now() - viewerIceCacheTime < 30 * 60 * 1000) {
+    return cachedViewerIce;
+  }
+  try {
+    const res = await fetch("/api/live/turn");
+    if (res.ok) {
+      const servers = await res.json();
+      servers.push({ urls: "stun:stun.cloudflare.com:3478" });
+      cachedViewerIce = { iceServers: servers, bundlePolicy: "max-bundle" as const };
+      viewerIceCacheTime = Date.now();
+      return cachedViewerIce;
+    }
+  } catch {}
+  return DEFAULT_ICE;
+}
+
 interface VideoPlayerProps {
   src?: string;
   stream?: MediaStream | null;
@@ -16,11 +43,9 @@ async function whepConnect(
   whepUrl: string,
   video: HTMLVideoElement,
   signal: AbortSignal,
+  iceConfig: RTCConfiguration,
 ): Promise<RTCPeerConnection> {
-  const pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
-    bundlePolicy: "max-bundle",
-  });
+  const pc = new RTCPeerConnection(iceConfig);
 
   // Receive-only transceivers
   pc.addTransceiver("video", { direction: "recvonly" });
@@ -122,7 +147,8 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
       setRetryCount(attempts);
       try {
         console.log(`[WHEP] Attempt ${attempts} — connecting via proxy...`);
-        const pc = await whepConnect(whepUrl, video, abortController.signal);
+        const iceConfig = await getViewerIceServers();
+        const pc = await whepConnect(whepUrl, video, abortController.signal, iceConfig);
         whepPcRef.current = pc;
         setIsLoading(false);
         setRetryCount(0);

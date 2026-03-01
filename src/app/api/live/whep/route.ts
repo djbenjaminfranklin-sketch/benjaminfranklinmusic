@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLiveState, getCloudflareStreamUid } from "@/shared/lib/sse-hub";
+import { getLiveState, getCloudflareStreamUid, getCloudflareWhepUrl } from "@/shared/lib/sse-hub";
 import { getLiveInputStatus } from "@/shared/lib/cloudflare-stream";
 
 /**
@@ -18,6 +18,7 @@ export async function GET() {
     isLive: state.status.isLive,
     streamUrl: state.status.streamUrl,
     streamType: state.status.streamType,
+    whepUrl: getCloudflareWhepUrl(),
     cloudflareUid: cfUid,
     cloudflare,
   });
@@ -29,13 +30,13 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   const state = getLiveState();
+  const whepUrl = getCloudflareWhepUrl();
 
-  if (!state.status.isLive || !state.status.streamUrl) {
-    console.error("[WHEP Proxy] No active stream. isLive:", state.status.isLive, "streamUrl:", state.status.streamUrl);
+  if (!state.status.isLive || !whepUrl) {
+    console.error("[WHEP Proxy] No active stream. isLive:", state.status.isLive, "whepUrl:", whepUrl);
     return NextResponse.json({ error: "No active stream" }, { status: 404 });
   }
 
-  const whepUrl = state.status.streamUrl;
   const sdpOffer = await request.text();
 
   console.log("[WHEP Proxy] Forwarding to:", whepUrl);

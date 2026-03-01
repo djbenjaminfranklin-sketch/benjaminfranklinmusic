@@ -15,6 +15,7 @@ export function isCloudflareConfigured(): boolean {
 interface LiveInput {
   uid: string;
   whipUrl: string;
+  whepUrl: string;
   hlsUrl: string;
 }
 
@@ -81,6 +82,7 @@ export async function createLiveInput(): Promise<LiveInput> {
   return {
     uid: result.uid,
     whipUrl: whipUrl || `${CF_API}/accounts/${accountId}/stream/live_inputs/${result.uid}/webRTC`,
+    whepUrl: whepUrl || `https://customer-${accountId}.cloudflarestream.com/${result.uid}/webRTC/play`,
     hlsUrl,
   };
 }

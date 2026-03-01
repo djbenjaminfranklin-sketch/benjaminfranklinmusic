@@ -2,6 +2,44 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
+const DEFAULT_ICE: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.cloudflare.com:3478" },
+    { urls: "stun:stun.l.google.com:19302" },
+  ],
+  bundlePolicy: "max-bundle",
+};
+
+// Fetch dynamic TURN credentials from our API (Metered.ca)
+let cachedIceConfig: RTCConfiguration | null = null;
+let cacheTime = 0;
+async function getIceServers(): Promise<RTCConfiguration> {
+  if (cachedIceConfig && Date.now() - cacheTime < 30 * 60 * 1000) {
+    return cachedIceConfig;
+  }
+  try {
+    const res = await fetch("/api/live/turn");
+    if (res.ok) {
+      const servers = await res.json();
+      // Add Cloudflare STUN to the list from Metered
+      const hasCloudflareStun = servers.some((s: { urls: string | string[] }) => {
+        const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+        return urls.some((u: string) => u.includes("cloudflare"));
+      });
+      if (!hasCloudflareStun) {
+        servers.push({ urls: "stun:stun.cloudflare.com:3478" });
+      }
+      cachedIceConfig = {
+        iceServers: servers,
+        bundlePolicy: "max-bundle",
+      };
+      cacheTime = Date.now();
+      return cachedIceConfig;
+    }
+  } catch {}
+  return DEFAULT_ICE;
+}
+
 /**
  * Hook for broadcasting via WHIP (WebRTC HTTP Ingest Protocol).
  * Sends a single stream to Cloudflare Stream — no P2P fan-out.
@@ -46,10 +84,8 @@ export function useWhipBroadcast() {
         videoTrack.contentHint = "motion";
       }
 
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
-        bundlePolicy: "max-bundle",
-      });
+      const iceConfig = await getIceServers();
+      const pc = new RTCPeerConnection(iceConfig);
       pcRef.current = pc;
 
       // Add tracks to the peer connection
@@ -353,10 +389,8 @@ export function useWhipBroadcast() {
     pcRef.current = null;
 
     try {
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
-        bundlePolicy: "max-bundle",
-      });
+      const iceConfig = await getIceServers();
+      const pc = new RTCPeerConnection(iceConfig);
       pcRef.current = pc;
 
       stream.getTracks().forEach((track) => {

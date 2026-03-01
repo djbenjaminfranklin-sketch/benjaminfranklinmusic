@@ -9,6 +9,7 @@ import {
   addChatMessage,
   setCloudflareStreamUid,
   getCloudflareStreamUid,
+  setCloudflareWhepUrl,
 } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
@@ -54,8 +55,10 @@ export async function POST(request: NextRequest) {
         }
         const input = await createLiveInput();
         setCloudflareStreamUid(input.uid);
+        setCloudflareWhepUrl(input.whepUrl);
         return NextResponse.json({
           whipUrl: input.whipUrl,
+          whepUrl: input.whepUrl,
           hlsUrl: input.hlsUrl,
         });
       }
