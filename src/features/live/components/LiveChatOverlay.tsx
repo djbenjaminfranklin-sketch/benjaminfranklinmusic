@@ -37,13 +37,13 @@ export default function LiveChatOverlay({ messages, onSend }: LiveChatOverlayPro
     }
   }, [messages]);
 
-  // Auto-fade: hide messages after 8 seconds
+  // Auto-fade: hide messages after 5 seconds
   useEffect(() => {
     if (messages.length === 0) return;
     const latest = messages[messages.length - 1];
     const timer = setTimeout(() => {
       setHiddenIds((prev) => new Set(prev).add(latest.id));
-    }, 8000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [messages]);
 
@@ -68,8 +68,8 @@ export default function LiveChatOverlay({ messages, onSend }: LiveChatOverlayPro
     }
   };
 
-  // N'afficher que les 30 derniers messages, filtrer les disparus
-  const visibleMessages = messages.slice(-30).filter((msg) => !hiddenIds.has(msg.id));
+  // N'afficher que les 5 derniers messages visibles
+  const visibleMessages = messages.slice(-10).filter((msg) => !hiddenIds.has(msg.id)).slice(-5);
 
   return (
     <div className="absolute inset-0 flex flex-col justify-end pointer-events-none z-20">
@@ -79,7 +79,7 @@ export default function LiveChatOverlay({ messages, onSend }: LiveChatOverlayPro
       {/* Messages défilants */}
       <div
         ref={scrollRef}
-        className="relative flex-1 overflow-y-auto px-4 pb-2 flex flex-col justify-end min-h-0 max-h-[50%]"
+        className="relative flex-1 overflow-y-auto px-4 pb-2 flex flex-col justify-end min-h-0 max-h-[30%]"
       >
         <div className="space-y-1.5">
           <AnimatePresence initial={false}>
