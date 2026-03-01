@@ -15,6 +15,7 @@ interface CameraBroadcastWhipProps {
   venue?: string;
   viewerCount?: number;
   externalCoHostStreams?: Map<string, MediaStream>;
+  coHostNames?: Map<string, string>;
   chatMessages?: LiveChatMessage[];
   onSendChat?: (author: string, content: string, djPassword?: string) => Promise<void>;
   currentTrack?: { artist: string; title: string } | null;
@@ -95,7 +96,7 @@ function formatTime(seconds: number) {
  * Same UI as CameraBroadcast (fullscreen, recording, chat, audio, SPYN)
  * but streams via WHIP to Cloudflare CDN instead of WebRTC P2P.
  */
-export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest, isServerLive, sseClientId }: CameraBroadcastWhipProps) {
+export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCoHostStreams, coHostNames, chatMessages, onSendChat, currentTrack, onInviteViewer, inviting, onDisconnectGuest, isServerLive, sseClientId }: CameraBroadcastWhipProps) {
   const {
     isBroadcasting,
     localStream,
@@ -234,7 +235,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     ...coHostEntries.map(([id], i) => ({
       id,
       stream: externalCoHostStreams!.get(id)!,
-      label: tLive("angleNumber", { n: i + 2 }),
+      label: coHostNames?.get(id) || tLive("angleNumber", { n: i + 2 }),
       mirror: false,
     })),
   ];
@@ -531,7 +532,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
         {/* Main view: depends on broadcastMode */}
         {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
           /* User tapped a guest thumbnail — override any mode */
-          <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+          <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={coHostNames?.get(focusedGuestId!) || tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
         ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
           /* Multicam: grid of all cameras */
           <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
@@ -701,11 +702,11 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           </div>
         </div>
 
-        {/* Thumbnails: only shown when a fan/viewer is focused (not in multicam/director grid) */}
-        {focusedGuestId && (
+        {/* Thumbnails: shown when co-hosts exist but NOT in multicam/director grid (where they're already visible) */}
+        {coHostEntries.length > 0 && !(broadcastMode === "multicam" && allStreams.length > 1) && !(broadcastMode === "director" && allStreams.length > 1) && (
           <div className="absolute bottom-32 left-4 z-30 flex gap-2">
-            {/* Show local camera as first thumbnail to allow going back */}
-            {localStream && (
+            {/* Show local camera thumbnail when a guest is focused */}
+            {focusedGuestId && localStream && (
               <button
                 onClick={() => setFocusedGuestId(null)}
                 className="relative"
@@ -718,10 +719,11 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 </div>
               </button>
             )}
-            {/* Other guest thumbnails (skip the focused one) */}
+            {/* Guest thumbnails (skip the focused one) */}
             {coHostEntries.map(([id], i) => {
               if (id === focusedGuestId) return null;
               const guestStream = externalCoHostStreams!.get(id);
+              const guestName = coHostNames?.get(id) || tLive("angleNumber", { n: i + 2 });
               return (
                 <div key={id} className="relative">
                   <button onClick={() => setFocusedGuestId(id)}>
@@ -729,7 +731,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                       {guestStream && <GuestThumb stream={guestStream} />}
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-1 py-0.5 rounded-b-xl">
-                      <p className="text-[8px] font-bold text-white text-center truncate">{"\u2B50"} {tLive("angleNumber", { n: i + 2 })}</p>
+                      <p className="text-[8px] font-bold text-white text-center truncate">{guestName}</p>
                     </div>
                   </button>
                 </div>
@@ -837,7 +839,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           onClick={() => setIsFullscreen(true)}>
           {/* Main view: depends on broadcastMode */}
           {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
-            <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
+            <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={coHostNames?.get(focusedGuestId!) || tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
           ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
             <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
               {allStreams.slice(0, 4).map((s) => (
@@ -885,7 +887,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                         {guestStream && <GuestThumb stream={guestStream} />}
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 rounded-b-lg">
-                        <p className="text-[7px] font-bold text-white text-center truncate">{tLive("angleNumber", { n: i + 2 })}</p>
+                        <p className="text-[7px] font-bold text-white text-center truncate">{coHostNames?.get(id) || tLive("angleNumber", { n: i + 2 })}</p>
                       </div>
                     </button>
                     {onDisconnectGuest && (

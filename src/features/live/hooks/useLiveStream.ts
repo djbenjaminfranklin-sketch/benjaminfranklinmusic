@@ -96,6 +96,7 @@ export function useLiveStream() {
   const [isConnected, setIsConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [coHostStreams, setCoHostStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [coHostNames, setCoHostNames] = useState<Map<string, string>>(new Map());
   const [activeAngle, setActiveAngle] = useState<string>("main");
   const [scheduledLive, setScheduledLive] = useState<ScheduledLiveData | null>(null);
   const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
@@ -111,7 +112,7 @@ export function useLiveStream() {
   const mainBroadcasterRef = useRef<string | null>(null);
   const inviteBroadcasterRef = useRef<string | null>(null);
   // Ref to always dispatch to the latest handleSignal from the SSE listener
-  const handleSignalRef = useRef<((signal: { type: string; from: string; data: unknown }) => Promise<void>) | undefined>(undefined);
+  const handleSignalRef = useRef<((signal: { type: string; from: string; data: unknown; name?: string }) => Promise<void>) | undefined>(undefined);
   // Buffer ICE candidates that arrive before setRemoteDescription
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
@@ -144,8 +145,8 @@ export function useLiveStream() {
   }, []);
 
   // Gérer les signaux WebRTC entrants
-  const handleSignal = useCallback(async (signal: { type: string; from: string; data: unknown }) => {
-    const { type, from, data } = signal;
+  const handleSignal = useCallback(async (signal: { type: string; from: string; data: unknown; name?: string }) => {
+    const { type, from, data, name: signalName } = signal;
 
     if (type === "offer") {
       // If we have a guest stream ready and a main connection exists,
@@ -248,7 +249,10 @@ export function useLiveStream() {
           body: JSON.stringify({ type: "answer", from: clientIdRef.current, to: from, data: answer }),
         });
       } else {
-        // Co-host offer
+        // Co-host offer — store guest name if provided
+        if (signalName) {
+          setCoHostNames((prev) => new Map(prev).set(from, signalName));
+        }
         const existingPc = coHostPcsRef.current.get(from);
         if (existingPc) {
           existingPc.close();
@@ -280,6 +284,11 @@ export function useLiveStream() {
           if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
             coHostPcsRef.current.delete(from);
             setCoHostStreams((prev) => {
+              const next = new Map(prev);
+              next.delete(from);
+              return next;
+            });
+            setCoHostNames((prev) => {
               const next = new Map(prev);
               next.delete(from);
               return next;
@@ -421,7 +430,7 @@ export function useLiveStream() {
         await fetch("/api/live/signal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "offer", from: clientIdRef.current, to: adminId, data: offer }),
+          body: JSON.stringify({ type: "offer", from: clientIdRef.current, to: adminId, data: offer, name }),
         });
       }
     } catch {
@@ -587,7 +596,7 @@ export function useLiveStream() {
         processingSignals = true;
         while (signalQueue.length > 0) {
           const sig = signalQueue.shift();
-          try { await handleSignalRef.current?.(sig as { type: string; from: string; data: unknown }); } catch (err) { console.warn("[Signal]", err); }
+          try { await handleSignalRef.current?.(sig as { type: string; from: string; data: unknown; name?: string }); } catch (err) { console.warn("[Signal]", err); }
         }
         processingSignals = false;
       };
@@ -679,7 +688,7 @@ export function useLiveStream() {
     chatMessages, viewerCount, streamStatus, isConnected, remoteStream, sendChatMessage,
     scheduledLive,
     pendingInvite, guestStream, acceptInvite, declineInvite, stopGuest,
-    coHostStreams, activeAngle, setActiveAngle,
+    coHostStreams, coHostNames, activeAngle, setActiveAngle,
     inviteRandomViewer, inviting, disconnectInvitedGuest,
     sseClientId: clientIdRef.current,
   };
