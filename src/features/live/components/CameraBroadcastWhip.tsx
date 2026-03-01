@@ -388,6 +388,26 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     }
   }, [isBroadcasting, isRecording, stopRecording]);
 
+  // Auto-stop live when phone is locked or app goes to background
+  useEffect(() => {
+    if (!isBroadcasting) return;
+
+    const handleHidden = () => {
+      if (document.visibilityState === "hidden") {
+        console.log("[WHIP] App went to background — stopping live");
+        stopBroadcast();
+        fetch("/api/live/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "stop-live" }),
+        }).catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleHidden);
+    return () => document.removeEventListener("visibilitychange", handleHidden);
+  }, [isBroadcasting, stopBroadcast]);
+
   // --- Go Live (Cloudflare WHIP flow) ---
   const handleGoLive = useCallback(async () => {
     setStarting(true);
