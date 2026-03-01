@@ -51,23 +51,29 @@ async function whepConnect(
   pc.addTransceiver("video", { direction: "recvonly" });
   pc.addTransceiver("audio", { direction: "recvonly" });
 
+  // Debounce play() — ontrack fires once per track (video + audio)
+  let playTimer: ReturnType<typeof setTimeout> | null = null;
+
   pc.ontrack = (event) => {
     console.log("[WHEP] Track received:", event.track.kind, "readyState:", event.track.readyState);
-    // Some browsers may not associate tracks with streams — handle both cases
     const incomingStream = event.streams?.[0];
     if (incomingStream) {
       if (video.srcObject !== incomingStream) {
         video.srcObject = incomingStream;
       }
     } else {
-      // Fallback: manually build a MediaStream from individual tracks
       if (!video.srcObject) {
         video.srcObject = new MediaStream();
       }
       (video.srcObject as MediaStream).addTrack(event.track);
     }
     video.muted = true;
-    video.play().catch((e) => console.warn("[WHEP] play() failed:", e));
+
+    // Only call play() once after all tracks arrive
+    if (playTimer) clearTimeout(playTimer);
+    playTimer = setTimeout(() => {
+      video.play().catch((e) => console.warn("[WHEP] play() failed:", e));
+    }, 200);
   };
 
   const offer = await pc.createOffer();
@@ -167,6 +173,11 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
       if (abortController.signal.aborted) return;
       attempts++;
       setRetryCount(attempts);
+
+      // Clean up video element before new connection
+      video.pause();
+      video.srcObject = null;
+
       try {
         console.log(`[WHEP] Attempt ${attempts} — connecting via proxy...`);
         const iceConfig = await getViewerIceServers();
@@ -178,10 +189,16 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         setIsMutedOverlay(true);
         console.log("[WHEP] Connected successfully");
 
-        // Check if video actually renders within 8s, otherwise reconnect
+        // Listen for actual video playback instead of checking dimensions
+        let videoPlaying = false;
+        const onPlaying = () => { videoPlaying = true; };
+        video.addEventListener("playing", onPlaying, { once: true });
+
+        // If no playback after 12s, reconnect
         const videoCheck = setTimeout(() => {
-          if (video.videoWidth === 0 && video.videoHeight === 0 && !abortController.signal.aborted) {
-            console.warn("[WHEP] No video frames after 8s — reconnecting...");
+          video.removeEventListener("playing", onPlaying);
+          if (!videoPlaying && !abortController.signal.aborted) {
+            console.warn("[WHEP] No playback after 12s — reconnecting...");
             pc.close();
             whepPcRef.current = null;
             if (attempts < maxAttempts) {
@@ -190,12 +207,13 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
               retryTimer = setTimeout(tryConnect, 2000);
             }
           }
-        }, 8000);
+        }, 12000);
 
         pc.onconnectionstatechange = () => {
           console.log("[WHEP] Connection state:", pc.connectionState);
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
             clearTimeout(videoCheck);
+            video.removeEventListener("playing", onPlaying);
             pc.close();
             whepPcRef.current = null;
             if (!abortController.signal.aborted && attempts < maxAttempts) {
