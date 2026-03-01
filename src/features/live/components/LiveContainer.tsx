@@ -66,7 +66,9 @@ export default function LiveContainer() {
     ...(remoteStream ? [{ id: "main", stream: remoteStream }] : []),
     ...coHostEntries.map(([id, stream]) => ({ id, stream })),
   ];
-  const totalCameras = allStreamEntries.length;
+  // In WHEP mode, main stream comes via URL (not MediaStream), but it's still a camera
+  const hasMainStream = !!remoteStream || !!(streamStatus.isLive && streamStatus.streamType === "whep" && streamStatus.streamUrl);
+  const totalCameras = (hasMainStream ? 1 : 0) + coHostEntries.length;
   const getAngleLabel = (angleId: string) => {
     if (angleId === "main") return t("angleMain");
     const idx = coHostEntries.findIndex(([cid]) => cid === angleId);
@@ -243,19 +245,42 @@ export default function LiveContainer() {
             >
               {showVideo ? (
                 <>
-                  {/* HLS/WHEP: always single view */}
-                  {isLiveHLS && (
-                    <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                  {/* Single angle view */}
+                  {effectiveLayout === "single" && (
+                    activeAngle !== "main" && coHostStreams.get(activeAngle) ? (
+                      <VideoPlayer stream={coHostStreams.get(activeAngle)!} />
+                    ) : isLiveHLS ? (
+                      <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                    ) : currentStream ? (
+                      <VideoPlayer stream={currentStream} />
+                    ) : null
                   )}
-                  {/* WebRTC: single angle */}
-                  {isLiveWebRTC && effectiveLayout === "single" && currentStream && (
-                    <VideoPlayer stream={currentStream} />
-                  )}
-                  {/* WebRTC: dual — 2 vues côte à côte */}
-                  {isLiveWebRTC && effectiveLayout === "dual" && (
+                  {/* Dual — 2 vues côte à côte */}
+                  {effectiveLayout === "dual" && (
                     <div className="absolute inset-0 grid grid-cols-2 gap-0.5 bg-black">
                       {dualPair.map((angleId) => {
-                        const s = angleId === "main" ? remoteStream : coHostStreams.get(angleId);
+                        if (angleId === "main") {
+                          return isLiveHLS ? (
+                            <div key={angleId} className="relative overflow-hidden">
+                              <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                              <div className="absolute bottom-2 left-2 z-10">
+                                <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
+                                  {getAngleLabel(angleId)}
+                                </span>
+                              </div>
+                            </div>
+                          ) : remoteStream ? (
+                            <div key={angleId} className="relative overflow-hidden">
+                              <VideoPlayer stream={remoteStream} />
+                              <div className="absolute bottom-2 left-2 z-10">
+                                <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
+                                  {getAngleLabel(angleId)}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null;
+                        }
+                        const s = coHostStreams.get(angleId);
                         return s ? (
                           <div key={angleId} className="relative overflow-hidden">
                             <VideoPlayer stream={s} />
@@ -269,15 +294,29 @@ export default function LiveContainer() {
                       })}
                     </div>
                   )}
-                  {/* WebRTC: multi — 3 ou 4 vues côte à côte */}
-                  {isLiveWebRTC && effectiveLayout === "quad" && (
-                    <div className={`absolute inset-0 grid gap-0.5 bg-black`} style={{ gridTemplateColumns: `repeat(${Math.min(allStreamEntries.length, 4)}, 1fr)` }}>
-                      {allStreamEntries.slice(0, 4).map((entry) => (
-                        <div key={entry.id} className="relative overflow-hidden">
-                          <VideoPlayer stream={entry.stream} />
+                  {/* Quad — 3 ou 4 vues */}
+                  {effectiveLayout === "quad" && (
+                    <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: `repeat(${Math.min(totalCameras, 4)}, 1fr)` }}>
+                      {/* Main stream */}
+                      <div className="relative overflow-hidden">
+                        {isLiveHLS ? (
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                        ) : remoteStream ? (
+                          <VideoPlayer stream={remoteStream} />
+                        ) : null}
+                        <div className="absolute bottom-2 left-2 z-10">
+                          <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
+                            {getAngleLabel("main")}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Co-host streams */}
+                      {coHostEntries.slice(0, 3).map(([id, stream]) => (
+                        <div key={id} className="relative overflow-hidden">
+                          <VideoPlayer stream={stream} />
                           <div className="absolute bottom-2 left-2 z-10">
                             <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
-                              {getAngleLabel(entry.id)}
+                              {getAngleLabel(id)}
                             </span>
                           </div>
                         </div>
