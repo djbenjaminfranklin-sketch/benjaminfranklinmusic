@@ -229,9 +229,13 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     if (currentCount > prevCoHostCountRef.current) {
       const newestId = coHostEntries[coHostEntries.length - 1]?.[0];
       if (newestId) {
-        const name = coHostNames?.get(newestId) || newestId.slice(0, 8);
-        setGuestNotification(tLive("guestJoined", { name }));
-        setTimeout(() => setGuestNotification(null), 4000);
+        const name = coHostNames?.get(newestId);
+        // Only show "joined the live" notification for invited fans (who have a name)
+        // Co-hosts via link don't send a name — skip notification for them
+        if (name) {
+          setGuestNotification(tLive("guestJoined", { name }));
+          setTimeout(() => setGuestNotification(null), 4000);
+        }
       }
     }
     prevCoHostCountRef.current = currentCount;
