@@ -534,16 +534,9 @@ export function useWhipBroadcast() {
     };
   }, []);
 
-  // Stop broadcast on page close
-  useEffect(() => {
-    if (!isBroadcasting) return;
-    const handleUnload = () => {
-      pcRef.current?.close();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [isBroadcasting]);
+  // No beforeunload handler — on iOS/Android, beforeunload fires when switching
+  // to another app (WhatsApp, etc.), which would kill the WHIP connection.
+  // The broadcast should only stop via explicit stopBroadcast() call.
 
   return {
     isBroadcasting,

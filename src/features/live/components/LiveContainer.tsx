@@ -296,7 +296,7 @@ export default function LiveContainer() {
                   {/* Spyn detection button — captures live stream audio directly */}
                   <SpynButton audioStream={remoteStream} />
 
-                  {/* Mute/unmute toggle — above chat overlay (z-30) */}
+                  {/* Mute/unmute toggle — below LIVE badge, above chat overlay (z-30) */}
                   <button
                     onClick={() => {
                       const video = fullscreenRef.current?.querySelector("video");
@@ -305,7 +305,7 @@ export default function LiveContainer() {
                         setViewerMuted(video.muted);
                       }
                     }}
-                    className="absolute top-3 left-3 z-30 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform pointer-events-auto"
+                    className="absolute top-14 left-4 z-30 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform pointer-events-auto"
                   >
                     {viewerMuted ? (
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
