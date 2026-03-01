@@ -161,6 +161,13 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   // --- Fullscreen mode ---
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Auto-fullscreen when broadcast starts
+  useEffect(() => {
+    if (isBroadcasting && localStream) {
+      setIsFullscreen(true);
+    }
+  }, [isBroadcasting, localStream]);
+
   // --- Broadcast mode: multicam or director ---
   const [broadcastMode, setBroadcastMode] = useState<"multicam" | "director">("director");
 
