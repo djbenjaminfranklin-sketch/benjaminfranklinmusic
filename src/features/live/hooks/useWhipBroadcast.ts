@@ -135,27 +135,13 @@ export function useWhipBroadcast() {
         pc.addTrack(track, stream);
       });
 
-      // Set low-latency encoding
-      pc.addEventListener("negotiationneeded", async () => {
-        for (const sender of pc.getSenders()) {
-          if (sender.track?.kind !== "video") continue;
-          try {
-            const params = sender.getParameters();
-            if (!params.encodings?.length) continue;
-            params.degradationPreference = "maintain-framerate";
-            params.encodings[0].maxBitrate = 2_000_000;
-            params.encodings[0].maxFramerate = 30;
-            await sender.setParameters(params);
-          } catch {}
-        }
-      });
-
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // Wait for ICE gathering (5s for TURN candidates)
       await new Promise<void>((resolve) => {
         if (pc.iceGatheringState === "complete") return resolve();
-        const timeout = setTimeout(resolve, 3000);
+        const timeout = setTimeout(resolve, 5000);
         pc.addEventListener("icegatheringstatechange", () => {
           if (pc.iceGatheringState === "complete") {
             clearTimeout(timeout);
@@ -163,6 +149,8 @@ export function useWhipBroadcast() {
           }
         });
       });
+
+      console.log("[WHIP] ICE gathering state:", pc.iceGatheringState, "— candidates in SDP:", (pc.localDescription?.sdp?.match(/a=candidate/g) || []).length);
 
       whipUrlRef.current = whipUrl;
 
@@ -177,9 +165,27 @@ export function useWhipBroadcast() {
       }
 
       const answerSdp = await res.text();
+
+      // Log codecs negotiated with Cloudflare
+      const cfCodecs = answerSdp.match(/a=rtpmap:\d+ (\w+)\/\d+/g);
+      console.log("[WHIP] Cloudflare answer codecs:", cfCodecs?.join(", ") || "none");
+
       await pc.setRemoteDescription(
         new RTCSessionDescription({ type: "answer", sdp: answerSdp })
       );
+
+      // Set low-latency encoding after connection is negotiated
+      for (const sender of pc.getSenders()) {
+        if (sender.track?.kind !== "video") continue;
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings?.length) continue;
+          params.degradationPreference = "maintain-framerate";
+          params.encodings[0].maxBitrate = 2_000_000;
+          params.encodings[0].maxFramerate = 30;
+          await sender.setParameters(params);
+        } catch {}
+      }
 
       // Monitor WHIP connection state + auto-reconnect
       pc.onconnectionstatechange = () => {
@@ -437,7 +443,7 @@ export function useWhipBroadcast() {
 
       await new Promise<void>((resolve) => {
         if (pc.iceGatheringState === "complete") return resolve();
-        const timeout = setTimeout(resolve, 3000);
+        const timeout = setTimeout(resolve, 5000);
         pc.addEventListener("icegatheringstatechange", () => {
           if (pc.iceGatheringState === "complete") {
             clearTimeout(timeout);
@@ -445,6 +451,8 @@ export function useWhipBroadcast() {
           }
         });
       });
+
+      console.log("[WHIP] Reconnect ICE state:", pc.iceGatheringState, "— candidates:", (pc.localDescription?.sdp?.match(/a=candidate/g) || []).length);
 
       const res = await fetch(whipUrl, {
         method: "POST",

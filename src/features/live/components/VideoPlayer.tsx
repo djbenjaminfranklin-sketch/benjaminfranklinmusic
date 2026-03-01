@@ -79,10 +79,10 @@ async function whepConnect(
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  // Wait for ICE gathering (or timeout)
+  // Wait for ICE gathering (5s for TURN candidates)
   await new Promise<void>((resolve) => {
     if (pc.iceGatheringState === "complete") return resolve();
-    const timeout = setTimeout(resolve, 3000);
+    const timeout = setTimeout(resolve, 5000);
     pc.addEventListener("icegatheringstatechange", () => {
       if (pc.iceGatheringState === "complete") {
         clearTimeout(timeout);
@@ -109,6 +109,12 @@ async function whepConnect(
   }
 
   const answerSdp = await res.text();
+
+  // Log codecs from SDP answer for debugging
+  const videoCodecs = answerSdp.match(/a=rtpmap:\d+ (\w+)\/\d+/g);
+  console.log("[WHEP] Answer codecs:", videoCodecs?.join(", ") || "none");
+  console.log("[WHEP] ICE candidates in answer:", (answerSdp.match(/a=candidate/g) || []).length);
+
   await pc.setRemoteDescription(
     new RTCSessionDescription({ type: "answer", sdp: answerSdp }),
   );
@@ -189,16 +195,36 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
         setIsMutedOverlay(true);
         console.log("[WHEP] Connected successfully");
 
+        // Monitor WebRTC stats to check if video bytes are actually flowing
+        let lastBytesReceived = 0;
+        const statsInterval = setInterval(async () => {
+          if (pc.connectionState !== "connected") return;
+          try {
+            const stats = await pc.getStats();
+            stats.forEach((report) => {
+              if (report.type === "inbound-rtp" && report.kind === "video") {
+                const delta = report.bytesReceived - lastBytesReceived;
+                console.log(`[WHEP] Video RTP: ${report.bytesReceived} bytes total, +${delta} since last check, ${report.framesDecoded || 0} frames decoded, ${report.framesReceived || 0} frames received`);
+                lastBytesReceived = report.bytesReceived;
+              }
+            });
+          } catch {}
+        }, 3000);
+
         // Listen for actual video playback instead of checking dimensions
         let videoPlaying = false;
-        const onPlaying = () => { videoPlaying = true; };
+        const onPlaying = () => {
+          videoPlaying = true;
+          console.log("[WHEP] Video is playing! Resolution:", video.videoWidth, "x", video.videoHeight);
+        };
         video.addEventListener("playing", onPlaying, { once: true });
 
-        // If no playback after 12s, reconnect
+        // If no playback after 20s, reconnect
         const videoCheck = setTimeout(() => {
           video.removeEventListener("playing", onPlaying);
+          clearInterval(statsInterval);
           if (!videoPlaying && !abortController.signal.aborted) {
-            console.warn("[WHEP] No playback after 12s — reconnecting...");
+            console.warn("[WHEP] No playback after 20s — reconnecting...");
             pc.close();
             whepPcRef.current = null;
             if (attempts < maxAttempts) {
@@ -207,12 +233,13 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
               retryTimer = setTimeout(tryConnect, 2000);
             }
           }
-        }, 12000);
+        }, 20000);
 
         pc.onconnectionstatechange = () => {
           console.log("[WHEP] Connection state:", pc.connectionState);
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
             clearTimeout(videoCheck);
+            clearInterval(statsInterval);
             video.removeEventListener("playing", onPlaying);
             pc.close();
             whepPcRef.current = null;
