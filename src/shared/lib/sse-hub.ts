@@ -144,6 +144,12 @@ function getViewerCount(): number {
   if (broadcasterId && liveClients.has(broadcasterId)) {
     count--;
   }
+  // Don't count co-hosts as viewers
+  for (const coHostId of coHostIds) {
+    if (liveClients.has(coHostId)) {
+      count--;
+    }
+  }
   return Math.max(0, count);
 }
 
@@ -302,12 +308,14 @@ export function addCoHost(clientId: string): boolean {
   if (coHostIds.size >= MAX_CO_HOSTS) return false;
   coHostIds.add(clientId);
   emitter.emit("live:co-hosts", { coHostIds: Array.from(coHostIds) });
+  emitter.emit("live:presence", { viewerCount: getViewerCount() });
   return true;
 }
 
 export function removeCoHost(clientId: string) {
   coHostIds.delete(clientId);
   emitter.emit("live:co-hosts", { coHostIds: Array.from(coHostIds) });
+  emitter.emit("live:presence", { viewerCount: getViewerCount() });
 }
 
 export function getCoHosts(): string[] {
