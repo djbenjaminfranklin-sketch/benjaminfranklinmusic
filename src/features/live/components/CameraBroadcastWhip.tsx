@@ -388,41 +388,38 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
     }
   }, [isBroadcasting, isRecording, stopRecording]);
 
-  // Auto-stop live after 60s in background (allows brief app switches like WhatsApp)
-  const bgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  // Auto-stop live ONLY when the page is being closed/killed (not when switching apps)
+  // pagehide with persisted=false means the page is being destroyed (app killed, tab closed)
+  // beforeunload fires when the page is about to unload
   useEffect(() => {
     if (!isBroadcasting) return;
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        console.log("[WHIP] App went to background — will auto-stop in 60s");
-        bgTimerRef.current = setTimeout(() => {
-          console.log("[WHIP] Background timeout — stopping live");
-          stopBroadcast();
-          fetch("/api/live/admin", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "stop-live" }),
-          }).catch(() => {});
-        }, 60_000);
-      } else if (document.visibilityState === "visible") {
-        // User came back — cancel auto-stop
-        if (bgTimerRef.current) {
-          clearTimeout(bgTimerRef.current);
-          bgTimerRef.current = null;
-          console.log("[WHIP] App returned — cancelled auto-stop");
-        }
-      }
+    const handlePageHide = (e: PageTransitionEvent) => {
+      // persisted=true means the page might come back (bfcache) — don't stop
+      if (e.persisted) return;
+      console.log("[WHIP] Page destroyed — stopping live");
+      stopBroadcast();
+      // Use sendBeacon for reliable delivery during page unload
+      navigator.sendBeacon?.(
+        "/api/live/admin",
+        new Blob([JSON.stringify({ action: "stop-live" })], { type: "application/json" }),
+      );
     };
 
-    document.addEventListener("visibilitychange", handleVisibility);
+    const handleBeforeUnload = () => {
+      console.log("[WHIP] Page unloading — stopping live");
+      stopBroadcast();
+      navigator.sendBeacon?.(
+        "/api/live/admin",
+        new Blob([JSON.stringify({ action: "stop-live" })], { type: "application/json" }),
+      );
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      if (bgTimerRef.current) {
-        clearTimeout(bgTimerRef.current);
-        bgTimerRef.current = null;
-      }
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [isBroadcasting, stopBroadcast]);
 
@@ -630,6 +627,14 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                   <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-1 py-0.5 rounded-b-xl">
                     <p className="text-[8px] font-bold text-white text-center truncate">{"\u2B50"} {tLive("angleNumber", { n: i + 2 })}</p>
                   </div>
+                  {onDisconnectGuest && (
+                    <button
+                      onClick={() => onDisconnectGuest(id)}
+                      className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 border-2 border-black flex items-center justify-center z-10 active:scale-90 transition-transform touch-manipulation"
+                    >
+                      <span className="text-white text-xs font-bold leading-none">&times;</span>
+                    </button>
+                  )}
                 </div>
               );
             })}
