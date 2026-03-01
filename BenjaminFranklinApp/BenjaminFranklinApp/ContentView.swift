@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import CoreLocation
+import AVFoundation
 
 // Request location permission so WKWebView can use navigator.geolocation
 private class LocationPermissionManager: NSObject, CLLocationManagerDelegate {
@@ -148,6 +149,39 @@ struct WebView: UIViewRepresentable {
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
 
+        // Register native audio bridge message handler
+        let audioHandler = NativeAudioMessageHandler()
+        config.userContentController.add(audioHandler, name: "nativeAudio")
+
+        // Inject JS bridge that the web page can call
+        let bridgeScript = WKUserScript(source: """
+            window.nativeAudio = {
+                getStatus: function() {
+                    return new Promise(function(resolve) {
+                        window.webkit.messageHandlers.nativeAudio.postMessage({ action: 'getStatus' });
+                        window._nativeAudioResolve = resolve;
+                    });
+                },
+                selectUSB: function() {
+                    window.webkit.messageHandlers.nativeAudio.postMessage({ action: 'selectUSB' });
+                },
+                selectMic: function() {
+                    window.webkit.messageHandlers.nativeAudio.postMessage({ action: 'selectMic' });
+                },
+                toggleMic: function(enabled) {
+                    window.webkit.messageHandlers.nativeAudio.postMessage({ action: 'toggleMic', enabled: enabled });
+                },
+                getInputs: function() {
+                    return new Promise(function(resolve) {
+                        window.webkit.messageHandlers.nativeAudio.postMessage({ action: 'getInputs' });
+                        window._nativeAudioInputsResolve = resolve;
+                    });
+                }
+            };
+            console.log('[NativeAudio] Bridge injected');
+        """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        config.userContentController.addUserScript(bridgeScript)
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -160,6 +194,10 @@ struct WebView: UIViewRepresentable {
         webView.scrollView.delegate = context.coordinator
         webView.isOpaque = false
         webView.backgroundColor = .black
+
+        // Connect WebView to USBAudioManager
+        USBAudioManager.shared.webView = webView
+        audioHandler.webView = webView
 
         // Allow web inspector in debug builds only
         #if DEBUG
@@ -202,6 +240,10 @@ struct WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             DispatchQueue.main.async {
                 self.parent.isLoading = false
+            }
+            // Send current USB audio state to the freshly loaded page
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                USBAudioManager.shared.sendCurrentState()
             }
         }
 

@@ -126,10 +126,11 @@ export function disconnectLive(clientId: string) {
   // If the broadcaster disconnects, give 15s grace for SSE reconnect before stopping
   if (clientId === broadcasterId) {
     broadcasterId = null;
-    if (liveStreamStatus.streamType === "webrtc") {
+    if (liveStreamStatus.isLive) {
       broadcasterDisconnectTimer = setTimeout(() => {
         // Only stop if no new broadcaster has reconnected
-        if (!broadcasterId && liveStreamStatus.isLive && liveStreamStatus.streamType === "webrtc") {
+        if (!broadcasterId && liveStreamStatus.isLive) {
+          console.log("[SSE] Broadcaster disconnected for 15s — auto-stopping live (type:", liveStreamStatus.streamType, ")");
           setLiveStatus(false);
         }
         broadcasterDisconnectTimer = null;

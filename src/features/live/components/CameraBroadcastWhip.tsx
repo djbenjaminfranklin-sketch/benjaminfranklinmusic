@@ -124,8 +124,8 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   };
 
   // Audio device detection (Pioneer mixer, USB interfaces, etc.)
-  const { audioSource, audioSourceName, externalDeviceId, internalDeviceId, setAudioSource } = useAudioDevices();
-  const hasExternalDevice = !!externalDeviceId;
+  const { audioSource, audioSourceName, externalDeviceId, internalDeviceId, nativeAudio, setAudioSource, toggleNativeMic } = useAudioDevices();
+  const hasExternalDevice = !!externalDeviceId || !!nativeAudio?.isUSB;
   const spynDeviceId = audioSource === "external" || audioSource === "both" ? externalDeviceId : internalDeviceId;
 
   // Auto-resume broadcast after iOS kills and reloads the tab
@@ -499,7 +499,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
         ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
           /* Multicam: grid of all cameras */
-          <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: `repeat(${Math.min(allStreams.length, 2)}, 1fr)`, gridTemplateRows: allStreams.length > 2 ? "1fr 1fr" : "1fr" }}>
+          <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
             {allStreams.slice(0, 4).map((s) => (
               <div key={s.id} className="relative overflow-hidden">
                 <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />
@@ -582,7 +582,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
               allStreams.length <= 1 && "opacity-40"
             )}>
               <button
-                onClick={() => allStreams.length > 1 && setBroadcastMode("multicam")}
+                onClick={() => { if (allStreams.length > 1) { setBroadcastMode("multicam"); setFocusedGuestId(null); } }}
                 disabled={allStreams.length <= 1}
                 className={cn(
                   "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
@@ -593,7 +593,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                 <LayoutGrid className="h-4 w-4 text-white" />
               </button>
               <button
-                onClick={() => allStreams.length > 1 && setBroadcastMode("director")}
+                onClick={() => { if (allStreams.length > 1) { setBroadcastMode("director"); setFocusedGuestId(null); } }}
                 disabled={allStreams.length <= 1}
                 className={cn(
                   "w-9 h-9 rounded-full flex items-center justify-center transition-all touch-manipulation",
@@ -747,6 +747,31 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
             </button>
           )}
 
+          {/* Native mic toggle (iOS app with USB connected) */}
+          {nativeAudio?.isUSB && (
+            <button
+              onClick={() => toggleNativeMic(!nativeAudio.isMicEnabled)}
+              className={cn(
+                "w-14 h-14 rounded-full backdrop-blur-sm border flex flex-col items-center justify-center active:scale-95 transition-transform touch-manipulation gap-0.5",
+                nativeAudio.isMicEnabled
+                  ? "bg-green-500/20 border-green-500/40"
+                  : "bg-white/10 border-white/20"
+              )}
+            >
+              {nativeAudio.isMicEnabled ? (
+                <>
+                  <Mic className="h-5 w-5 text-green-400" />
+                  <span className="text-[7px] font-bold text-green-400 leading-none">MIC</span>
+                </>
+              ) : (
+                <>
+                  <MicOff className="h-5 w-5 text-white/40" />
+                  <span className="text-[7px] font-bold text-white/40 leading-none">MIC</span>
+                </>
+              )}
+            </button>
+          )}
+
           {/* Spyn — music detection */}
           <SpynButton inline audioDeviceId={spynDeviceId} audioStream={localStream} />
         </div>
@@ -773,7 +798,7 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
           {focusedGuestId && externalCoHostStreams?.get(focusedGuestId) ? (
             <StreamBand stream={externalCoHostStreams.get(focusedGuestId)!} label={tLive("angleNumber", { n: coHostEntries.findIndex(([id]) => id === focusedGuestId) + 2 })} />
           ) : broadcastMode === "multicam" && allStreams.length > 1 ? (
-            <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: `repeat(${Math.min(allStreams.length, 2)}, 1fr)`, gridTemplateRows: allStreams.length > 2 ? "1fr 1fr" : "1fr" }}>
+            <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: allStreams.length > 2 ? "1fr 1fr" : "1fr", gridTemplateRows: `repeat(${Math.min(allStreams.length, 2)}, 1fr)` }}>
               {allStreams.slice(0, 4).map((s) => (
                 <div key={s.id} className="relative overflow-hidden">
                   <StreamBand stream={s.stream} label={s.label} mirror={s.mirror} />

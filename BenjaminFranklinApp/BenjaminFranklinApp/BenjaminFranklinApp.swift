@@ -42,6 +42,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         requestPushPermission(application)
+
+        // Configure audio session for USB/external device detection
+        USBAudioManager.shared.configureAudioSession()
+
         return true
     }
 

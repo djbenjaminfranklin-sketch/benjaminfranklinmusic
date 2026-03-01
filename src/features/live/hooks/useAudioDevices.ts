@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 export type AudioSourceType = "internal" | "external" | "both";
 
+export interface NativeAudioState {
+  isUSB: boolean;
+  deviceName: string;
+  portType: string;
+  isMicEnabled: boolean;
+}
+
 export interface AudioDeviceState {
   audioSource: AudioSourceType;
   audioSourceName: string;
@@ -11,7 +18,11 @@ export interface AudioDeviceState {
   internalDeviceId: string | null;
   availableDevices: MediaDeviceInfo[];
   isDetecting: boolean;
+  /** Native iOS USB detection info (null on web/non-native) */
+  nativeAudio: NativeAudioState | null;
   setAudioSource: (source: AudioSourceType) => void;
+  /** Toggle mic on/off via native bridge (iOS only) */
+  toggleNativeMic: (enabled: boolean) => void;
 }
 
 // Known mixer/interface brand keywords for auto-detection
@@ -28,6 +39,11 @@ const BUILTIN_KEYWORDS = [
   "built-in", "internal", "iphone", "ipad",
   "front camera", "back camera", "rear camera",
 ];
+
+/** Check if running inside the native iOS app (WKWebView with bridge) */
+function hasNativeAudioBridge(): boolean {
+  return typeof window !== "undefined" && !!(window as any).nativeAudio;
+}
 
 function isExternalDevice(device: MediaDeviceInfo): boolean {
   const label = device.label.toLowerCase();
@@ -61,7 +77,44 @@ export function useAudioDevices(): AudioDeviceState {
   const [internalDeviceId, setInternalDeviceId] = useState<string | null>(null);
   const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [nativeAudio, setNativeAudio] = useState<NativeAudioState | null>(null);
   const mountedRef = useRef(true);
+
+  // ─── Native iOS audio bridge listener ───
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleNativeAudioEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail as NativeAudioState & { event: string };
+      console.log("[AudioDevices] Native audio event:", detail);
+
+      if (!mountedRef.current) return;
+
+      setNativeAudio({
+        isUSB: detail.isUSB,
+        deviceName: detail.deviceName,
+        portType: detail.portType,
+        isMicEnabled: detail.isMicEnabled,
+      });
+
+      if (detail.isUSB) {
+        // USB connected via native detection — auto-switch to external
+        setAudioSource("external");
+        setAudioSourceName(getDeviceDisplayName(detail.deviceName));
+        setExternalDeviceId("native-usb");
+        console.log("[AudioDevices] Native USB detected:", detail.deviceName);
+      } else if (detail.event === "usbDisconnected") {
+        // USB disconnected — switch back to internal mic
+        setAudioSource("internal");
+        setAudioSourceName("Microphone");
+        setExternalDeviceId(null);
+        console.log("[AudioDevices] Native USB disconnected");
+      }
+    };
+
+    window.addEventListener("nativeAudioRoute", handleNativeAudioEvent);
+    return () => window.removeEventListener("nativeAudioRoute", handleNativeAudioEvent);
+  }, []);
 
   const detectDevices = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices) return;
@@ -93,7 +146,19 @@ export function useAudioDevices(): AudioDeviceState {
       if (!mountedRef.current) return;
       setAvailableDevices(audioInputs);
 
-      // Find external device (mixer/interface)
+      // If native bridge already detected USB, don't override with web detection
+      if (hasNativeAudioBridge()) {
+        console.log("[AudioDevices] Native bridge active — skipping web USB detection");
+        // Still find internal mic for fallback
+        const internal = audioInputs.find((d) => {
+          const label = d.label.toLowerCase();
+          return label.includes("built-in") || label.includes("internal") || d.deviceId === "default";
+        }) || audioInputs[0];
+        if (internal) setInternalDeviceId(internal.deviceId);
+        return;
+      }
+
+      // Find external device (mixer/interface) — web fallback only
       const external = audioInputs.find(isExternalDevice);
       if (external) {
         console.log("[AudioDevices] External device found:", external.label, "id:", external.deviceId.slice(0, 8));
@@ -146,6 +211,26 @@ export function useAudioDevices(): AudioDeviceState {
   // Update name when source changes manually
   const handleSetSource = useCallback((source: AudioSourceType) => {
     setAudioSource(source);
+
+    // If native bridge is active, tell native side to switch input
+    if (hasNativeAudioBridge()) {
+      const bridge = (window as any).nativeAudio;
+      if (source === "internal") {
+        bridge.selectMic();
+        setAudioSourceName("Micro");
+      } else if (source === "external") {
+        bridge.selectUSB();
+        setAudioSourceName(nativeAudio?.deviceName ? getDeviceDisplayName(nativeAudio.deviceName) : "USB");
+      } else {
+        // "both" — keep USB as primary, mic toggle handled separately
+        bridge.selectUSB();
+        const extName = nativeAudio?.deviceName ? getDeviceDisplayName(nativeAudio.deviceName) : "USB";
+        setAudioSourceName(extName + " + Micro");
+      }
+      return;
+    }
+
+    // Web fallback
     const external = availableDevices.find(isExternalDevice);
     const internal = availableDevices.find((d) => {
       const label = d.label.toLowerCase();
@@ -160,7 +245,14 @@ export function useAudioDevices(): AudioDeviceState {
       const extName = external ? getDeviceDisplayName(external.label) : "USB";
       setAudioSourceName(extName + " + Micro");
     }
-  }, [availableDevices]);
+  }, [availableDevices, nativeAudio]);
+
+  // Toggle native mic via iOS bridge
+  const toggleNativeMic = useCallback((enabled: boolean) => {
+    if (hasNativeAudioBridge()) {
+      (window as any).nativeAudio.toggleMic(enabled);
+    }
+  }, []);
 
   return {
     audioSource,
@@ -169,6 +261,8 @@ export function useAudioDevices(): AudioDeviceState {
     internalDeviceId,
     availableDevices,
     isDetecting,
+    nativeAudio,
     setAudioSource: handleSetSource,
+    toggleNativeMic,
   };
 }
