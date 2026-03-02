@@ -214,7 +214,15 @@ export function useLiveStream() {
 
         pc.ontrack = (event) => {
           setLowLatencyReceiver(event.receiver);
-          setRemoteStream(event.streams[0] || null);
+          // Create our own MediaStream — using event.streams[0] causes 0x0
+          // rendering in Firefox (same workaround as WHEP and co-host streams)
+          setRemoteStream((prev) => {
+            const stream = prev || new MediaStream();
+            if (!stream.getTrackById(event.track.id)) {
+              stream.addTrack(event.track);
+            }
+            return stream;
+          });
         };
 
         pc.onicecandidate = (event) => {
@@ -280,11 +288,25 @@ export function useLiveStream() {
 
         pc.ontrack = (event) => {
           setLowLatencyReceiver(event.receiver);
-          const stream = event.streams[0];
-          if (stream) {
-            console.log("[Viewer] co-host track received from", from, "tracks:", stream.getTracks().length);
-            setCoHostStreams((prev) => new Map(prev).set(from, stream));
-          }
+          console.log("[Viewer] co-host track received from", from, "kind:", event.track.kind, "readyState:", event.track.readyState);
+          // Create our own MediaStream and add tracks manually.
+          // Using event.streams[0] directly causes 0x0 resolution rendering
+          // in Firefox despite frames being decoded (same issue as WHEP).
+          setCoHostStreams((prev) => {
+            const existing = prev.get(from);
+            if (existing) {
+              // Add track to existing stream if not already there
+              if (!existing.getTrackById(event.track.id)) {
+                existing.addTrack(event.track);
+              }
+              // Return new Map to trigger React re-render
+              return new Map(prev);
+            }
+            // First track — create a new MediaStream
+            const newStream = new MediaStream();
+            newStream.addTrack(event.track);
+            return new Map(prev).set(from, newStream);
+          });
         };
 
         pc.onicecandidate = (event) => {
