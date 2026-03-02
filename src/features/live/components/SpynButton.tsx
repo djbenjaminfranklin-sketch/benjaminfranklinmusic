@@ -277,9 +277,9 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
   }, [isListening, recordAndIdentify, audioDeviceId, audioStream]);
 
   return (
-    <div className={inline ? "relative" : "contents"}>
+    <div className={inline ? "relative" : "absolute inset-0 pointer-events-none z-30"}>
       {/* Spyn button — solid accent with Shazam-like pulse rings when listening */}
-      <div className="relative flex items-center justify-center">
+      <div className={inline ? "relative flex items-center justify-center" : "absolute bottom-20 right-3 flex items-center justify-center"}>
         {/* Animated pulse rings when listening */}
         <AnimatePresence>
           {isListening && (
@@ -312,7 +312,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
           className={
             inline
               ? "relative z-10 flex items-center justify-center w-14 h-14 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation"
-              : "absolute bottom-20 right-3 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation"
+              : "relative z-10 flex items-center justify-center w-12 h-12 rounded-full bg-accent shadow-lg shadow-accent/30 active:scale-90 transition-transform touch-manipulation pointer-events-auto"
           }
         >
           <span className="text-[11px] font-black text-background tracking-wide">SPYN</span>
@@ -329,7 +329,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
             className={
               inline
                 ? "absolute bottom-full right-0 mb-2 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl"
-                : "absolute bottom-36 right-3 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl"
+                : "absolute bottom-36 right-3 z-30 max-w-[220px] rounded-xl bg-black/80 backdrop-blur-md px-4 py-3 border border-accent/30 shadow-xl pointer-events-auto"
             }
           >
             <button
@@ -365,7 +365,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
             className={
               inline
                 ? "absolute bottom-full right-0 mb-2 z-30 rounded-xl bg-red-500/20 backdrop-blur-sm px-3 py-2 border border-red-500/30"
-                : "absolute bottom-36 right-3 z-30 rounded-xl bg-red-500/20 backdrop-blur-sm px-3 py-2 border border-red-500/30"
+                : "absolute bottom-36 right-3 z-30 rounded-xl bg-red-500/20 backdrop-blur-sm px-3 py-2 border border-red-500/30 pointer-events-auto"
             }
           >
             <p className="text-xs text-red-400">{error}</p>
@@ -383,7 +383,7 @@ export default function SpynButton({ inline = false, audioDeviceId, audioStream 
             className={
               inline
                 ? "absolute bottom-full right-0 mb-2 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
-                : "absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30"
+                : "absolute bottom-36 right-3 z-30 rounded-xl bg-accent/20 backdrop-blur-sm px-3 py-2 border border-accent/30 pointer-events-auto"
             }
           >
             <p className="text-xs text-accent font-medium animate-pulse">Listening{attempt > 1 ? ` (${attempt}/5)` : ""}...</p>
