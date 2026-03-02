@@ -706,7 +706,27 @@ export function useLiveStream() {
         es.close();
         setIsConnected(false);
         if (viewerJoinRetryTimer) clearTimeout(viewerJoinRetryTimer);
-        cleanupWebRTC();
+        // DON'T call cleanupWebRTC() — preserve working co-host P2P connections.
+        // Only clean up the main broadcaster P2P if it's failed/disconnected.
+        if (pcRef.current) {
+          const state = pcRef.current.connectionState;
+          if (state === "failed" || state === "closed") {
+            pcRef.current.close();
+            pcRef.current = null;
+            setRemoteStream(null);
+          }
+        }
+        // Clean up failed co-host peers only
+        for (const [id, pc] of coHostPcsRef.current) {
+          const state = pc.connectionState;
+          if (state === "failed" || state === "closed") {
+            pc.close();
+            coHostPcsRef.current.delete(id);
+            setCoHostStreams((prev) => { const next = new Map(prev); next.delete(id); return next; });
+            setCoHostNames((prev) => { const next = new Map(prev); next.delete(id); return next; });
+          }
+        }
+        console.log("[Viewer] SSE error — reconnecting, keeping", coHostPcsRef.current.size, "co-host P2P connections alive");
         if (!cancelled) {
           const delay = retryRef.current;
           retryRef.current = Math.min(delay * 2, 30000);

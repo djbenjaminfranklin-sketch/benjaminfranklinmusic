@@ -87,6 +87,8 @@ export function useLiveBroadcast() {
   const handleSignalRef = useRef<((signal: { type: string; from: string; to?: string; data: unknown }) => Promise<void>) | undefined>(undefined);
   // Buffer ICE candidates that arrive before setRemoteDescription (race condition fix)
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  // Controls SSE reconnection — set to true to stop reconnecting
+  const sseCancelledRef = useRef(false);
 
   // Nettoyer un peer
   const cleanupPeer = useCallback((viewerId: string) => {
@@ -545,54 +547,75 @@ export function useLiveBroadcast() {
   }, [facingMode]);
 
   // Setup SSE connection and signal handling (shared logic for broadcaster and co-host)
+  // Uses explicit reconnection (not EventSource auto-reconnect) for reliability on mobile
   const setupSSE = useCallback((onInit: (clientId: string) => void) => {
-    const es = new EventSource("/api/live/stream");
-    esRef.current = es;
+    let reconnectDelay = 1000;
+    sseCancelledRef.current = false;
 
-    es.addEventListener("init", (e) => {
-      const data = JSON.parse(e.data);
-      clientIdRef.current = data.clientId;
-      onInit(data.clientId);
-    });
+    function connect() {
+      if (sseCancelledRef.current) return;
 
-    // Signal queue — process signals one at a time to prevent race conditions
-    // (e.g., ICE candidates arriving before offer/answer is fully processed)
-    const signalQueue: unknown[] = [];
-    let processingSignals = false;
-    const processSignalQueue = async () => {
-      if (processingSignals) return;
-      processingSignals = true;
-      while (signalQueue.length > 0) {
-        const sig = signalQueue.shift();
-        try { await handleSignalRef.current?.(sig as { type: string; from: string; to?: string; data: unknown }); } catch (err) { console.warn("[Signal]", err); }
-      }
-      processingSignals = false;
-    };
+      const es = new EventSource("/api/live/stream");
+      esRef.current = es;
 
-    es.addEventListener("signal", (e) => {
-      const signal = JSON.parse(e.data);
-      signalQueue.push(signal);
-      processSignalQueue();
-    });
+      es.addEventListener("init", (e) => {
+        const data = JSON.parse(e.data);
+        const oldClientId = clientIdRef.current;
+        clientIdRef.current = data.clientId;
+        reconnectDelay = 1000; // Reset on successful connection
+        console.log("[Broadcast] SSE connected, clientId:", data.clientId, oldClientId ? "(reconnect from " + oldClientId + ")" : "(first)");
+        onInit(data.clientId);
+      });
 
-    es.addEventListener("presence", (e) => {
-      const { viewerCount: count } = JSON.parse(e.data);
-      setViewerCount(Math.max(0, count - 1));
-    });
+      // Signal queue — process signals one at a time to prevent race conditions
+      const signalQueue: unknown[] = [];
+      let processingSignals = false;
+      const processSignalQueue = async () => {
+        if (processingSignals) return;
+        processingSignals = true;
+        while (signalQueue.length > 0) {
+          const sig = signalQueue.shift();
+          try { await handleSignalRef.current?.(sig as { type: string; from: string; to?: string; data: unknown }); } catch (err) { console.warn("[Signal]", err); }
+        }
+        processingSignals = false;
+      };
 
-    es.addEventListener("invite-response", (e) => {
-      const { accepted } = JSON.parse(e.data);
-      if (!accepted) {
-        setError("Viewer declined the invite");
-        setTimeout(() => setError(null), 3000);
-      }
-    });
+      es.addEventListener("signal", (e) => {
+        const signal = JSON.parse(e.data);
+        signalQueue.push(signal);
+        processSignalQueue();
+      });
 
-    es.onerror = () => {
-      // Reconnexion gérée par l'EventSource
-    };
+      es.addEventListener("presence", (e) => {
+        const { viewerCount: count } = JSON.parse(e.data);
+        setViewerCount(Math.max(0, count - 1));
+      });
 
-    return es;
+      es.addEventListener("invite-response", (e) => {
+        const { accepted } = JSON.parse(e.data);
+        if (!accepted) {
+          setError("Viewer declined the invite");
+          setTimeout(() => setError(null), 3000);
+        }
+      });
+
+      es.onerror = () => {
+        es.close();
+        // DON'T clean up P2P connections — they work independently of SSE
+        console.log("[Broadcast] SSE error — reconnecting in", reconnectDelay, "ms");
+        if (!sseCancelledRef.current) {
+          const delay = reconnectDelay;
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+          setTimeout(() => {
+            if (!sseCancelledRef.current) {
+              connect();
+            }
+          }, delay);
+        }
+      };
+    }
+
+    connect();
   }, []);
 
   // Auto-detect venue from GPS
@@ -668,6 +691,9 @@ export function useLiveBroadcast() {
 
   // Arrêter le broadcast
   const stopBroadcast = useCallback(async () => {
+    // Stop SSE reconnection loop first
+    sseCancelledRef.current = true;
+
     // Fermer toutes les peer connections
     peersRef.current.forEach((pc) => pc.close());
     peersRef.current.clear();
@@ -767,6 +793,9 @@ export function useLiveBroadcast() {
   }, [setupSSE]);
 
   const leaveCoHost = useCallback(async () => {
+    // Stop SSE reconnection loop first
+    sseCancelledRef.current = true;
+
     peersRef.current.forEach((pc) => pc.close());
     peersRef.current.clear();
     guestPeersRef.current.forEach((pc) => pc.close());
@@ -930,6 +959,7 @@ export function useLiveBroadcast() {
   // Cleanup au démontage
   useEffect(() => {
     return () => {
+      sseCancelledRef.current = true;
       if (isBroadcasting) {
         // Signal server to stop (co-host-leave if co-host, stop-broadcast if main)
         if (clientIdRef.current) {
