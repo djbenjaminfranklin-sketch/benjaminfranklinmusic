@@ -226,7 +226,7 @@ export default function LiveContainer() {
                   {isDirectorMode && (
                     <>
                       {/* Main WHEP/WebRTC stream — always mounted */}
-                      <div className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === "main" ? "opacity-100 z-10" : "opacity-0 z-0"}`}>
+                      <div className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === "main" ? "opacity-100 z-[5]" : "opacity-0 z-0 pointer-events-none"}`}>
                         {isLiveHLS ? (
                           <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
                         ) : remoteStream ? (
@@ -235,7 +235,7 @@ export default function LiveContainer() {
                       </div>
                       {/* Co-host streams — always mounted */}
                       {coHostEntries.map(([id, stream]) => (
-                        <div key={id} className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === id ? "opacity-100 z-10" : "opacity-0 z-0"}`}>
+                        <div key={id} className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === id ? "opacity-100 z-[5]" : "opacity-0 z-0 pointer-events-none"}`}>
                           <VideoPlayer stream={stream} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
                         </div>
                       ))}
