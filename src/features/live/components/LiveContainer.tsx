@@ -77,7 +77,8 @@ export default function LiveContainer() {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
-  const [viewLayout, setViewLayout] = useState<"single" | "dual" | "quad">("single");
+  // Default to "quad" — show all cameras. Auto-switch will cycle through layouts.
+  const [viewLayout, setViewLayout] = useState<"single" | "dual" | "quad">("quad");
   const [dualPair, setDualPair] = useState<[string, string]>(["main", ""]);
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
@@ -172,10 +173,17 @@ export default function LiveContainer() {
     const pickNext = () => {
       const allAngles = ["main", ...coHostEntriesRef.current.map(([id]) => id)];
 
-      // Build weighted layout pool based on available cameras
-      const layouts: ("single" | "dual" | "quad")[] = ["single", "single"];
-      if (allAngles.length >= 2) layouts.push("dual", "dual");
-      if (allAngles.length >= 3) layouts.push("quad");
+      // Heavily favor quad (all cameras visible) — occasionally feature a single angle
+      const layouts: ("single" | "dual" | "quad")[] = [];
+      if (allAngles.length >= 3) {
+        // 3+ cameras: 60% quad, 20% dual, 20% single
+        layouts.push("quad", "quad", "quad", "dual", "single");
+      } else if (allAngles.length >= 2) {
+        // 2 cameras: 50% dual, 30% quad (falls back to dual), 20% single
+        layouts.push("dual", "dual", "dual", "quad", "single");
+      } else {
+        layouts.push("single");
+      }
 
       const layout = layouts[Math.floor(Math.random() * layouts.length)];
       setViewLayout(layout);
@@ -262,24 +270,24 @@ export default function LiveContainer() {
             >
               {showVideo ? (
                 <>
-                  {/* Single angle view */}
+                  {/* Single angle view — use cover in portrait mode to fill the 9:16 container */}
                   {effectiveLayout === "single" && (
                     activeAngle !== "main" && coHostStreams.get(activeAngle) ? (
-                      <VideoPlayer stream={coHostStreams.get(activeAngle)!} />
+                      <VideoPlayer stream={coHostStreams.get(activeAngle)!} cover={isLiveWebRTC || isLiveWhep} />
                     ) : isLiveHLS ? (
-                      <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                      <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} />
                     ) : currentStream ? (
-                      <VideoPlayer stream={currentStream} />
+                      <VideoPlayer stream={currentStream} cover={isLiveWebRTC || isLiveWhep} />
                     ) : null
                   )}
-                  {/* Dual — 2 vues côte à côte */}
+                  {/* Dual — 2 views stacked vertically (portrait-friendly) */}
                   {effectiveLayout === "dual" && (
-                    <div className="absolute inset-0 grid grid-cols-2 gap-0.5 bg-black">
+                    <div className="absolute inset-0 grid grid-rows-2 gap-0.5 bg-black">
                       {dualPair.map((angleId) => {
                         if (angleId === "main") {
                           return isLiveHLS ? (
                             <div key={angleId} className="relative overflow-hidden">
-                              <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                              <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover />
                               <div className="absolute bottom-2 left-2 z-10">
                                 <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
                                   {getAngleLabel(angleId)}
@@ -288,7 +296,7 @@ export default function LiveContainer() {
                             </div>
                           ) : remoteStream ? (
                             <div key={angleId} className="relative overflow-hidden">
-                              <VideoPlayer stream={remoteStream} />
+                              <VideoPlayer stream={remoteStream} cover />
                               <div className="absolute bottom-2 left-2 z-10">
                                 <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
                                   {getAngleLabel(angleId)}
@@ -300,7 +308,7 @@ export default function LiveContainer() {
                         const s = coHostStreams.get(angleId);
                         return s ? (
                           <div key={angleId} className="relative overflow-hidden">
-                            <VideoPlayer stream={s} />
+                            <VideoPlayer stream={s} cover />
                             <div className="absolute bottom-2 left-2 z-10">
                               <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
                                 {getAngleLabel(angleId)}
@@ -311,15 +319,15 @@ export default function LiveContainer() {
                       })}
                     </div>
                   )}
-                  {/* Quad — 3 ou 4 vues */}
+                  {/* Quad — 2x2 grid for 3 or 4 cameras */}
                   {effectiveLayout === "quad" && (
-                    <div className="absolute inset-0 grid gap-0.5 bg-black" style={{ gridTemplateColumns: `repeat(${Math.min(totalCameras, 4)}, 1fr)` }}>
+                    <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 bg-black">
                       {/* Main stream */}
                       <div className="relative overflow-hidden">
                         {isLiveHLS ? (
-                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} />
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover />
                         ) : remoteStream ? (
-                          <VideoPlayer stream={remoteStream} />
+                          <VideoPlayer stream={remoteStream} cover />
                         ) : null}
                         <div className="absolute bottom-2 left-2 z-10">
                           <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
@@ -330,7 +338,7 @@ export default function LiveContainer() {
                       {/* Co-host streams */}
                       {coHostEntries.slice(0, 3).map(([id, stream]) => (
                         <div key={id} className="relative overflow-hidden">
-                          <VideoPlayer stream={stream} />
+                          <VideoPlayer stream={stream} cover />
                           <div className="absolute bottom-2 left-2 z-10">
                             <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
                               {getAngleLabel(id)}

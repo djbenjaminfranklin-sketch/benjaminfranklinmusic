@@ -34,6 +34,8 @@ interface VideoPlayerProps {
   src?: string;
   stream?: MediaStream | null;
   streamType?: string;
+  /** Use object-cover instead of object-contain (fills the container, crops overflow) */
+  cover?: boolean;
 }
 
 /**
@@ -118,7 +120,7 @@ async function whepConnect(
   return pc;
 }
 
-export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProps) {
+export default function VideoPlayer({ src, stream, streamType, cover }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const whepPcRef = useRef<RTCPeerConnection | null>(null);
@@ -402,7 +404,7 @@ export default function VideoPlayer({ src, stream, streamType }: VideoPlayerProp
     <div className="relative w-full h-full">
       <video
         ref={videoRef}
-        className="w-full h-full object-contain bg-black"
+        className={`w-full h-full ${cover ? "object-cover" : "object-contain"} bg-black`}
         disablePictureInPicture
         onContextMenu={(e) => e.preventDefault()}
         playsInline
