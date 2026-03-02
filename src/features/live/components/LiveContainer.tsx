@@ -72,6 +72,9 @@ export default function LiveContainer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
+  // WHEP audio stream exposed by VideoPlayer (for SpynButton audio capture)
+  const [whepAudioStream, setWhepAudioStream] = useState<MediaStream | null>(null);
+
   // Container-level mute control (for grid modes where per-cell overlay is wrong)
   const [viewerHasInteracted, setViewerHasInteracted] = useState(false);
   const [viewerMuted, setViewerMuted] = useState(true);
@@ -217,7 +220,7 @@ export default function LiveContainer() {
                     activeAngle !== "main" && coHostStreams.get(activeAngle) ? (
                       <VideoPlayer stream={coHostStreams.get(activeAngle)!} cover={isLiveWebRTC || isLiveWhep} />
                     ) : isLiveHLS ? (
-                      <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} />
+                      <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} onStream={setWhepAudioStream} />
                     ) : currentStream ? (
                       <VideoPlayer stream={currentStream} cover={isLiveWebRTC || isLiveWhep} />
                     ) : null
@@ -228,7 +231,7 @@ export default function LiveContainer() {
                       {/* Main WHEP/WebRTC stream — always mounted */}
                       <div className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === "main" ? "opacity-100 z-[5]" : "opacity-0 z-0 pointer-events-none"}`}>
                         {isLiveHLS ? (
-                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} hideMuteControls onStream={setWhepAudioStream} />
                         ) : remoteStream ? (
                           <VideoPlayer stream={remoteStream} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
                         ) : null}
@@ -246,7 +249,7 @@ export default function LiveContainer() {
                     <div className="absolute inset-0 grid grid-rows-2 gap-0.5 bg-black">
                       <div className="relative overflow-hidden">
                         {isLiveHLS ? (
-                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover hideMuteControls />
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover hideMuteControls onStream={setWhepAudioStream} />
                         ) : remoteStream ? (
                           <VideoPlayer stream={remoteStream} cover hideMuteControls />
                         ) : null}
@@ -274,7 +277,7 @@ export default function LiveContainer() {
                       {/* Main stream */}
                       <div className="relative overflow-hidden">
                         {isLiveHLS ? (
-                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover hideMuteControls />
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover hideMuteControls onStream={setWhepAudioStream} />
                         ) : remoteStream ? (
                           <VideoPlayer stream={remoteStream} cover hideMuteControls />
                         ) : null}
@@ -333,7 +336,7 @@ export default function LiveContainer() {
                   <TrackDisplay track={streamStatus.currentTrack} />
 
                   {/* Spyn detection button — captures live stream audio directly */}
-                  <SpynButton audioStream={remoteStream} />
+                  <SpynButton audioStream={whepAudioStream || remoteStream} />
 
                   {/* Chat overlay style Instagram Live */}
                   <LiveChatOverlay

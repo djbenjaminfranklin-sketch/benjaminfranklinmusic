@@ -38,6 +38,8 @@ interface VideoPlayerProps {
   cover?: boolean;
   /** Hide all mute UI — parent handles mute controls at container level */
   hideMuteControls?: boolean;
+  /** Called when the internal WHEP MediaStream becomes available (for audio capture) */
+  onStream?: (stream: MediaStream | null) => void;
 }
 
 /**
@@ -122,7 +124,7 @@ async function whepConnect(
   return pc;
 }
 
-export default function VideoPlayer({ src, stream, streamType, cover, hideMuteControls }: VideoPlayerProps) {
+export default function VideoPlayer({ src, stream, streamType, cover, hideMuteControls, onStream }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const whepPcRef = useRef<RTCPeerConnection | null>(null);
@@ -207,6 +209,10 @@ export default function VideoPlayer({ src, stream, streamType, cover, hideMuteCo
         setWhepError(null);
         setIsMutedOverlay(true);
         console.log("[WHEP] Connected successfully");
+
+        // Expose the WHEP stream to parent (for SpynButton audio capture)
+        const whepStream = video.srcObject as MediaStream | null;
+        onStream?.(whepStream);
 
         // Monitor WebRTC stats + video element state
         let lastBytesReceived = 0;
@@ -305,8 +311,9 @@ export default function VideoPlayer({ src, stream, streamType, cover, hideMuteCo
       setIsLoading(false);
       setRetryCount(0);
       setIsMutedOverlay(false);
+      onStream?.(null);
     };
-  }, [src, stream, streamType]);
+  }, [src, stream, streamType, onStream]);
 
   // Mode HLS (fallback — only for non-Cloudflare HLS streams without WHEP proxy)
   useEffect(() => {
