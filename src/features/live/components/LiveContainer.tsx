@@ -108,6 +108,8 @@ export default function LiveContainer() {
     totalCameras >= 2 ? "dual" :
     "single";
   const isGridMode = effectiveLayout === "dual" || effectiveLayout === "quad";
+  // Use container-level mute controls when multiple players are mounted (grid or director)
+  const useContainerMute = isGridMode || (isDirectorMode && totalCameras >= 2);
 
   const isLiveHLS = streamStatus.isLive && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep") && streamStatus.streamUrl;
   const isLiveWebRTC = streamStatus.isLive && streamStatus.streamType === "webrtc";
@@ -210,8 +212,8 @@ export default function LiveContainer() {
             >
               {showVideo ? (
                 <>
-                  {/* Single angle view — use cover in portrait mode to fill the 9:16 container */}
-                  {effectiveLayout === "single" && (
+                  {/* Single angle view */}
+                  {effectiveLayout === "single" && !isDirectorMode && (
                     activeAngle !== "main" && coHostStreams.get(activeAngle) ? (
                       <VideoPlayer stream={coHostStreams.get(activeAngle)!} cover={isLiveWebRTC || isLiveWhep} />
                     ) : isLiveHLS ? (
@@ -219,6 +221,25 @@ export default function LiveContainer() {
                     ) : currentStream ? (
                       <VideoPlayer stream={currentStream} cover={isLiveWebRTC || isLiveWhep} />
                     ) : null
+                  )}
+                  {/* Director mode — all players always mounted, switch via CSS visibility */}
+                  {isDirectorMode && (
+                    <>
+                      {/* Main WHEP/WebRTC stream — always mounted */}
+                      <div className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === "main" ? "opacity-100 z-10" : "opacity-0 z-0"}`}>
+                        {isLiveHLS ? (
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
+                        ) : remoteStream ? (
+                          <VideoPlayer stream={remoteStream} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
+                        ) : null}
+                      </div>
+                      {/* Co-host streams — always mounted */}
+                      {coHostEntries.map(([id, stream]) => (
+                        <div key={id} className={`absolute inset-0 transition-opacity duration-500 ${activeAngle === id ? "opacity-100 z-10" : "opacity-0 z-0"}`}>
+                          <VideoPlayer stream={stream} cover={isLiveWebRTC || isLiveWhep} hideMuteControls />
+                        </div>
+                      ))}
+                    </>
                   )}
                   {/* Dual — 2 views stacked vertically (portrait-friendly): main + first co-host */}
                   {effectiveLayout === "dual" && (
@@ -276,8 +297,8 @@ export default function LiveContainer() {
                       ))}
                     </div>
                   )}
-                  {/* Container-level mute overlay for grid modes */}
-                  {isGridMode && !viewerHasInteracted && (
+                  {/* Container-level mute overlay for grid/director modes */}
+                  {useContainerMute && !viewerHasInteracted && (
                     <button
                       onClick={handleContainerUnmute}
                       className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 transition-opacity"
@@ -288,8 +309,8 @@ export default function LiveContainer() {
                       </div>
                     </button>
                   )}
-                  {/* Container-level mute toggle button for grid modes (after interaction) */}
-                  {isGridMode && viewerHasInteracted && (
+                  {/* Container-level mute toggle button for grid/director modes (after interaction) */}
+                  {useContainerMute && viewerHasInteracted && (
                     <button
                       onClick={toggleContainerMute}
                       className="absolute top-14 left-4 z-30 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform pointer-events-auto"
