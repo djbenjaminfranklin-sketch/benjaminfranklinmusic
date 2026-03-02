@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MapPin, Eye, Link, Copy, Check, Calendar, Share2, X, ImagePlus, Square } from "lucide-react";
+import { MapPin, Eye, Link, Copy, Check, Calendar, Share2, X, ImagePlus, Square, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { useLiveStream, type ScheduledLiveData } from "@/features/live/hooks/useLiveStream";
@@ -17,6 +18,7 @@ export default function LiveControlPanel() {
   const [error, setError] = useState("");
   const [coHostCode, setCoHostCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const t = useTranslations("admin");
   const tLive = useTranslations("live");
   const locale = useLocale();
@@ -438,7 +440,32 @@ export default function LiveControlPanel() {
               {copiedLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-foreground/30 font-mono">Code : {coHostCode}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-foreground/30 font-mono">Code : {coHostCode}</p>
+            <button
+              onClick={() => setShowQr((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border transition-colors",
+                showQr
+                  ? "bg-accent/20 border-accent/30 text-accent"
+                  : "bg-foreground/5 border-border text-foreground/50 hover:bg-foreground/10"
+              )}
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              QR
+            </button>
+          </div>
+          {showQr && (
+            <div className="flex justify-center pt-2">
+              <div className="rounded-xl bg-white p-3">
+                <QRCodeSVG
+                  value={typeof window !== "undefined" ? `${window.location.origin}/live/cohost?code=${coHostCode}` : `/live/cohost?code=${coHostCode}`}
+                  size={180}
+                  level="M"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
