@@ -12,6 +12,7 @@ import {
   setCloudflareWhepUrl,
   setBroadcaster,
   setBroadcastMode,
+  setDirectorFocus,
 } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
@@ -161,6 +162,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Invalid broadcastMode" }, { status: 400 });
         }
         setBroadcastMode(mode);
+        break;
+      }
+
+      case "set-director-focus": {
+        const focusId = body.focusId;
+        if (typeof focusId !== "string") {
+          return NextResponse.json({ error: "focusId required" }, { status: 400 });
+        }
+        setDirectorFocus(focusId);
         break;
       }
 

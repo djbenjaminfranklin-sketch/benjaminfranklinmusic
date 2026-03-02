@@ -270,6 +270,10 @@ export function setBroadcastMode(mode: "multicam" | "director") {
   }
 }
 
+export function setDirectorFocus(focusId: string) {
+  emitter.emit("live:director-focus", { focusId });
+}
+
 export function getCoHostCode(): string | null {
   return coHostCode;
 }

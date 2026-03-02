@@ -414,6 +414,19 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   const safeIndex = allStreams.length > 0 ? activeStreamIndex % allStreams.length : 0;
   const currentDirectorStream = allStreams[safeIndex];
 
+  // Notify viewers which camera is focused in director mode
+  useEffect(() => {
+    if (broadcastMode !== "director" || !isBroadcasting) return;
+    const current = allStreams[safeIndex];
+    if (!current) return;
+    const focusId = current.id === "local" ? "main" : current.id;
+    fetch("/api/live/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-director-focus", focusId }),
+    }).catch(() => {});
+  }, [safeIndex, broadcastMode, isBroadcasting, allStreams]);
+
   // Refs to access latest reactive values from the recording render loop
   const allStreamsRef = useRef(allStreams);
   allStreamsRef.current = allStreams;

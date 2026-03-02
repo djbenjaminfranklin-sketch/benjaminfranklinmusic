@@ -63,6 +63,9 @@ export async function GET(request: NextRequest) {
         onLive("broadcast-mode", (data) => {
           send("broadcast-mode", data);
         }),
+        onLive("director-focus", (data) => {
+          send("director-focus", data);
+        }),
         onLive("heartbeat", () => {
           touchLiveClient(clientId);
           controller.enqueue(encoder.encode(": heartbeat\n\n"));

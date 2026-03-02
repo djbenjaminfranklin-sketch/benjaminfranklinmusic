@@ -692,6 +692,11 @@ export function useLiveStream() {
         setStreamStatus((prev) => ({ ...prev, broadcastMode }));
       });
 
+      es.addEventListener("director-focus", (e) => {
+        const { focusId } = JSON.parse(e.data) as { focusId: string };
+        setActiveAngle(focusId);
+      });
+
       es.addEventListener("co-hosts", (e) => {
         const { coHostIds } = JSON.parse(e.data) as { coHostIds: string[] };
         console.log("[Viewer] co-hosts SSE event:", coHostIds.length, "co-hosts, clientId:", clientIdRef.current);
