@@ -100,7 +100,11 @@ export function useLiveBroadcast() {
 
   // Créer un peer connection pour un viewer
   const createPeerForViewer = useCallback(async (viewerId: string) => {
-    if (!streamRef.current) return;
+    if (!streamRef.current) {
+      console.warn("[Broadcast] createPeerForViewer — no local stream, aborting");
+      return;
+    }
+    console.log("[Broadcast] createPeerForViewer for", viewerId);
 
     // Close any existing peer for this viewer first
     const existing = peersRef.current.get(viewerId);
@@ -134,6 +138,7 @@ export function useLiveBroadcast() {
     };
 
     pc.onconnectionstatechange = () => {
+      console.log("[Broadcast] peer", viewerId, "state →", pc.connectionState);
       if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
         cleanupPeer(viewerId);
         setViewerCount(peersRef.current.size);
@@ -308,13 +313,22 @@ export function useLiveBroadcast() {
 
     if (type === "co-host-join") {
       // A co-host joined — create a receiving peer connection to get their stream
+      console.log("[Broadcast] co-host-join from", from);
       await createPeerForGuest(from);
     } else if (type === "viewer-join") {
       // Un nouveau viewer veut se connecter (ou re-join suite à un nouveau co-host)
-      // Si on a déjà une peer connection active avec ce viewer, on skip
       const existingPc = peersRef.current.get(from);
-      if (existingPc && existingPc.connectionState === "connected") {
-        return; // Already connected, skip duplicate
+      if (existingPc) {
+        const state = existingPc.connectionState;
+        // Skip if connected or still connecting (avoid resetting in-progress peers)
+        if (state === "connected" || state === "connecting" || state === "new") {
+          console.log("[Broadcast] viewer-join from", from, "— peer already", state, ", skipping");
+          return;
+        }
+        // Reset failed/disconnected/closed peers
+        console.log("[Broadcast] viewer-join from", from, "— peer was", state, ", re-creating");
+      } else {
+        console.log("[Broadcast] viewer-join from", from, "— creating new peer");
       }
       await createPeerForViewer(from);
     } else if (type === "offer") {

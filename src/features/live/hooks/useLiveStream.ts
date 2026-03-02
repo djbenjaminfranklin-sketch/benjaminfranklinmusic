@@ -147,6 +147,7 @@ export function useLiveStream() {
   // Gérer les signaux WebRTC entrants
   const handleSignal = useCallback(async (signal: { type: string; from: string; data: unknown; name?: string }) => {
     const { type, from, data, name: signalName } = signal;
+    console.log("[Viewer] signal received:", type, "from:", from);
 
     if (type === "offer") {
       // If we have a guest stream ready and a main connection exists,
@@ -264,6 +265,7 @@ export function useLiveStream() {
         });
       } else {
         // Co-host offer — store guest name if provided
+        console.log("[Viewer] co-host offer from", from, signalName ? `(name: ${signalName})` : "");
         if (signalName) {
           setCoHostNames((prev) => new Map(prev).set(from, signalName));
         }
@@ -280,6 +282,7 @@ export function useLiveStream() {
           setLowLatencyReceiver(event.receiver);
           const stream = event.streams[0];
           if (stream) {
+            console.log("[Viewer] co-host track received from", from, "tracks:", stream.getTracks().length);
             setCoHostStreams((prev) => new Map(prev).set(from, stream));
           }
         };
@@ -309,6 +312,7 @@ export function useLiveStream() {
           });
         };
         pc.onconnectionstatechange = () => {
+          console.log("[Viewer] co-host peer", from, "state →", pc.connectionState);
           if (pc.connectionState === "failed") {
             if (coHostDisconnectTimer) clearTimeout(coHostDisconnectTimer);
             removeCoHostPeer();
@@ -546,6 +550,34 @@ export function useLiveStream() {
       const es = new EventSource("/api/live/stream");
       esRef.current = es;
 
+      // Retry viewer-join if co-host P2P doesn't establish within 5s
+      let viewerJoinRetryTimer: ReturnType<typeof setTimeout> | null = null;
+      let viewerJoinRetries = 0;
+      const MAX_VIEWER_JOIN_RETRIES = 3;
+      const sendViewerJoinWithRetry = (fromId: string, expectedCoHosts: number) => {
+        if (viewerJoinRetryTimer) clearTimeout(viewerJoinRetryTimer);
+        viewerJoinRetries = 0;
+        const doSend = () => {
+          console.log("[Viewer] sending viewer-join (attempt", viewerJoinRetries + 1, ")");
+          fetch("/api/live/signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "viewer-join", from: fromId }),
+          });
+          viewerJoinRetries++;
+          // Schedule retry if we don't get co-host peers
+          if (viewerJoinRetries < MAX_VIEWER_JOIN_RETRIES) {
+            viewerJoinRetryTimer = setTimeout(() => {
+              if (coHostPcsRef.current.size < expectedCoHosts) {
+                console.log("[Viewer] retry viewer-join: only", coHostPcsRef.current.size, "co-host peers, expected", expectedCoHosts);
+                doSend();
+              }
+            }, 5000);
+          }
+        };
+        setTimeout(doSend, 500);
+      };
+
       es.addEventListener("init", (e) => {
         const data = JSON.parse(e.data) as LiveState;
         clientIdRef.current = data.clientId || null;
@@ -566,13 +598,8 @@ export function useLiveStream() {
           // create P2P connections with us (same as the "co-hosts" SSE handler)
           const initCoHosts = (data as { coHostIds?: string[] }).coHostIds;
           if (initCoHosts && initCoHosts.length > 0 && data.clientId) {
-            setTimeout(() => {
-              fetch("/api/live/signal", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ type: "viewer-join", from: data.clientId }),
-              });
-            }, 500);
+            console.log("[Viewer] init: live WHEP with", initCoHosts.length, "co-hosts, sending viewer-join");
+            sendViewerJoinWithRetry(data.clientId, initCoHosts.length);
           }
         }
       });
@@ -640,16 +667,10 @@ export function useLiveStream() {
 
       es.addEventListener("co-hosts", (e) => {
         const { coHostIds } = JSON.parse(e.data) as { coHostIds: string[] };
+        console.log("[Viewer] co-hosts SSE event:", coHostIds.length, "co-hosts, clientId:", clientIdRef.current);
         // When new co-hosts join, re-send viewer-join so they create peer connections with us
         if (coHostIds.length > 0 && clientIdRef.current) {
-          fetch("/api/live/signal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "viewer-join",
-              from: clientIdRef.current,
-            }),
-          });
+          sendViewerJoinWithRetry(clientIdRef.current, coHostIds.length);
         }
       });
 
@@ -662,6 +683,7 @@ export function useLiveStream() {
       es.onerror = () => {
         es.close();
         setIsConnected(false);
+        if (viewerJoinRetryTimer) clearTimeout(viewerJoinRetryTimer);
         cleanupWebRTC();
         if (!cancelled) {
           const delay = retryRef.current;

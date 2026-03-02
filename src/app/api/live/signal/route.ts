@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
     if (type === "viewer-join") {
       const broadcaster = getBroadcaster();
       const coHosts = getCoHosts();
+      console.log("[Signal] viewer-join from", from, "→ broadcaster:", broadcaster, "coHosts:", coHosts);
       // In WebRTC P2P mode, relay to broadcaster
       if (broadcaster) {
         relaySignal({ type: "viewer-join", from, to: broadcaster, data });

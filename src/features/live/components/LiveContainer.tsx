@@ -87,7 +87,25 @@ export default function LiveContainer() {
     (viewLayout === "dual" && totalCameras < 2) ? "single" :
     viewLayout;
 
-  // Auto-switch to multi-angle layout when co-hosts join
+  // Immediately switch to multi-angle layout when co-hosts first appear
+  const prevTotalCamerasRef = useRef(totalCameras);
+  useEffect(() => {
+    const wasOne = prevTotalCamerasRef.current <= 1;
+    prevTotalCamerasRef.current = totalCameras;
+    // Only trigger on transition from 1 → 2+ cameras
+    if (!wasOne || totalCameras < 2) return;
+    if (totalCameras >= 3) {
+      setViewLayout("quad");
+    } else {
+      setViewLayout("dual");
+      const ids = allStreamEntries.map((e) => e.id);
+      setDualPair([ids[0] || "main", ids[1] || "main"]);
+    }
+  // totalCameras is a stable primitive derived from allStreamEntries.length
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalCameras]);
+
+  // When auto-switch is off, adjust layout as cameras change
   useEffect(() => {
     if (!hasMultipleAngles || autoSwitchEnabled) return;
     if (totalCameras >= 3) {
@@ -97,7 +115,6 @@ export default function LiveContainer() {
       const ids = allStreamEntries.map((e) => e.id);
       setDualPair([ids[0] || "main", ids[1] || "main"]);
     }
-  // totalCameras is a stable primitive derived from allStreamEntries.length
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalCameras, hasMultipleAngles, autoSwitchEnabled]);
 
