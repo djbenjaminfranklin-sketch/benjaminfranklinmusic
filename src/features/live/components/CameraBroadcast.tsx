@@ -148,6 +148,16 @@ export default function CameraBroadcast({ venue, isLiveAlready, externalCoHostSt
   // --- Broadcast mode: multicam (all cameras side by side) or director (auto-switch) ---
   const [broadcastMode, setBroadcastMode] = useState<"multicam" | "director">("director");
 
+  // Notify viewers when broadcast mode changes
+  useEffect(() => {
+    if (!isBroadcasting) return;
+    fetch("/api/live/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-broadcast-mode", broadcastMode }),
+    }).catch(() => {});
+  }, [broadcastMode, isBroadcasting]);
+
   // --- Recording (canvas compositing to capture all views) ---
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);

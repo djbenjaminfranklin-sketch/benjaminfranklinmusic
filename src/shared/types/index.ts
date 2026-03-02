@@ -32,6 +32,7 @@ export interface LiveStreamStatus {
   startedAt: string | null;
   location?: { lat: number; lng: number };
   venue?: string;
+  broadcastMode?: "multicam" | "director";
 }
 
 export interface ViewerInvite {

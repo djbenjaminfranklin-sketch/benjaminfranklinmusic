@@ -99,8 +99,11 @@ export default function LiveContainer() {
     }
   }, [viewerMuted]);
 
-  // Layout: always aim for quad, auto-downgrade based on available cameras
+  // Layout: in director mode, always show single WHEP stream.
+  // In multicam mode, show grid based on available cameras.
+  const isDirectorMode = streamStatus.broadcastMode === "director";
   const effectiveLayout: "single" | "dual" | "quad" =
+    isDirectorMode ? "single" :
     totalCameras >= 3 ? "quad" :
     totalCameras >= 2 ? "dual" :
     "single";

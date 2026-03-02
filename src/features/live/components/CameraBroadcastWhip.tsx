@@ -172,6 +172,16 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
   // --- Broadcast mode: multicam or director ---
   const [broadcastMode, setBroadcastMode] = useState<"multicam" | "director">("director");
 
+  // Notify viewers when broadcast mode changes
+  useEffect(() => {
+    if (!isBroadcasting) return;
+    fetch("/api/live/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-broadcast-mode", broadcastMode }),
+    }).catch(() => {});
+  }, [broadcastMode, isBroadcasting]);
+
   // --- Recording ---
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);

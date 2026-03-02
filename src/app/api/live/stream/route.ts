@@ -60,6 +60,9 @@ export async function GET(request: NextRequest) {
         onLive("scheduled", (data) => {
           send("scheduled", data);
         }),
+        onLive("broadcast-mode", (data) => {
+          send("broadcast-mode", data);
+        }),
         onLive("heartbeat", () => {
           touchLiveClient(clientId);
           controller.enqueue(encoder.encode(": heartbeat\n\n"));

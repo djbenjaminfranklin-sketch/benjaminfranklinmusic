@@ -11,6 +11,7 @@ import {
   getCloudflareStreamUid,
   setCloudflareWhepUrl,
   setBroadcaster,
+  setBroadcastMode,
 } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
@@ -153,6 +154,15 @@ export async function POST(request: NextRequest) {
         setScheduledLive(null);
         emitScheduledLive(null);
         break;
+
+      case "set-broadcast-mode": {
+        const mode = body.broadcastMode;
+        if (mode !== "multicam" && mode !== "director") {
+          return NextResponse.json({ error: "Invalid broadcastMode" }, { status: 400 });
+        }
+        setBroadcastMode(mode);
+        break;
+      }
 
       case "update-location":
         updateLocation(

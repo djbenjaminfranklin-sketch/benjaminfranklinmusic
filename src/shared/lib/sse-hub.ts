@@ -263,6 +263,13 @@ export function updateLocation(location?: { lat: number; lng: number }, venue?: 
   }
 }
 
+export function setBroadcastMode(mode: "multicam" | "director") {
+  if (liveStreamStatus.isLive) {
+    liveStreamStatus.broadcastMode = mode;
+    emitter.emit("live:broadcast-mode", { broadcastMode: mode });
+  }
+}
+
 export function getCoHostCode(): string | null {
   return coHostCode;
 }

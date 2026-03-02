@@ -687,6 +687,11 @@ export function useLiveStream() {
         processSignalQueue();
       });
 
+      es.addEventListener("broadcast-mode", (e) => {
+        const { broadcastMode } = JSON.parse(e.data) as { broadcastMode: "multicam" | "director" };
+        setStreamStatus((prev) => ({ ...prev, broadcastMode }));
+      });
+
       es.addEventListener("co-hosts", (e) => {
         const { coHostIds } = JSON.parse(e.data) as { coHostIds: string[] };
         console.log("[Viewer] co-hosts SSE event:", coHostIds.length, "co-hosts, clientId:", clientIdRef.current);
