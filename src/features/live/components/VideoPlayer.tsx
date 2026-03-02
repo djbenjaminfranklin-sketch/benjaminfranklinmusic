@@ -36,6 +36,8 @@ interface VideoPlayerProps {
   streamType?: string;
   /** Use object-cover instead of object-contain (fills the container, crops overflow) */
   cover?: boolean;
+  /** Hide all mute UI — parent handles mute controls at container level */
+  hideMuteControls?: boolean;
 }
 
 /**
@@ -120,7 +122,7 @@ async function whepConnect(
   return pc;
 }
 
-export default function VideoPlayer({ src, stream, streamType, cover }: VideoPlayerProps) {
+export default function VideoPlayer({ src, stream, streamType, cover, hideMuteControls }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const whepPcRef = useRef<RTCPeerConnection | null>(null);
@@ -411,7 +413,7 @@ export default function VideoPlayer({ src, stream, streamType, cover }: VideoPla
         autoPlay
         muted
       />
-      {isMutedOverlay && (
+      {!hideMuteControls && isMutedOverlay && (
         <button
           onClick={handleUnmute}
           className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 transition-opacity"
@@ -422,7 +424,7 @@ export default function VideoPlayer({ src, stream, streamType, cover }: VideoPla
           </div>
         </button>
       )}
-      {hasInteracted && !isMutedOverlay && (
+      {!hideMuteControls && hasInteracted && !isMutedOverlay && (
         <button
           onClick={toggleMute}
           className="absolute top-14 left-4 z-30 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform pointer-events-auto"

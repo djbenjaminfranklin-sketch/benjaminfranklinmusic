@@ -21,11 +21,10 @@ export default function LiveContainer() {
     chatMessages, viewerCount, streamStatus, isConnected, remoteStream, sendChatMessage,
     scheduledLive,
     pendingInvite, acceptInvite, declineInvite,
-    coHostStreams, activeAngle, setActiveAngle,
+    coHostStreams, activeAngle,
   } = useLiveStream();
 
   const coHostEntries = Array.from(coHostStreams.entries());
-  const hasMultipleAngles = coHostEntries.length > 0;
   const currentStream = activeAngle === "main" ? remoteStream : coHostStreams.get(activeAngle) || remoteStream;
   const t = useTranslations("live");
   const tCountdown = useTranslations("countdown");
@@ -61,11 +60,6 @@ export default function LiveContainer() {
     return () => clearInterval(interval);
   }, [scheduledDate, streamStatus.isLive]);
 
-  // All available camera streams
-  const allStreamEntries = [
-    ...(remoteStream ? [{ id: "main", stream: remoteStream }] : []),
-    ...coHostEntries.map(([id, stream]) => ({ id, stream })),
-  ];
   // In WHEP mode, main stream comes via URL (not MediaStream), but it's still a camera
   const hasMainStream = !!remoteStream || !!(streamStatus.isLive && streamStatus.streamType === "whep" && streamStatus.streamUrl);
   const totalCameras = (hasMainStream ? 1 : 0) + coHostEntries.length;
@@ -76,48 +70,41 @@ export default function LiveContainer() {
   };
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
-  // Default to "quad" — show all cameras. Auto-switch will cycle through layouts.
-  const [viewLayout, setViewLayout] = useState<"single" | "dual" | "quad">("quad");
-  const [dualPair, setDualPair] = useState<[string, string]>(["main", ""]);
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
-  // Downgrade layout if not enough cameras available
-  const effectiveLayout =
-    (viewLayout === "quad" && totalCameras < 3) ? (totalCameras >= 2 ? "dual" : "single") :
-    (viewLayout === "dual" && totalCameras < 2) ? "single" :
-    viewLayout;
+  // Container-level mute control (for grid modes where per-cell overlay is wrong)
+  const [viewerHasInteracted, setViewerHasInteracted] = useState(false);
+  const [viewerMuted, setViewerMuted] = useState(true);
 
-  // Immediately switch to multi-angle layout when co-hosts first appear
-  const prevTotalCamerasRef = useRef(totalCameras);
-  useEffect(() => {
-    const wasOne = prevTotalCamerasRef.current <= 1;
-    prevTotalCamerasRef.current = totalCameras;
-    // Only trigger on transition from 1 → 2+ cameras
-    if (!wasOne || totalCameras < 2) return;
-    if (totalCameras >= 3) {
-      setViewLayout("quad");
-    } else {
-      setViewLayout("dual");
-      const ids = allStreamEntries.map((e) => e.id);
-      setDualPair([ids[0] || "main", ids[1] || "main"]);
+  const handleContainerUnmute = useCallback(() => {
+    const container = fullscreenRef.current;
+    if (container) {
+      container.querySelectorAll("video").forEach((v) => {
+        v.muted = false;
+        v.play().catch(() => {});
+      });
     }
-  // totalCameras is a stable primitive derived from allStreamEntries.length
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalCameras]);
+    setViewerHasInteracted(true);
+    setViewerMuted(false);
+  }, []);
 
-  // When auto-switch is off, adjust layout as cameras change
-  useEffect(() => {
-    if (!hasMultipleAngles || autoSwitchEnabled) return;
-    if (totalCameras >= 3) {
-      setViewLayout("quad");
-    } else if (totalCameras >= 2) {
-      setViewLayout("dual");
-      const ids = allStreamEntries.map((e) => e.id);
-      setDualPair([ids[0] || "main", ids[1] || "main"]);
+  const toggleContainerMute = useCallback(() => {
+    const container = fullscreenRef.current;
+    if (container) {
+      const newMuted = !viewerMuted;
+      container.querySelectorAll("video").forEach((v) => {
+        v.muted = newMuted;
+      });
+      setViewerMuted(newMuted);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalCameras, hasMultipleAngles, autoSwitchEnabled]);
+  }, [viewerMuted]);
+
+  // Layout: always aim for quad, auto-downgrade based on available cameras
+  const effectiveLayout: "single" | "dual" | "quad" =
+    totalCameras >= 3 ? "quad" :
+    totalCameras >= 2 ? "dual" :
+    "single";
+  const isGridMode = effectiveLayout === "dual" || effectiveLayout === "quad";
 
   const isLiveHLS = streamStatus.isLive && (streamStatus.streamType === "hls" || streamStatus.streamType === "whep") && streamStatus.streamUrl;
   const isLiveWebRTC = streamStatus.isLive && streamStatus.streamType === "webrtc";
@@ -160,56 +147,6 @@ export default function LiveContainer() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [isFullscreen]);
-
-  // --- Auto-switch cinématique (angles + layouts) ---
-  // Use a ref to access the latest coHostEntries from the timer callback
-  // without re-creating the interval on every render
-  const coHostEntriesRef = useRef(coHostEntries);
-  coHostEntriesRef.current = coHostEntries;
-
-  useEffect(() => {
-    if (!autoSwitchEnabled || !hasMultipleAngles) return;
-
-    const pickNext = () => {
-      const allAngles = ["main", ...coHostEntriesRef.current.map(([id]) => id)];
-
-      // Heavily favor quad (all cameras visible) — occasionally feature a single angle
-      const layouts: ("single" | "dual" | "quad")[] = [];
-      if (allAngles.length >= 3) {
-        // 3+ cameras: 60% quad, 20% dual, 20% single
-        layouts.push("quad", "quad", "quad", "dual", "single");
-      } else if (allAngles.length >= 2) {
-        // 2 cameras: 50% dual, 30% quad (falls back to dual), 20% single
-        layouts.push("dual", "dual", "dual", "quad", "single");
-      } else {
-        layouts.push("single");
-      }
-
-      const layout = layouts[Math.floor(Math.random() * layouts.length)];
-      setViewLayout(layout);
-
-      if (layout === "single") {
-        const idx = Math.floor(Math.random() * allAngles.length);
-        setActiveAngle(allAngles[idx]);
-      } else if (layout === "dual") {
-        const shuffled = [...allAngles].sort(() => Math.random() - 0.5);
-        setDualPair([shuffled[0], shuffled[1]]);
-      }
-      // quad shows all — nothing to pick
-    };
-
-    // Random interval between 5-15 seconds
-    const scheduleNext = () => {
-      const delay = 5000 + Math.random() * 10000;
-      return setTimeout(() => {
-        pickNext();
-        timerRef = scheduleNext();
-      }, delay);
-    };
-
-    let timerRef = scheduleNext();
-    return () => clearTimeout(timerRef);
-  }, [autoSwitchEnabled, hasMultipleAngles, setActiveAngle]);
 
   return (
     <div className={`min-h-screen bg-background pb-16 ${isLiveWebRTC || isLiveWhep ? "pt-20 sm:pt-24" : "pt-40 sm:pt-24"}`}>
@@ -280,43 +217,31 @@ export default function LiveContainer() {
                       <VideoPlayer stream={currentStream} cover={isLiveWebRTC || isLiveWhep} />
                     ) : null
                   )}
-                  {/* Dual — 2 views stacked vertically (portrait-friendly) */}
+                  {/* Dual — 2 views stacked vertically (portrait-friendly): main + first co-host */}
                   {effectiveLayout === "dual" && (
                     <div className="absolute inset-0 grid grid-rows-2 gap-0.5 bg-black">
-                      {dualPair.map((angleId) => {
-                        if (angleId === "main") {
-                          return isLiveHLS ? (
-                            <div key={angleId} className="relative overflow-hidden">
-                              <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover />
-                              <div className="absolute bottom-2 left-2 z-10">
-                                <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
-                                  {getAngleLabel(angleId)}
-                                </span>
-                              </div>
-                            </div>
-                          ) : remoteStream ? (
-                            <div key={angleId} className="relative overflow-hidden">
-                              <VideoPlayer stream={remoteStream} cover />
-                              <div className="absolute bottom-2 left-2 z-10">
-                                <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
-                                  {getAngleLabel(angleId)}
-                                </span>
-                              </div>
-                            </div>
-                          ) : null;
-                        }
-                        const s = coHostStreams.get(angleId);
-                        return s ? (
-                          <div key={angleId} className="relative overflow-hidden">
-                            <VideoPlayer stream={s} cover />
-                            <div className="absolute bottom-2 left-2 z-10">
-                              <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
-                                {getAngleLabel(angleId)}
-                              </span>
-                            </div>
+                      <div className="relative overflow-hidden">
+                        {isLiveHLS ? (
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover hideMuteControls />
+                        ) : remoteStream ? (
+                          <VideoPlayer stream={remoteStream} cover hideMuteControls />
+                        ) : null}
+                        <div className="absolute bottom-2 left-2 z-10">
+                          <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
+                            {getAngleLabel("main")}
+                          </span>
+                        </div>
+                      </div>
+                      {coHostEntries[0] && (
+                        <div className="relative overflow-hidden">
+                          <VideoPlayer stream={coHostEntries[0][1]} cover hideMuteControls />
+                          <div className="absolute bottom-2 left-2 z-10">
+                            <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
+                              {getAngleLabel(coHostEntries[0][0])}
+                            </span>
                           </div>
-                        ) : null;
-                      })}
+                        </div>
+                      )}
                     </div>
                   )}
                   {/* Quad — 2x2 grid for 3 or 4 cameras */}
@@ -325,9 +250,9 @@ export default function LiveContainer() {
                       {/* Main stream */}
                       <div className="relative overflow-hidden">
                         {isLiveHLS ? (
-                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover />
+                          <VideoPlayer src={streamStatus.streamUrl!} streamType={streamStatus.streamType as "hls" | "whep"} cover hideMuteControls />
                         ) : remoteStream ? (
-                          <VideoPlayer stream={remoteStream} cover />
+                          <VideoPlayer stream={remoteStream} cover hideMuteControls />
                         ) : null}
                         <div className="absolute bottom-2 left-2 z-10">
                           <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
@@ -338,7 +263,7 @@ export default function LiveContainer() {
                       {/* Co-host streams */}
                       {coHostEntries.slice(0, 3).map(([id, stream]) => (
                         <div key={id} className="relative overflow-hidden">
-                          <VideoPlayer stream={stream} cover />
+                          <VideoPlayer stream={stream} cover hideMuteControls />
                           <div className="absolute bottom-2 left-2 z-10">
                             <span className="text-[9px] font-bold text-white/70 bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5">
                               {getAngleLabel(id)}
@@ -347,6 +272,31 @@ export default function LiveContainer() {
                         </div>
                       ))}
                     </div>
+                  )}
+                  {/* Container-level mute overlay for grid modes */}
+                  {isGridMode && !viewerHasInteracted && (
+                    <button
+                      onClick={handleContainerUnmute}
+                      className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 transition-opacity"
+                    >
+                      <div className="flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm px-5 py-3 border border-white/30">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                        <span className="text-sm font-semibold text-white">Appuyer pour le son</span>
+                      </div>
+                    </button>
+                  )}
+                  {/* Container-level mute toggle button for grid modes (after interaction) */}
+                  {isGridMode && viewerHasInteracted && (
+                    <button
+                      onClick={toggleContainerMute}
+                      className="absolute top-14 left-4 z-30 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center active:scale-95 transition-transform pointer-events-auto"
+                    >
+                      {viewerMuted ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                      )}
+                    </button>
                   )}
                   {/* Venue display */}
                   {streamStatus.venue && (
