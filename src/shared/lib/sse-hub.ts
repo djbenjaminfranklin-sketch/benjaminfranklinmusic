@@ -342,6 +342,7 @@ export interface SignalMessage {
   from: string;
   to?: string;
   data: unknown;
+  name?: string;
 }
 
 export function relaySignal(signal: SignalMessage) {

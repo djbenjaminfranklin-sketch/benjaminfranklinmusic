@@ -1,17 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Video, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface ViewerInviteModalProps {
   inviteId: string;
-  onAccept: (inviteId: string) => void;
+  onAccept: (inviteId: string, name?: string) => void;
   onDecline: (inviteId: string) => void;
 }
 
 export default function ViewerInviteModal({ inviteId, onAccept, onDecline }: ViewerInviteModalProps) {
   const t = useTranslations("live");
+  const [name, setName] = useState("");
 
   return (
     <motion.div
@@ -31,9 +33,19 @@ export default function ViewerInviteModal({ inviteId, onAccept, onDecline }: Vie
           </div>
         </div>
 
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t("inviteNamePlaceholder")}
+          className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-primary placeholder:text-foreground/30 focus:outline-none focus:ring-2 focus:ring-accent/50"
+          maxLength={20}
+          autoFocus
+        />
+
         <div className="flex gap-3">
           <button
-            onClick={() => onAccept(inviteId)}
+            onClick={() => onAccept(inviteId, name.trim() || undefined)}
             className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold bg-accent text-background hover:bg-accent/90 transition-colors"
           >
             <Video className="h-4 w-4" />

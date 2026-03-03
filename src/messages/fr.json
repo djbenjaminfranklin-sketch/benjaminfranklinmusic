@@ -152,6 +152,7 @@
     "liveFrom": "En direct depuis",
     "inviteTitle": "Tu es invite a rejoindre le live !",
     "inviteMessage": "Le DJ veut te faire apparaitre en direct",
+    "inviteNamePlaceholder": "Ton prenom",
     "acceptInvite": "Rejoindre",
     "declineInvite": "Refuser",
     "angleMain": "Principal",

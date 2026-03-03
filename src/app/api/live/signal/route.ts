@@ -6,7 +6,7 @@ import { sendPushToAll } from "@/features/push/lib/push";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, from, to, data, venue, lat, lng } = body;
+    const { type, from, to, data, venue, lat, lng, name } = body;
 
     if (!type || !from) {
       return NextResponse.json({ error: "type and from are required" }, { status: 400 });
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    relaySignal({ type, from, to, data });
+    relaySignal({ type, from, to, data, name });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Failed to process signal" }, { status: 500 });

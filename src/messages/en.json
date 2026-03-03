@@ -152,6 +152,7 @@
     "liveFrom": "Live from",
     "inviteTitle": "You're invited to join!",
     "inviteMessage": "The DJ wants you to appear on the live stream",
+    "inviteNamePlaceholder": "Your name",
     "acceptInvite": "Join",
     "declineInvite": "Decline",
     "angleMain": "Main",
