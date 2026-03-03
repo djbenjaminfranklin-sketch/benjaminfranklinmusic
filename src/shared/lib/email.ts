@@ -18,7 +18,7 @@ export async function sendBookingEmail(to: string, data: BookingData) {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   await resend.emails.send({
-    from: "Booking <onboarding@resend.dev>",
+    from: "Booking <booking@benjaminfranklinmusic.com>",
     to,
     subject: `New Booking Request from ${data.name}`,
     html: `

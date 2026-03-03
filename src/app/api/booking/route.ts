@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, demo: true });
     }
 
-    await sendBookingEmail(siteConfig.booking.recipientEmail, {
+    await sendBookingEmail(process.env.BOOKING_EMAIL || siteConfig.booking.recipientEmail, {
       name: data.name,
       email: data.email,
       eventType: data.eventType,
