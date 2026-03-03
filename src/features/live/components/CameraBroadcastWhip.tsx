@@ -786,6 +786,14 @@ export default function CameraBroadcastWhip({ venue, viewerCount = 0, externalCo
                       <p className="text-[8px] font-bold text-white text-center truncate">{guestName}</p>
                     </div>
                   </button>
+                  {onDisconnectGuest && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDisconnectGuest(id); }}
+                      className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 border-2 border-black flex items-center justify-center z-10 active:scale-90 touch-manipulation"
+                    >
+                      <span className="text-white text-[10px] font-bold leading-none">&times;</span>
+                    </button>
+                  )}
                 </div>
               );
             })}
