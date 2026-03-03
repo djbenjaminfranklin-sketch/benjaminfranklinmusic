@@ -105,5 +105,6 @@ export function sanitizeUser(user: DBUser) {
     created_at: user.created_at,
     email_verified: user.email_verified,
     banned: user.banned,
+    phone: user.phone,
   };
 }

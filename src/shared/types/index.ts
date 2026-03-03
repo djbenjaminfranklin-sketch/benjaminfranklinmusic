@@ -83,6 +83,7 @@ export interface User {
   created_at: string;
   email_verified: number;
   banned: number;
+  phone: string | null;
 }
 
 export interface Session {

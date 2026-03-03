@@ -16,6 +16,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -33,11 +34,12 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       if (mode === "login") {
         await login(email, password);
       } else {
-        await signup(email, password, name);
+        await signup(email, password, name, phone.trim() || undefined);
       }
       setEmail("");
       setPassword("");
       setName("");
+      setPhone("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -101,6 +103,21 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
                 minLength={2}
                 className="w-full rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
                 placeholder={t("namePlaceholder")}
+              />
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <div>
+              <label className="block text-xs font-medium text-foreground/60 mb-1.5">
+                {t("phone")}
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-lg bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+                placeholder={t("phonePlaceholder")}
               />
             </div>
           )}

@@ -112,6 +112,12 @@ try {
 }
 
 try {
+  db.exec("ALTER TABLE users ADD COLUMN phone TEXT");
+} catch {
+  // Column already exists — ignore
+}
+
+try {
   db.exec("ALTER TABLE shows ADD COLUMN flyer_url TEXT");
 } catch {
   // Column already exists — ignore
@@ -152,6 +158,7 @@ export interface DBUser {
   created_at: string;
   email_verified: number;
   banned: number;
+  phone: string | null;
 }
 
 export interface DBSession {
@@ -182,12 +189,12 @@ export interface DBBroadcast {
 
 // --- Users ---
 
-export function createUser(email: string, passwordHash: string, name: string, role = "fan"): DBUser {
+export function createUser(email: string, passwordHash: string, name: string, role = "fan", phone?: string): DBUser {
   const id = crypto.randomUUID();
   const stmt = db.prepare(
-    "INSERT INTO users (id, email, password_hash, name, role) VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO users (id, email, password_hash, name, role, phone) VALUES (?, ?, ?, ?, ?, ?)"
   );
-  stmt.run(id, email, passwordHash, name, role);
+  stmt.run(id, email, passwordHash, name, role, phone || null);
   return getUserById(id)!;
 }
 

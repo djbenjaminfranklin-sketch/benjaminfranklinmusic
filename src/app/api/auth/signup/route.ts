@@ -7,6 +7,7 @@ const signupSchema = z.object({
   email: z.email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(50, "Name is too long"),
+  phone: z.string().trim().max(20).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email: rawEmail, password, name } = result.data;
+    const { email: rawEmail, password, name, phone } = result.data;
     const email = rawEmail.toLowerCase();
 
     const existing = getUserByEmail(email);
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(password);
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
     const role = adminEmails.includes(email.toLowerCase()) ? "admin" : "fan";
-    const user = createUser(email, passwordHash, name, role);
+    const user = createUser(email, passwordHash, name, role, phone);
     const session = createSession(user.id);
     const token = createJWT({ userId: user.id, sessionId: session.id });
 

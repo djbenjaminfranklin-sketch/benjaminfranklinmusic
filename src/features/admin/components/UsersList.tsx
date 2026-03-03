@@ -25,9 +25,9 @@ export default function UsersList() {
 
   const exportCSV = () => {
     const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const header = "Name,Email,Role,Registered";
+    const header = "Name,Email,Phone,Role,Registered";
     const rows = users.map(
-      (u) => `${escape(u.name)},${escape(u.email)},${escape(u.role)},${escape(new Date(u.created_at).toISOString())}`
+      (u) => `${escape(u.name)},${escape(u.email)},${escape(u.phone || "")},${escape(u.role)},${escape(new Date(u.created_at).toISOString())}`
     );
     const csv = [header, ...rows].join("\n");
     const bom = "\uFEFF";
@@ -120,6 +120,9 @@ export default function UsersList() {
                   )}
                 </div>
                 <p className="text-xs text-foreground/40 truncate">{user.email}</p>
+                {user.phone && (
+                  <p className="text-xs text-foreground/40 truncate">{user.phone}</p>
+                )}
                 <p className="text-xs text-foreground/30 mt-0.5">
                   {t("registered")}: {new Date(user.created_at).toLocaleDateString()}
                 </p>

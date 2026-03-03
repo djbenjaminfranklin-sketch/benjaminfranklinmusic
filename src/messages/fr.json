@@ -220,6 +220,8 @@
     "passwordPlaceholder": "Min. 8 caracteres",
     "name": "Nom",
     "namePlaceholder": "Votre nom",
+    "phone": "Telephone (optionnel)",
+    "phonePlaceholder": "+33 6 12 34 56 78",
     "logout": "Se deconnecter",
     "noAccount": "Pas encore de compte ?",
     "hasAccount": "Deja un compte ?",
