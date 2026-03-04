@@ -118,6 +118,24 @@ try {
 }
 
 try {
+  db.exec("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'email'");
+} catch {
+  // Column already exists — ignore
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN provider_id TEXT");
+} catch {
+  // Column already exists — ignore
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN avatar_url TEXT");
+} catch {
+  // Column already exists — ignore
+}
+
+try {
   db.exec("ALTER TABLE shows ADD COLUMN flyer_url TEXT");
 } catch {
   // Column already exists — ignore
@@ -143,6 +161,7 @@ try {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_shows_is_past ON shows(is_past, sort_order, date)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_releases_sort ON releases(sort_order, release_date)`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider ON users(auth_provider, provider_id) WHERE provider_id IS NOT NULL`);
 } catch {
   // Tables may not exist yet if another worker is still creating them — safe to skip
 }
@@ -159,6 +178,9 @@ export interface DBUser {
   email_verified: number;
   banned: number;
   phone: string | null;
+  auth_provider: string;
+  provider_id: string | null;
+  avatar_url: string | null;
 }
 
 export interface DBSession {
@@ -231,6 +253,30 @@ export function unbanUser(userId: string): void {
 
 export function deleteUser(userId: string): void {
   db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+}
+
+export function getUserByProvider(provider: string, providerId: string): DBUser | undefined {
+  return db.prepare("SELECT * FROM users WHERE auth_provider = ? AND provider_id = ?").get(provider, providerId) as DBUser | undefined;
+}
+
+export function createOAuthUser(
+  email: string,
+  name: string,
+  provider: string,
+  providerId: string,
+  avatarUrl?: string
+): DBUser {
+  const id = crypto.randomUUID();
+  db.prepare(
+    "INSERT INTO users (id, email, password_hash, name, role, auth_provider, provider_id, avatar_url, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+  ).run(id, email, "", name, "fan", provider, providerId, avatarUrl || null);
+  return getUserById(id)!;
+}
+
+export function linkProviderToUser(userId: string, provider: string, providerId: string, avatarUrl?: string): void {
+  db.prepare(
+    "UPDATE users SET auth_provider = ?, provider_id = ?, avatar_url = COALESCE(?, avatar_url) WHERE id = ?"
+  ).run(provider, providerId, avatarUrl || null, userId);
 }
 
 // --- Sessions ---

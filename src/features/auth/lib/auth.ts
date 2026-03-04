@@ -106,5 +106,7 @@ export function sanitizeUser(user: DBUser) {
     email_verified: user.email_verified,
     banned: user.banned,
     phone: user.phone,
+    auth_provider: user.auth_provider || "email",
+    avatar_url: user.avatar_url || null,
   };
 }

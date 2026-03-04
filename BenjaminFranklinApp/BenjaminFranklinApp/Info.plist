@@ -54,7 +54,11 @@
 	<key>WKAppBoundDomains</key>
 	<array>
 		<string>benjaminfranklinmusic.onrender.com</string>
+		<string>accounts.google.com</string>
+		<string>appleid.apple.com</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

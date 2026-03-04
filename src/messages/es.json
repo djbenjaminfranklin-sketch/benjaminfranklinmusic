@@ -238,6 +238,10 @@
     "termsOfService": "Terminos de servicio",
     "and": "y",
     "privacyPolicy": "Politica de privacidad",
+    "continueWithApple": "Continuar con Apple",
+    "continueWithGoogle": "Continuar con Google",
+    "or": "o",
+    "oauthError": "Error de inicio de sesion. Intentalo de nuevo.",
     "welcomeTitle": "Bienvenido",
     "welcomeSubtitle": "Inicia sesion o crea una cuenta para acceder a la aplicacion",
     "cancel": "Cancelar"

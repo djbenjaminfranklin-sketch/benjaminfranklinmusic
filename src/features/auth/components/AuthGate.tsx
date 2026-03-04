@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useSiteConfig } from "@/shared/contexts/SiteConfigContext";
+import { GoogleIcon, AppleIcon } from "./OAuthIcons";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading, login, signup } = useAuth();
@@ -20,6 +21,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Detect OAuth error from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("auth_error");
+    if (authError) {
+      setError(t("oauthError"));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [t]);
 
   // Allow legal pages and co-host page without auth
   const isPublicPage = pathname.includes("/privacy") || pathname.includes("/terms") || pathname.includes("/live/cohost");
@@ -96,6 +107,33 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
           >
             {t("signUp")}
           </button>
+        </div>
+
+        {/* OAuth buttons */}
+        <div className="space-y-3 mb-4">
+          <button
+            type="button"
+            onClick={() => { window.location.href = "/api/auth/apple"; }}
+            className="w-full flex items-center justify-center gap-3 rounded-lg bg-white text-black py-2.5 text-sm font-semibold hover:bg-white/90 transition-colors"
+          >
+            <AppleIcon />
+            {t("continueWithApple")}
+          </button>
+          <button
+            type="button"
+            onClick={() => { window.location.href = "/api/auth/google"; }}
+            className="w-full flex items-center justify-center gap-3 rounded-lg bg-card border border-border py-2.5 text-sm font-semibold text-foreground hover:bg-background transition-colors"
+          >
+            <GoogleIcon />
+            {t("continueWithGoogle")}
+          </button>
+        </div>
+
+        {/* Separator */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-xs text-foreground/40">{t("or")}</span>
+          <div className="flex-1 h-px bg-border" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

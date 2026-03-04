@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // OAuth-only accounts have no password — direct to OAuth button
+    if (user.password_hash === "" && user.auth_provider !== "email") {
+      const provider = user.auth_provider === "google" ? "Google" : "Apple";
+      return NextResponse.json(
+        { error: `This account uses ${provider} Sign-In. Please use the "${provider}" button.` },
+        { status: 400 }
+      );
+    }
+
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
       return NextResponse.json(

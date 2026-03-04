@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { GoogleIcon, AppleIcon } from "./OAuthIcons";
 
 interface AuthModalProps {
   open: boolean;
@@ -22,6 +23,17 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const { login, signup } = useAuth();
   const t = useTranslations("auth");
+
+  // Detect OAuth error from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("auth_error");
+    if (authError) {
+      setError(t("oauthError"));
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [t]);
 
   if (!open) return null;
 
@@ -87,6 +99,33 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
           >
             {t("signUp")}
           </button>
+        </div>
+
+        {/* OAuth buttons */}
+        <div className="space-y-3 mb-4">
+          <button
+            type="button"
+            onClick={() => { window.location.href = "/api/auth/apple"; }}
+            className="w-full flex items-center justify-center gap-3 rounded-lg bg-white text-black py-2.5 text-sm font-semibold hover:bg-white/90 transition-colors"
+          >
+            <AppleIcon />
+            {t("continueWithApple")}
+          </button>
+          <button
+            type="button"
+            onClick={() => { window.location.href = "/api/auth/google"; }}
+            className="w-full flex items-center justify-center gap-3 rounded-lg bg-background border border-border py-2.5 text-sm font-semibold text-foreground hover:bg-card transition-colors"
+          >
+            <GoogleIcon />
+            {t("continueWithGoogle")}
+          </button>
+        </div>
+
+        {/* Separator */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-xs text-foreground/40">{t("or")}</span>
+          <div className="flex-1 h-px bg-border" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

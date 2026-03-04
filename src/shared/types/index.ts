@@ -84,6 +84,8 @@ export interface User {
   email_verified: number;
   banned: number;
   phone: string | null;
+  auth_provider: string;
+  avatar_url: string | null;
 }
 
 export interface Session {

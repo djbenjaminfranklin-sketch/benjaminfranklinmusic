@@ -238,6 +238,10 @@
     "termsOfService": "Terms of Service",
     "and": "and",
     "privacyPolicy": "Privacy Policy",
+    "continueWithApple": "Continue with Apple",
+    "continueWithGoogle": "Continue with Google",
+    "or": "or",
+    "oauthError": "Sign-in error. Please try again.",
     "welcomeTitle": "Welcome",
     "welcomeSubtitle": "Sign in or create an account to access the app",
     "cancel": "Cancel"

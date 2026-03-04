@@ -271,6 +271,13 @@ struct WebView: UIViewRepresentable {
                 return
             }
 
+            // Allow OAuth provider domains for Google/Apple Sign-In
+            let oauthHosts = ["accounts.google.com", "appleid.apple.com", "oauth2.googleapis.com"]
+            if let host = url.host, oauthHosts.contains(host) {
+                decisionHandler(.allow)
+                return
+            }
+
             // Allow about:blank, data: URLs, etc.
             if url.scheme == "about" || url.scheme == "data" || url.scheme == "blob" {
                 decisionHandler(.allow)
