@@ -52,7 +52,7 @@ export default function HeroSection({ taglineOverride }: HeroSectionProps) {
             backgroundImage: `url(${config.assets.heroImage})`,
             backgroundSize: "cover",
             backgroundPosition: "center center",
-            transform: `translate(${(50 - parseFloat(config.assets.heroImagePosX || "50")) * 0.4}%, ${(50 - parseFloat(config.assets.heroImagePosY || "50")) * 0.4}%)`,
+            transform: `translate(${(50 - parseFloat(config.assets.heroImagePosX || "50")) * 0.4}%, ${(50 - parseFloat(config.assets.heroImagePosY || "50")) * 0.8}%)`,
           }}
         />
         <div className="absolute inset-0 bg-background/65" />
