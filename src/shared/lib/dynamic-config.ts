@@ -16,11 +16,7 @@ try {
       // Migrate audio to R2
       if (audioUrl && audioUrl.startsWith("/audio/")) { audioUrl = `${r2Base}${audioUrl}`; changed = true; }
 
-      // Revert covers back to local if they were mistakenly migrated to R2
-      if (coverUrl && coverUrl.startsWith(r2Base) && coverUrl.includes("/covers/")) {
-        coverUrl = coverUrl.replace(r2Base, "");
-        changed = true;
-      }
+      // Keep R2 cover URLs as-is (admin uploads covers to R2)
 
       if (changed) {
         db.prepare("UPDATE releases SET audio_url = ?, cover_url = ?, updated_at = datetime('now') WHERE id = ?").run(audioUrl, coverUrl, r.id);
