@@ -160,6 +160,28 @@ export function connectLive(clientId: string) {
 
 let broadcasterDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+// --- Live reminder push notifications (every 20 min) ---
+let liveReminderInterval: ReturnType<typeof setInterval> | null = null;
+let liveReminderCallback: (() => void) | null = null;
+
+export function startLiveReminders(callback: () => void) {
+  stopLiveReminders();
+  liveReminderCallback = callback;
+  liveReminderInterval = setInterval(() => {
+    if (liveStreamStatus.isLive && liveReminderCallback) {
+      liveReminderCallback();
+    }
+  }, 20 * 60 * 1000); // 20 minutes
+}
+
+export function stopLiveReminders() {
+  if (liveReminderInterval) {
+    clearInterval(liveReminderInterval);
+    liveReminderInterval = null;
+  }
+  liveReminderCallback = null;
+}
+
 export function disconnectLive(clientId: string) {
   liveClients.delete(clientId);
   // If the broadcaster disconnects, give 15s grace for SSE reconnect before stopping

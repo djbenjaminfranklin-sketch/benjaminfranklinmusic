@@ -37,15 +37,19 @@ export default function LiveChatOverlay({ messages, onSend }: LiveChatOverlayPro
     }
   }, [messages]);
 
-  // Auto-fade: hide messages after 5 seconds
+  // Auto-fade: hide each message after 8 seconds
   useEffect(() => {
     if (messages.length === 0) return;
-    const latest = messages[messages.length - 1];
-    const timer = setTimeout(() => {
-      setHiddenIds((prev) => new Set(prev).add(latest.id));
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [messages]);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const msg of messages) {
+      if (hiddenIds.has(msg.id)) continue;
+      const timer = setTimeout(() => {
+        setHiddenIds((prev) => new Set(prev).add(msg.id));
+      }, 8000);
+      timers.push(timer);
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [messages, hiddenIds]);
 
   // Cleanup old hidden IDs to avoid memory buildup
   useEffect(() => {

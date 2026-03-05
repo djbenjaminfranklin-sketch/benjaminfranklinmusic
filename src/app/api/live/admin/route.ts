@@ -13,6 +13,8 @@ import {
   setBroadcaster,
   setBroadcastMode,
   setDirectorFocus,
+  startLiveReminders,
+  stopLiveReminders,
 } from "@/shared/lib/sse-hub";
 import { getAuthUser } from "@/features/auth/lib/auth";
 import { sendPushToAll } from "@/features/push/lib/push";
@@ -94,6 +96,16 @@ export async function POST(request: NextRequest) {
             ? `Join the live now from ${venue}`
             : "Join the live now!";
           sendPushToAll(pushTitle, pushMessage).catch(() => {});
+
+          // Start recurring reminders every 20 minutes
+          const reminderVenue = venue;
+          startLiveReminders(() => {
+            const reminderTitle = `${config.artist.name} is still LIVE!`;
+            const reminderMessage = reminderVenue
+              ? `Still live from ${reminderVenue} — join now!`
+              : "Still live — join now!";
+            sendPushToAll(reminderTitle, reminderMessage).catch(() => {});
+          });
         }
         break;
 
@@ -103,6 +115,7 @@ export async function POST(request: NextRequest) {
         if (cfUid) {
           deleteLiveInput(cfUid).catch(() => {});
         }
+        stopLiveReminders();
         setLiveStatus(false);
         break;
       }

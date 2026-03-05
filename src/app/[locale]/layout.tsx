@@ -13,6 +13,7 @@ import PullToRefresh from "@/shared/layout/PullToRefresh";
 import PushAutoSubscribe from "@/features/push/components/PushAutoSubscribe";
 import { PlayerProvider } from "@/features/music/context/PlayerContext";
 import MiniPlayer from "@/features/music/components/MiniPlayer";
+import LiveBanner from "@/features/live/components/LiveBanner";
 import "../globals.css";
 
 const inter = Inter({
@@ -85,6 +86,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             <SiteConfigProvider config={config}>
               <PlayerProvider>
                 <AuthGate>
+                  <LiveBanner />
                   <PullToRefresh>
                     <Header />
                     <main className="min-h-screen">{children}</main>
