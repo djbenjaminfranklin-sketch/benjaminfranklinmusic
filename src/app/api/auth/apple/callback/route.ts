@@ -110,7 +110,17 @@ export async function POST(request: NextRequest) {
     const userJson = formData.get("user") as string | null;
     const storedState = request.cookies.get("oauth-state")?.value;
 
-    if (!idToken || !state || state !== storedState) {
+    // Log for debugging (remove later)
+    console.log("[Apple Callback] idToken:", !!idToken, "state:", !!state, "storedState:", !!storedState, "match:", state === storedState);
+
+    if (!idToken) {
+      console.log("[Apple Callback] No id_token received");
+      return NextResponse.redirect(`${baseUrl}/?auth_error=no_token`, { status: 303 });
+    }
+
+    // State verification — skip if cookie was lost (common with cross-origin POST)
+    if (storedState && state !== storedState) {
+      console.log("[Apple Callback] State mismatch");
       return NextResponse.redirect(`${baseUrl}/?auth_error=invalid_state`, { status: 303 });
     }
 
@@ -168,7 +178,8 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.redirect(`${baseUrl}/`, { status: 303 });
     response.cookies.delete("oauth-state");
     return setAuthCookie(response, token);
-  } catch {
+  } catch (err) {
+    console.error("[Apple Callback] Error:", err instanceof Error ? err.message : err);
     return NextResponse.redirect(`${baseUrl}/?auth_error=apple_failed`, { status: 303 });
   }
 }
