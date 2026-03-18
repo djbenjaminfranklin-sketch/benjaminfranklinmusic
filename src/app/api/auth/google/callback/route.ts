@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/?auth_error=invalid_state`);
     }
 
+    // Detect native iOS app from the _ios suffix in the state
+    const isNativeIOS = state.endsWith("_ios");
+
     const clientId = process.env.GOOGLE_CLIENT_ID!;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
     const redirectUri = `${baseUrl}/api/auth/google/callback`;
@@ -89,6 +92,20 @@ export async function GET(request: NextRequest) {
 
     const session = createSession(user.id);
     const token = createJWT({ userId: user.id, sessionId: session.id });
+
+    // Native iOS app: redirect via custom URL scheme so ASWebAuthenticationSession closes
+    if (isNativeIOS) {
+      const redirectUrl = `bfmusic://auth-callback?token=${encodeURIComponent(token)}`;
+      return new NextResponse(
+        `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${redirectUrl}"></head><body><script>window.location.href="${redirectUrl}";</script></body></html>`,
+        {
+          headers: {
+            "Content-Type": "text/html",
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
 
     const response = NextResponse.redirect(`${baseUrl}/`);
     response.cookies.delete("oauth-state");

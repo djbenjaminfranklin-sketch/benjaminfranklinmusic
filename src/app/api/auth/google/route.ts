@@ -1,14 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
     return NextResponse.json({ error: "Google OAuth not configured" }, { status: 500 });
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://benjaminfranklinmusic.onrender.com";
-  const state = crypto.randomBytes(32).toString("hex");
+  const { searchParams } = new URL(request.url);
+  const platform = searchParams.get("platform");
+  const randomHex = crypto.randomBytes(32).toString("hex");
+
+  // Encode platform in the OAuth state so it survives the Google redirect
+  const state = platform === "ios" ? `${randomHex}_ios` : randomHex;
 
   const params = new URLSearchParams({
     client_id: clientId,

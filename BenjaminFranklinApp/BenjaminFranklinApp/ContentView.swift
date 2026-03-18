@@ -2,6 +2,7 @@ import SwiftUI
 import WebKit
 import CoreLocation
 import AVFoundation
+import AuthenticationServices
 
 // Request location permission so WKWebView can use navigator.geolocation
 private class LocationPermissionManager: NSObject, CLLocationManagerDelegate {
@@ -207,6 +208,7 @@ struct WebView: UIViewRepresentable {
         #endif
 
         webView.load(URLRequest(url: url))
+        context.coordinator.webView = webView
         return webView
     }
 
@@ -214,11 +216,63 @@ struct WebView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, UIScrollViewDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, UIScrollViewDelegate, ASWebAuthenticationPresentationContextProviding {
         let parent: WebView
+        weak var webView: WKWebView?
+        private var authSession: ASWebAuthenticationSession?
 
         init(_ parent: WebView) {
             self.parent = parent
+        }
+
+        // MARK: - ASWebAuthenticationPresentationContextProviding
+
+        func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
+        }
+
+        // MARK: - Google OAuth via system browser
+
+        private func startGoogleAuth() {
+            guard let webView = webView else { return }
+
+            // Start from /api/auth/google?platform=ios — the server will encode _ios in the state
+            // so the callback knows to redirect back via bfmusic:// URL scheme
+            let authURL = URL(string: "https://benjaminfranklinmusic.onrender.com/api/auth/google?platform=ios")!
+
+            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: "bfmusic") { [weak self] callbackURL, error in
+                self?.authSession = nil
+
+                guard let callbackURL = callbackURL, error == nil else { return }
+
+                // Parse token from bfmusic://auth-callback?token=JWT
+                let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
+                guard let token = components?.queryItems?.first(where: { $0.name == "token" })?.value else { return }
+
+                // Inject auth-token cookie into WKWebView then reload the app
+                let cookie = HTTPCookie(properties: [
+                    .name: "auth-token",
+                    .value: token,
+                    .domain: "benjaminfranklinmusic.onrender.com",
+                    .path: "/",
+                    .secure: "TRUE",
+                    .expires: Date().addingTimeInterval(7 * 24 * 60 * 60),
+                ])!
+
+                webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
+                    DispatchQueue.main.async {
+                        webView.load(URLRequest(url: URL(string: "https://benjaminfranklinmusic.onrender.com")!))
+                    }
+                }
+            }
+
+            session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
+            self.authSession = session
+            session.start()
         }
 
         // Prevent any zoom — WKWebView ignores scrollView min/max zoom settings
@@ -265,14 +319,21 @@ struct WebView: UIViewRepresentable {
 
             let appHost = "benjaminfranklinmusic.onrender.com"
 
+            // Intercept Google OAuth — redirect to system browser (ASWebAuthenticationSession)
+            if url.host == appHost && url.path == "/api/auth/google" {
+                decisionHandler(.cancel)
+                startGoogleAuth()
+                return
+            }
+
             // Always allow same-domain navigations (any navigation type)
             if url.host == appHost || url.host?.hasSuffix("." + appHost) == true {
                 decisionHandler(.allow)
                 return
             }
 
-            // Allow OAuth provider domains for Google/Apple Sign-In
-            let oauthHosts = ["accounts.google.com", "appleid.apple.com", "oauth2.googleapis.com"]
+            // Allow OAuth provider domains for Apple Sign-In (Google is handled above)
+            let oauthHosts = ["appleid.apple.com"]
             if let host = url.host, oauthHosts.contains(host) {
                 decisionHandler(.allow)
                 return
