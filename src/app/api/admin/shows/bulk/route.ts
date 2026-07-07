@@ -38,22 +38,18 @@ export async function POST(request: NextRequest) {
   const skipped: number[] = [];
 
   // Bulk insert — intentionally no push notification per show (would spam users).
+  // Only name + date are required; venue/city/country are optional (default empty).
   shows.forEach((s, i) => {
-    if (!s.name || !s.venue || !s.city || !s.country || !s.date) {
-      skipped.push(i);
-      return;
-    }
-    const iso = new Date(s.date).toISOString();
-    if (isNaN(new Date(s.date).getTime())) {
+    if (!s.name || !s.date || isNaN(new Date(s.date).getTime())) {
       skipped.push(i);
       return;
     }
     createShow({
       name: s.name,
-      venue: s.venue,
-      city: s.city,
-      country: s.country,
-      date: iso,
+      venue: s.venue || "",
+      city: s.city || "",
+      country: s.country || "",
+      date: new Date(s.date).toISOString(),
       ticketUrl: s.ticketUrl || undefined,
       soldOut: Boolean(s.soldOut),
       isPast,

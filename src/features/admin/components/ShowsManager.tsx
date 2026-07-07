@@ -443,7 +443,7 @@ export default function ShowsManager() {
 
   const handleImportAll = async () => {
     if (!importRows || importRows.length === 0) return;
-    const valid = importRows.filter((r) => r.name && r.venue && r.city && r.country && r.date);
+    const valid = importRows.filter((r) => r.name && r.date);
     if (valid.length === 0) {
       setImportError(t("importNone"));
       return;
