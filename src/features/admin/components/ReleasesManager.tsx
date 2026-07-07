@@ -365,7 +365,7 @@ export default function ReleasesManager() {
               <input
                 ref={audioInputRef}
                 type="file"
-                accept="audio/*"
+                accept="audio/*,.mp3,.wav,.aiff,.aif,.flac,.m4a"
                 onChange={handleAudioUpload}
                 className="hidden"
               />

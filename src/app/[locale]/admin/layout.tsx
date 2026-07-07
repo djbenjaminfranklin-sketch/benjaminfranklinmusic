@@ -46,7 +46,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-background pt-40 sm:pt-24 pb-16">
+    <div className="min-h-screen bg-background pt-40 sm:pt-32 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar */}
