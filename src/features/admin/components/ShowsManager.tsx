@@ -14,6 +14,8 @@ import {
   Calendar,
   Ticket,
   ImagePlus,
+  Sparkles,
+  Upload,
 } from "lucide-react";
 
 interface Show {
@@ -53,6 +55,16 @@ const emptyForm: ShowFormData = {
   flyerUrl: "",
 };
 
+type ImportRow = {
+  name: string;
+  venue: string;
+  city: string;
+  country: string;
+  date: string; // YYYY-MM-DD
+  ticketUrl: string;
+  soldOut: boolean;
+};
+
 export default function ShowsManager() {
   const t = useTranslations("admin");
 
@@ -86,6 +98,14 @@ export default function ShowsManager() {
   // Seeding
   const [seeding, setSeeding] = useState(false);
   const [seedMessage, setSeedMessage] = useState("");
+
+  // Import from document (AI)
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importRows, setImportRows] = useState<ImportRow[] | null>(null);
+  const [importingAll, setImportingAll] = useState(false);
 
   // --- Fetch shows ---
   const fetchShows = async () => {
@@ -334,6 +354,120 @@ export default function ShowsManager() {
     }
   };
 
+  // --- Import from document (AI) ---
+  const toDateInput = (value: string) => {
+    // Accept ISO or YYYY-MM-DD, return YYYY-MM-DD for <input type="date">
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const openImport = () => {
+    setShowImport(true);
+    setImportText("");
+    setImportRows(null);
+    setImportError("");
+  };
+
+  const applyExtractedRows = (raw: unknown) => {
+    const arr = Array.isArray(raw) ? raw : [];
+    const rows: ImportRow[] = arr.map((s: Record<string, unknown>) => ({
+      name: (s.name as string) || "",
+      venue: (s.venue as string) || "",
+      city: (s.city as string) || "",
+      country: (s.country as string) || "",
+      date: toDateInput((s.date as string) || ""),
+      ticketUrl: (s.ticketUrl as string) || "",
+      soldOut: Boolean(s.soldOut),
+    }));
+    if (rows.length === 0) {
+      setImportError(t("importNone"));
+      setImportRows([]);
+    } else {
+      setImportRows(rows);
+    }
+  };
+
+  const analyzeText = async () => {
+    if (!importText.trim()) return;
+    setAnalyzing(true);
+    setImportError("");
+    setImportRows(null);
+    try {
+      const res = await fetch("/api/admin/shows/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: importText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "");
+      applyExtractedRows(data.shows);
+    } catch (e) {
+      setImportError((e as Error).message || t("importFailed"));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const analyzeFile = async (file: File) => {
+    setAnalyzing(true);
+    setImportError("");
+    setImportRows(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/shows/import", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "");
+      applyExtractedRows(data.shows);
+    } catch (e) {
+      setImportError((e as Error).message || t("importFailed"));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const updateImportRow = (index: number, patch: Partial<ImportRow>) => {
+    setImportRows((prev) =>
+      prev ? prev.map((r, i) => (i === index ? { ...r, ...patch } : r)) : prev
+    );
+  };
+
+  const removeImportRow = (index: number) => {
+    setImportRows((prev) => (prev ? prev.filter((_, i) => i !== index) : prev));
+  };
+
+  const handleImportAll = async () => {
+    if (!importRows || importRows.length === 0) return;
+    const valid = importRows.filter((r) => r.name && r.venue && r.city && r.country && r.date);
+    if (valid.length === 0) {
+      setImportError(t("importNone"));
+      return;
+    }
+    setImportingAll(true);
+    setImportError("");
+    try {
+      const res = await fetch("/api/admin/shows/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shows: valid, isPast: activeTab === "past" }),
+      });
+      if (!res.ok) throw new Error();
+      setShowImport(false);
+      setImportRows(null);
+      setImportText("");
+      await fetchShows();
+    } catch {
+      setImportError(t("importFailed"));
+    } finally {
+      setImportingAll(false);
+    }
+  };
+
   // --- Helpers ---
   const toDatetimeLocal = (iso: string) => {
     try {
@@ -381,6 +515,15 @@ export default function ShowsManager() {
             </button>
           )}
           <button
+            onClick={openImport}
+            className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-2 rounded-lg text-xs font-medium hover:bg-purple-500/20 transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("importShows")}
+            </span>
+          </button>
+          <button
             onClick={() => {
               setShowAddForm(!showAddForm);
               setAddForm(emptyForm);
@@ -398,6 +541,169 @@ export default function ShowsManager() {
       {seedMessage && (
         <div className="rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-2 text-sm text-green-400">
           {seedMessage}
+        </div>
+      )}
+
+      {/* Import from document (AI) */}
+      {showImport && (
+        <div className="rounded-xl border border-purple-500/30 bg-card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-purple-400 flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              {t("importDialogTitle")}
+            </h3>
+            <button
+              onClick={() => setShowImport(false)}
+              className="text-foreground/40 hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {!importRows && (
+            <>
+              <p className="text-xs text-foreground/50">{t("importHint")}</p>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder={t("importPastePlaceholder")}
+                rows={5}
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-sm w-full resize-y"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={analyzeText}
+                  disabled={analyzing || !importText.trim()}
+                  className="bg-accent text-background px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {analyzing ? (
+                      <span className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {analyzing ? t("importAnalyzing") : t("importAnalyze")}
+                  </span>
+                </button>
+                <span className="text-xs text-foreground/30">{t("importOr")}</span>
+                <label className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-4 py-2 rounded-lg text-sm cursor-pointer hover:bg-purple-500/20 transition-colors">
+                  <span className="flex items-center gap-1.5">
+                    <Upload className="h-4 w-4" />
+                    {t("importUploadFile")}
+                  </span>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    className="hidden"
+                    disabled={analyzing}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) analyzeFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </>
+          )}
+
+          {importError && (
+            <p className="text-xs text-red-400 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+              {importError}
+            </p>
+          )}
+
+          {importRows && importRows.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs text-foreground/50">
+                {t("importPreviewHint", { count: importRows.length })}
+              </p>
+              <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                {importRows.map((row, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-border bg-background p-3 grid grid-cols-2 gap-2"
+                  >
+                    <input
+                      type="text"
+                      placeholder={t("showName")}
+                      value={row.name}
+                      onChange={(e) => updateImportRow(i, { name: e.target.value })}
+                      className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs w-full"
+                    />
+                    <input
+                      type="date"
+                      value={row.date}
+                      onChange={(e) => updateImportRow(i, { date: e.target.value })}
+                      className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs w-full"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t("venue")}
+                      value={row.venue}
+                      onChange={(e) => updateImportRow(i, { venue: e.target.value })}
+                      className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs w-full"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t("city")}
+                      value={row.city}
+                      onChange={(e) => updateImportRow(i, { city: e.target.value })}
+                      className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs w-full"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t("country")}
+                      value={row.country}
+                      onChange={(e) => updateImportRow(i, { country: e.target.value })}
+                      className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs w-full"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        placeholder={t("ticketUrl")}
+                        value={row.ticketUrl}
+                        onChange={(e) => updateImportRow(i, { ticketUrl: e.target.value })}
+                        className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs w-full"
+                      />
+                      <button
+                        onClick={() => removeImportRow(i)}
+                        className="shrink-0 text-red-400 hover:text-red-300 transition-colors p-1"
+                        title={t("deleteShow")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleImportAll}
+                  disabled={importingAll}
+                  className="bg-accent text-background px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {importingAll ? (
+                      <span className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {importingAll ? t("saving") : t("importConfirm", { count: importRows.length })}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setImportRows(null);
+                    setImportError("");
+                  }}
+                  className="bg-foreground/10 text-foreground/60 px-4 py-2 rounded-lg text-sm font-medium hover:bg-foreground/20 transition-colors"
+                >
+                  {t("importBack")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
